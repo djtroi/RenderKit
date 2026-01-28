@@ -19,8 +19,8 @@ function Set-ProjectRoot{
     if(Test-Path $configPath){
         $config = Get-Content $configPath -Raw | ConvertFrom-Json
     }
-    config.DefaultProjectPath = $Path
-    config | ConvertTo-Json -Depth 5 | Set-Content $configPath
+    $config.DefaultProjectPath = $Path
+    $config | ConvertTo-Json -Depth 5 | Set-Content $configPath
 
     Write-Host "Project root set to: $Path"
 }

@@ -16,7 +16,7 @@ function Create-Project{
         if(!($config.DefaultProjectPath)){
             throw "No default project path set. Use Set-ProjectRoot first or provide a path using the -Path parameter"
         }
-        $Path = config.DefaultProjectPath
+        $Path = $config.DefaultProjectPath
     }
 
     if(!(Test-Path $Path)){
@@ -24,7 +24,7 @@ function Create-Project{
     }
 
     if (!($TemplatePath)){
-        $TemplatePath = Join-Path $PSScriptRoot "..\Templates\default.json"
+        $TemplatePath = Join-Path $PSScriptRoot "..\Template\default.json"
     }
     try{
         $template = Read-ProjectTemplate -Path $TemplatePath 
