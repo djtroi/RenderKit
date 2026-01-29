@@ -16,11 +16,11 @@ Set-ProjectRoot "D:\Editing_Projects\"
 ```
 Set-ProjectRoots lets you set a default Path for all your video project folders so you can save time, defining an absolute path everytime you create a new project. 
 
-- Create-Project 
+- New-Project 
 ```powershell
-Create-Project "WeddingFilm"
+New-Project "WeddingFilm"
 ``` 
-Create-Project creates for you your designated folder-structure for your project. The structure in .\Template\default.json defined. Feel free to edit it
+New-Project creates for you your designated folder-structure for your project. The structure in .\Template\default.json defined. Feel free to edit it
 
 -Archive-Project
 TBA

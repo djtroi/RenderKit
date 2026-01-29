@@ -19,7 +19,7 @@ function Read-ProjectTemplate{
                     throw "JSON does not contain a folders tag"
                     
             }  
-            return Normalize-Folders -Node $json.folders 
+            return Format-Folders -Node $json.folders 
         }
         catch{
             throw "Invalid json template: $_"
@@ -49,7 +49,7 @@ function Read-ProjectTemplate{
                 $lastIndent = $indent
             }
 
-            return Normalize-Folders -Node $root
+            return Format-Folders -Node $root
         }
         catch {
             throw "Invalid Markdown template $_"
@@ -61,7 +61,7 @@ function Read-ProjectTemplate{
     }
     }
 }
-function Normalize-Folders {
+function Format-Folders {
 
     param(
         [Parameter(Mandatory)]
@@ -82,7 +82,7 @@ function Normalize-Folders {
                 $Node[$key] -is [hashtable] -and
                 $Node[$key].Count -gt 0
             ) {
-                $children = Normalize-Folders -Node $Node[$key]
+                $children = Format-Folders -Node $Node[$key]
             }
 
             $result += [PSCustomObject]@{
@@ -107,7 +107,7 @@ function Normalize-Folders {
                 ) -and
                 $prop.Value.PSObject.Properties.Count -gt 0
             ) {
-                $children = Normalize-Folders -Node $prop.Value
+                $children = Format-Folders -Node $prop.Value
             }
 
             $result += [PSCustomObject]@{

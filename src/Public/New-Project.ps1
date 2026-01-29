@@ -3,7 +3,7 @@
 # Create-Project "WeddingVideo_Bloom"
 # or
 # Create-Project "SpecialForces" -Path E:\VerySpecialClient
-function Create-Project{
+function New-Project{
     [CmdLetBinding()]
     param(
         [Parameter(Mandatory, Position = 0)]
