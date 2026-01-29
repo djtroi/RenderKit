@@ -6,19 +6,20 @@ function New-FolderTree {
         [Parameter(Mandatory)]
         [PSCustomObject[]]$Structure
     )
+$Structure = $Structure | Where-Object { $_ -and $_.Name }
 
 foreach ($folder in $Structure){
-    $name = $folder.Name #if($folder.PSObject.Properties['Name']) { $folder.Name } else { $folder.PSObject.Properties[0].Name }
-    $children = $folder.Children #if($folder.PSObject.Properties['Children']) { $folder.Children } else { @() }
+#    if (!($folder.Name)){
+#        throw "Invalid folder object - Name is missing"
+#    }
 
-    $path = Join-Path $Root $name
-
+    $path = Join-Path $Root $folder.Name
     if(!(Test-Path $path)){
         New-Item -ItemType Directory -Path $path | Out-Null
     }
 
-    if($children -and $children.Count -gt 0){
-        New-FolderTree -Root $path -Structure $children
-    }
+if ($folder.Children -and $folder.Children.Count -gt 0){
+    New-FolderTree -Root $path -Structure $folder.Children
+}
 }
 }

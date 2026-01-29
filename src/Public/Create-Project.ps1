@@ -26,8 +26,15 @@ function Create-Project{
     if (!($TemplatePath)){
         $TemplatePath = Join-Path $PSScriptRoot "..\Template\default.json"
     }
+    $projectRoot = Join-Path $Path $ProjectName
+    if(Test-Path $projectRoot){
+        throw "Project already exists: $projectRoot"
+    }
     try{
-        $template = Read-ProjectTemplate -Path $TemplatePath 
+        $structure = Read-ProjectTemplate -Path $TemplatePath 
+        New-Item -ItemType Directory -Path $projectRoot | Out-Null
+        New-FolderTree -Root $projectRoot -Structure $structure
+        Write-Host "Project created successfully"
     }
     catch{
         throw "Template validation failed $_"
@@ -35,9 +42,9 @@ function Create-Project{
 
     $projectRoot = Join-Path $Path $ProjectName
 
-    if(Test-Path $projectRoot){
-        throw "Project already exist: $projectRoot"
-    }
+    #if(Test-Path $projectRoot){
+    #    throw "Project already exist: $projectRoot"
+    #}
 
     $template = Get-Content $TemplatePath -Raw | ConvertFrom-Json
     try{

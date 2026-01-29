@@ -19,8 +19,7 @@ function Read-ProjectTemplate{
                     throw "JSON does not contain a folders tag"
                     
             }  
-            $root = $json.folders
-            return Normalize-Folders -Node $root 
+            return Normalize-Folders -Node $json.folders 
         }
         catch{
             throw "Invalid json template: $_"
@@ -39,7 +38,7 @@ function Read-ProjectTemplate{
                 $name = ($line -replace '^\s*-\s+', '').Trim()
 
                 while ($indent -lt $lastIndent) {
-                    $stack.Pop()
+                    $stack = $stack[0..($stack.Count - 2)]
                     $lastIndent -= 2
                 }
 
@@ -50,7 +49,7 @@ function Read-ProjectTemplate{
                 $lastIndent = $indent
             }
 
-            $root = $stack[0]
+            return Normalize-Folders -Node $root
         }
         catch {
             throw "Invalid Markdown template $_"
@@ -63,38 +62,63 @@ function Read-ProjectTemplate{
     }
 }
 function Normalize-Folders {
-    param([object]$Node)
+
+    param(
+        [Parameter(Mandatory)]
+        [object]$Node
+    )
 
     $result = @()
 
-    foreach ($prop in $Node.PSObject.Properties) {
-        $children = @()
+    # Hashtable (Markdown)
+    if ($Node -is [hashtable]) {
 
-        # Prüfe, ob $prop.Value ein PSObject ist und nicht null
-        if ($prop.Value -and $prop.Value -is [PSCustomObject]) {
-            $children = Normalize-Folders -Node $prop.Value
+        foreach ($key in $Node.Keys) {
+
+            $children = @()
+
+            if (
+                $Node[$key] -and
+                $Node[$key] -is [hashtable] -and
+                $Node[$key].Count -gt 0
+            ) {
+                $children = Normalize-Folders -Node $Node[$key]
+            }
+
+            $result += [PSCustomObject]@{
+                Name     = $key
+                Children =  @($children)
+            }
         }
-
-        # Immer ein Array zurückgeben, nie null
-        if (-not $children) { $children = @() }
-
-        $folder += [PSCustomObject]@{
-            Name     = $prop.Name
-            Children = @($children)
-        }
-        $result += $folder # Wrong Recursive-Array-Handling
     }
-#Debug
-Write-Host "Returning $($result.Count) folders: $($result | ForEach-Object {$_.Name -join ','})"
 
-    return @($result)  # wichtig: Komma sorgt dafür, dass es als Array interpretiert wird, auch wenn 1 Element
+    # PSCustomObject (JSON)
+    elseif ($Node -is [PSCustomObject]) {
+
+        foreach ($prop in $Node.PSObject.Properties) {
+
+            $children = @()
+
+            if (
+                $prop.Value -and
+                (
+                    $prop.Value -is [hashtable] -or
+                    $prop.Value -is [PSCustomObject]
+                ) -and
+                $prop.Value.PSObject.Properties.Count -gt 0
+            ) {
+                $children = Normalize-Folders -Node $prop.Value
+            }
+
+            $result += [PSCustomObject]@{
+                Name     = $prop.Name
+                Children = $children
+            }
+        }
+    }
+
+    return @($result)
 }
-$root = json.folders
-if ($ext -eq ".json"){
-    return Normalize-Folders -Node $root #-Depth 1
-}
-elseif($ext -eq ".md"){
-    #Markdown is already created with Name and Children
-    return $rawFolders
-}
+    
+
 
