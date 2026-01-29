@@ -1,3 +1,5 @@
+New-Alias -Name setroot -Value Set-ProjectRoot
+New-Alias -Name projectroot -Value Set-ProjectRoot
 function Set-ProjectRoot{
     [CmdletBinding()]
     param (
