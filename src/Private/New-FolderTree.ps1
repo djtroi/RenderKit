@@ -9,9 +9,6 @@ function New-FolderTree {
 $Structure = $Structure | Where-Object { $_ -and $_.Name }
 
 foreach ($folder in $Structure){
-#    if (!($folder.Name)){
-#        throw "Invalid folder object - Name is missing"
-#    }
 
     $path = Join-Path $Root $folder.Name
     if(!(Test-Path $path)){

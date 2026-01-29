@@ -3,7 +3,7 @@ function Read-ProjectTemplate{
     [CmdletBinding()]
     param(
         [string]$Path #JSON or Markdown
-        #[int]maxDepth = 200 #--> #todo to catch max path length limitations while creating structures 
+        
     )
 
     if (!($Path -or (!(Test-Path $Path)))){
