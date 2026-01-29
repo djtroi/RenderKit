@@ -3,6 +3,9 @@
 # Create-Project "WeddingVideo_Bloom"
 # or
 # Create-Project "SpecialForces" -Path E:\VerySpecialClient
+New-Alias -Name Create-Project -Value New-Project
+New-Alias -Name create -Value New-Project
+New-Alias -Name np -Value New-Project
 function New-Project{
     [CmdLetBinding()]
     param(
@@ -11,6 +14,7 @@ function New-Project{
         [string]$Path,
         [string]$TemplatePath
     )
+    
     $config = Get-RenderKitConfig
     if(!($Path)){
         if(!($config.DefaultProjectPath)){

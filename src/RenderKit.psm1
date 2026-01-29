@@ -23,7 +23,7 @@ if (-not (Test-Path $templatesPath)) {
 }
 
 
-Export-ModuleMember -Function `
+Export-ModuleMember -Alias * -Function `
     New-Project,
     Archive-Project,
     Set-ProjectRoot
