@@ -25,5 +25,5 @@ if (-not (Test-Path $templatesPath)) {
 
 Export-ModuleMember -Alias * -Function `
     New-Project,
-    Archive-Project,
+    Backup-Project,
     Set-ProjectRoot
