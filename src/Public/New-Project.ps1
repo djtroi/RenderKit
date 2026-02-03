@@ -31,7 +31,19 @@ function New-Project{
     }
     try{
         $structure = Read-ProjectTemplate -Path $TemplatePath 
+        #Create Project Root Folder
         New-Item -ItemType Directory -Path $projectRoot | Out-Null
+
+        #first things first create .renderkit
+        $renderKitPath = Join-Path $projectRoot ".renderkit"
+        New-Item -ItemType Directory -Path $renderKitPath | Out-Null
+
+        #project .json
+        $metadata = New-RenderKitProjectMetadata -ProjectName $ProjectName -TemplateName "default" -TemplateSource (Split-Path $TemplatePath -Leaf)
+        $projectJsonPath = Join-Path $renderKitPath "project.json"
+
+        $metadata | ConvertTo-Json -Depth 5 | Set-Content -Path $projectJsonPath -Encoding UTF8
+
         New-FolderTree -Root $projectRoot -Structure $structure
         Write-Host "Project created successfully"
     }
