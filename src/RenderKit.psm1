@@ -22,6 +22,7 @@ if (-not (Test-Path $templatesPath)) {
     Write-Verbose "Templates folder not found: $templatesPath (optional)"
 }
 
+$script:ModuleVersion = $MyInvocation.MyCommand.Module.Version
 
 Export-ModuleMember -Alias * -Function `
     New-Project,

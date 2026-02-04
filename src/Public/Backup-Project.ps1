@@ -19,6 +19,7 @@ New-Alias -Name archive -Value Backup-Project
 New-Alias -Name bk -Value Backup-Project
 New-Alias -Name backup -Value Backup-Project
 function Backup-Project{
+    [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory)]
         [string]$ProjectName,
@@ -27,22 +28,55 @@ function Backup-Project{
         [switch]$KeepEmptyFolders,
         [switch]$DryRun
     )
-    $config = Get-RenderKitConfig
-    if (!$Path) { $Path = $config.DefaultProjectPath}
+    Write-Verbose "Resolving RenderKit project '$ProjectName'"
+    $project = Get-RenderKitProject -ProjectName $ProjectName -Path $Path
+    $projectRoot = $project.RootPath
 
-    $projectPath = Get-ProjectPath -ProjectName $ProjectName -BasePath $Path
+    Write-Verbose "Validated RenderKit project at $projectRoot"
+    Write-Verbose "PRoject ID: $($project.id)"
+    if (!($PSCmdlet.ShouldProcess(
+        $projectRoot,
+        "Remove cache/proxy files and create backup archive"
+    ))){
+        return
+    }
+
     $rules = Get-CleanupRules -Software $Software
 
     Write-Verbose "Cleaning project artifacts..."
 
-    Remove-ProjectArtifacts -ProjectPath $projectPath -Rules $rules -DryRun:$DryRun
+    Remove-ProjectArtifacts -ProjectPath $projectRoot -Rules $rules -DryRun:$DryRun
 
-    if (!($KeepEmptyFolders)){
-        Remove-EmptyFolders -Path $projectPath -DryRun:$DryRun
+    if (!($KeepEmptyFolders)) {
+        Remove-EmptyFolders -Path $projectRoot -DryRun:$DryRun
     }
+
     if (!($DryRun)){
-        $zipPath = "$projectPath.zip"
-        Compress-Project -ProjectPath $projectPath -DestinationPath $zipPath
+        $zipPath = "$projectRoot.zip"
+        Compress-Project -ProjectPath $projectRoot -DestinationPath $zipPath
         Write-Verbose "Backup created: $zipPath"
     }
+    else{
+        Write-Verbose "DryRun enabled -no files were deleted or archived"
+    }
+return [PSCustomObject]@{
+    ProjectName             = $project.Name
+    ProjectId               = $project.id
+    RootPath                = $projectRoot
+    BackupPath              = if ($DryRun) { $null } else { "$projectRoot.zip"}
+    DryRun                  = $DryRun
+}
+
+
+$manifest = New-BackupManifest `
+-Project $project `
+-Options @{
+    software            = $Software
+    keepEmptyFolders    = $KeepEmptyFolders.IsPresent
+    dryRun              = $DryRun.IsPresen
+}
+
+Save-BackupManifest `
+-Manifest $manifest `
+-ProjectRoot $projectRoot
 }

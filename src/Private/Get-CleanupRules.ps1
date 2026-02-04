@@ -9,7 +9,7 @@ function Get-CleanupRules{
     foreach ($s in $Software){
         if ($CleanupProfiles[$s]){
             $rules.Folders += $CleanupProfiles[$s].Folders
-            $rules.Extensions +- $CleanupProfiles[$s].Extensions
+            $rules.Extensions += $CleanupProfiles[$s].Extensions
         }
     }
     return $rules
