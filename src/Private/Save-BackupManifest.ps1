@@ -16,8 +16,8 @@ function Save-BackupManifest {
     $manifestPath = Join-Path $renderKitPath "backup.manifest.json"
 
     $Manifest |
-    ConvertTo-Json -Depth 10 | 
-    Set-Content -Path $manifestPath -Encoding UTF8
+        ConvertTo-Json -Depth 10 | 
+        Set-Content -Path $manifestPath -Encoding UTF8
 
     return $manifestPath
 }

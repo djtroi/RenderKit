@@ -10,26 +10,27 @@ function New-BackupManifest {
         [array]$CleanupSummary
     )
 return [PSCustomObject]@{
+    schemaVersion = "1.0" 
 
     backup = @{
-    id = [guid]::NewGuid().ToString()
-    createdAt = (Get-Date).ToString("o")
-    createdBy = $ENV:USERNAME
-    machine = $ENV:COMPUTERNAME
+    id              = [guid]::NewGuid().ToString()
+    createdAt       = (Get-Date).ToString("o")
+    createdBy       = $ENV:USERNAME
+    machine         = $ENV:COMPUTERNAME
     tool = @{
-        name = "RenderKit"
-        version = $script:ModuleVersion
+        name        = "RenderKit"
+        version     = $script:ModuleVersion
     }
 }
 
 project = @{
-    id = $Project.id
-    name = $Project.Name
-    rootPath = $Project.RootPath
+    id              = $Project.id
+    name            = $Project.Name
+    rootPath        = $Project.RootPath
 }
-    options = $Options
-    statistics = $Statistics
-    archive = $Archive
-    cleanup = $CleanupSummary
+    options         = $Options
+    statistics      = $Statistics
+    archive         = $Archive
+    cleanup         = $CleanupSummary
 }
 }
