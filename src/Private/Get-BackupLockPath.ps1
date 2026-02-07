@@ -1,7 +1,7 @@
 function Get-BackupLockPath {
     param(
         [Parameter(Mandatory)]
-        {ystring}$ProjectRoot
+        [string]$ProjectRoot
     )
 
     return Join-Path $ProjectRoot ".rencerkit\backup.lock"

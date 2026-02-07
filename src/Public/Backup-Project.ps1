@@ -24,7 +24,7 @@ function Backup-Project{
         [Parameter(Mandatory)]
         [string]$ProjectName,
         [string]$Path,
-        [string]$Software = @("DaVinci", "Adobe", "General"),
+        [string]$Software ,#= @("DaVinci", "Adobe", "General"),
         [switch]$KeepEmptyFolders,
         [switch]$DryRun
     )

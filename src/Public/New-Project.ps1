@@ -1,6 +1,6 @@
-New-Alias -Name Create-Project -Value New-Project
-New-Alias -Name create -Value New-Project
-New-Alias -Name np -Value New-Project
+#New-Alias -Name Create-Project -Value New-Project
+#New-Alias -Name create -Value New-Project
+#New-Alias -Name np -Value New-Project
 function New-Project{
     [CmdLetBinding()]
     param(

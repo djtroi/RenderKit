@@ -2,7 +2,9 @@ function Get-Platform {
     if ($IsWindows) { return "windows" }
     if ($isMacOs) { return "macos" }
     if ($IsLinux) { return "linux" }
-    return "unknown"
+    else {
+        return "unknown"
+    }
 }
 
 function Get-RenderKitProjectMetadataPath{
@@ -34,7 +36,8 @@ function New-RenderKitProjectMetadata {
             name        = $ProjectName
             createdAt   = (Get-Date).ToString("o") # ISO 8601
             createdBy   = $env:USERNAME
-            platform    = Get-Platform       
+            platform    = Get-Platform
+            toolVersion = $script:ModuleVersion       
         }
 
         paths = @{
