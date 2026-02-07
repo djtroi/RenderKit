@@ -33,13 +33,18 @@ function Backup-Project{
     $projectRoot = $project.RootPath
 
     Write-Verbose "Validated RenderKit project at $projectRoot"
-    Write-Verbose "PRoject ID: $($project.id)"
+    Write-Verbose "Project ID: $($project.Id)"
     if (!($PSCmdlet.ShouldProcess(
         $projectRoot,
         "Remove cache/proxy files and create backup archive"
     ))){
         return
     }
+if ($PSCmdlet.ShouldProcess($ProjectRoot, "Backup RenderKit project")){
+    Acquire-BackupLock -ProjectRoot $projectRoot 
+}
+
+    try {
 
     $rules = Get-CleanupRules -Software $Software
 
@@ -61,7 +66,7 @@ function Backup-Project{
     }
 return [PSCustomObject]@{
     ProjectName             = $project.Name
-    ProjectId               = $project.id
+    ProjectId               = $project.Id
     RootPath                = $projectRoot
     BackupPath              = if ($DryRun) { $null } else { "$projectRoot.zip"}
     DryRun                  = $DryRun
@@ -73,10 +78,14 @@ $manifest = New-BackupManifest `
 -Options @{
     software            = $Software
     keepEmptyFolders    = $KeepEmptyFolders.IsPresent
-    dryRun              = $DryRun.IsPresen
+    dryRun              = $DryRun.IsPresent
 }
 
 Save-BackupManifest `
 -Manifest $manifest `
 -ProjectRoot $projectRoot
+    }
+    finally {
+        Release-BackupLock -ProjectRoot $projectRoot
+    }
 }
