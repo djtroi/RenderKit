@@ -24,7 +24,7 @@ function Acquire-BackupLock {
         processId       = $PID 
         maschine        = $ENV:COMPUTERNAME
         user            = $ENV:USERNAME
-        toolVersion     = $script:ModuleVersion
+        toolVersion     = Get-ModuleVersion
     }
 
     $lock |
