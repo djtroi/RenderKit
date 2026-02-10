@@ -1,4 +1,4 @@
-function Acquire-BackupLock {
+function Get-BackupLock {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -24,7 +24,7 @@ function Acquire-BackupLock {
         processId       = $PID 
         maschine        = $ENV:COMPUTERNAME
         user            = $ENV:USERNAME
-        toolVersion     = Get-ModuleVersion
+        toolVersion     = $script:RenderKitModuleVersion
     }
 
     $lock |

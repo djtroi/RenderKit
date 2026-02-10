@@ -19,7 +19,7 @@ return [PSCustomObject]@{
     machine         = $ENV:COMPUTERNAME
     tool = @{
         name        = "RenderKit"
-        version     = Get-ModuleVersion
+        version     = $script:RenderKitModuleVersion
     }
 }
 

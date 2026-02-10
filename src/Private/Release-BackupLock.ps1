@@ -1,4 +1,4 @@
-function Release-BackupLock {
+function Unlock-BackupLock {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]

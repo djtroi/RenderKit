@@ -49,7 +49,7 @@ function Backup-Project{
         return
     }
 if ($PSCmdlet.ShouldProcess($ProjectRoot, "Backup RenderKit project")){
-    Acquire-BackupLock -ProjectRoot $projectRoot 
+    Get-BackupLock -ProjectRoot $projectRoot 
 }
 
     try {
@@ -94,6 +94,6 @@ Save-BackupManifest `
 -ProjectRoot $projectRoot
     }
     finally {
-        Release-BackupLock -ProjectRoot $projectRoot
+        Unlock-BackupLock -ProjectRoot $projectRoot
     }
 }
