@@ -1,7 +1,7 @@
 function Acquire-BackupLock {
     [CmdletBinding()]
     param(
-        [Parameeter(Mandatory)]
+        [Parameter(Mandatory)]
         [string]$ProjectRoot
     )
 

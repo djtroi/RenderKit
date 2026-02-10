@@ -4,5 +4,5 @@ function Get-BackupLockPath {
         [string]$ProjectRoot
     )
 
-    return Join-Path $ProjectRoot ".rencerkit\backup.lock"
+    return Join-Path $ProjectRoot ".renderkit\backup.lock"
 }

@@ -14,10 +14,10 @@
 #   -> Password (optional)
 # 7. Logging & Result
 
-New-Alias -Name Archive-Project -Value Backup-Project
-New-Alias -Name archive -Value Backup-Project
-New-Alias -Name bk -Value Backup-Project
-New-Alias -Name backup -Value Backup-Project
+#New-Alias -Name Archive-Project -Value Backup-Project
+#New-Alias -Name archive -Value Backup-Project
+#New-Alias -Name bk -Value Backup-Project
+#New-Alias -Name backup -Value Backup-Project
 function Backup-Project{
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -28,6 +28,14 @@ function Backup-Project{
         [switch]$KeepEmptyFolders,
         [switch]$DryRun
     )
+
+    $config = Get-RenderKitConfig
+    if(!($Path)){
+        if(!($config.DefaultProjectPath)){
+            Write-Verbose "No default project path set. Use Set-ProjectRoot first or provide a path using the -Path parameter" 
+        }
+    }
+    $Path = $config.DefaultProjectPath
     Write-Verbose "Resolving RenderKit project '$ProjectName'"
     $project = Get-RenderKitProject -ProjectName $ProjectName -Path $Path
     $projectRoot = $project.RootPath
