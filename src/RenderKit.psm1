@@ -1,12 +1,10 @@
-$script:RenderKitModuleVersion = $MyInvocation.MyCommand.Module.Version
+# --- Module metadata bootstrap ---
+$script:RenderKitModule = Get-Module -Name RenderKit -ErrorAction SilentlyContinue
 
-if (-not $script:RenderKitModuleVersion) {
-    $module = Get-Module RenderKit
-    if ($module) {
-        $script:RenderKitModuleVersion = $module.Version
-    }
+$script:RenderKitModule.Version.ToString()
+else {
+    "0.0.0-unknown"
 }
-
 $publicPath  = Join-Path $PSScriptRoot 'Public'
 $privatePath = Join-Path $PSScriptRoot 'Private'
 $templatesPath = Join-Path $PSScriptRoot 'Templates'
