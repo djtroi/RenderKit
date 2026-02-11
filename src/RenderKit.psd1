@@ -15,10 +15,11 @@
         )
     CmdletsToExport = @()
     AliasesToExport = @()
+    VaiablesToExport = '*'
     PrivateData = @{
         PSData = @{
             # Tags applied to this module. These help with module discovery in online galleries.
-            Tags = 'RenderKit', 'renderkit', 'rk', 'rkit', 'render', 'kit', 'video editing', 'cutting', 'production'
+            Tags = 'RenderKit', 'renderkit', 'rk', 'rkit', 'render', 'kit', 'video editing', 'cutting', 'production', 'video', 'workflow', 'projectmanagement'
 
             # A URL to the license for this module.
             LicenseUri = 'https://github.com/djtroi/RenderKit?tab=MIT-1-ov-file'
