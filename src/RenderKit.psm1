@@ -1,3 +1,13 @@
+$script:ManifestPath = Join-Path $PSScriptRoot 'RenderKit.psd1'
+
+if (Test-Path $script:ManifestPath) {
+    $manifest = Import-PowerShellDataFile -Path $script:ManifestPath
+    $script:RenderKitModuleVersion = $manifest.ModuleVersion
+}
+else {
+    $script:RenderKitModuleVersion = '0.0.0-unknown'
+}
+
 
 $publicPath  = Join-Path $PSScriptRoot 'Public'
 $privatePath = Join-Path $PSScriptRoot 'Private'
@@ -23,7 +33,3 @@ if (-not (Test-Path $templatesPath)) {
 }
 
 
-Export-ModuleMember -Alias * -Function `
-    New-Project,
-    Archive-Project,
-    Set-ProjectRoot

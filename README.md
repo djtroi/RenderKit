@@ -1,5 +1,5 @@
 # RenderKit
-![Static Badge](https://img.shields.io/badge/Version-Pre--Alpha-blue)
+![Static Badge](https://img.shields.io/badge/Version-Alpha-blue)
 ![GitHub Release](https://img.shields.io/github/v/release/djtroi/RenderKit)
 
 
@@ -18,12 +18,15 @@ Set-ProjectRoots lets you set a default Path for all your video project folders 
 
 - New-Project 
 ```powershell
-New-Project "WeddingFilm"
+New-Project "WeddingFilm" "template"
 ``` 
 New-Project creates for you your designated folder-structure for your project. The structure in .\Template\default.json defined. Feel free to edit it
 
--Archive-Project
-TBA
+-Backup-Project
+```powershell
+Backup-Project "Weddingfilm" -Software -KeepEmptyFolders -DryRun
+``` 
+Backup-Project creates structured backups of RenderKit projects, cleans temporary files, proxy files and software artifacts (WIP) before backup
 
 # Basic Usage
 ## Installation
@@ -31,21 +34,19 @@ TBA
 Install-Module -Name RenderKit
 ```
 
+
 # RoadMap
 
-These are the ad hoc functions and improvements that I'm looking forward to implement. If you have the time and motivation, feel free to open a PR for one of the features. 
+These are the ad hoc functions and improvements that I'm looking forward to implement. If you have the time and motivation, feel free to open a PR for one of the features.
 
 ## Fundamentals & Stability
 
 - Add Debugging & Logging Feature
 
-- Add Cleanup Function (project)
 
 - Add Error- / Exceptionhandling and Rollback
 
 - Add Function to create a project with an absolute path
-
-- Add a template management function (create projects with customized templates)
 
 - Add Markdown template support
 
@@ -53,15 +54,11 @@ These are the ad hoc functions and improvements that I'm looking forward to impl
 
 - Optimize Normalization and Validation of templates
 
-- Add function to archive a project (deletes temporary files and empty folders and zips it to a path)
-
 - Add function to deliver files to a customer (grab and zip together your latest rendered files in your folder)
 
 - Add function to use multiple "deliver" export-profiles 
 
 - Add versioning for project-templates for rollback-possibilty
-
-- Create Project-Metadata 
 
 - Create Project-Statistics / Reporting
 
@@ -74,5 +71,3 @@ These are the ad hoc functions and improvements that I'm looking forward to impl
 - Create a Naming-Conventions into the configuration
 
 - Create a Multi-Project-Management (list, filter, create status etc.)
-
-
