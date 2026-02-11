@@ -11,17 +11,16 @@ function New-Project{
         [string]$Path,
         [string]$TemplatePath
     )
-    
-    $config = Get-RenderKitConfig
+    $config = Get-RenderKitConfig 
     if(!($Path)){
         if(!($config.DefaultProjectPath)){
-            Write-Verbose "No default project path set. Use Set-ProjectRoot first or provide a path using the -Path parameter" 
+            Write-RenderKitLog -Message "No default project path set. Use Set-ProjectRoot first or provide a path using the -Path parameter" -Level Error
         }
         $Path = $config.DefaultProjectPath
     }
 
     if(!(Test-Path $Path)){
-        Write-Verbose "Target path does not exist: $Path" 
+        Write-RenderKitLog -Message "Target path does not exist: $Path" -Level Error
     }
 
     if (!($TemplatePath)){
@@ -35,17 +34,20 @@ function New-Project{
     }
     $projectRoot = Join-Path $Path $ProjectName
     if(Test-Path $projectRoot){
-        Write-Verbose "Project already exists: $projectRoot" 
+        Write-RenderKitLog -Message "Project already exists: $projectRoot" -Level Error
     }
+    #Log Init
+    Initialize-RenderKitLogging -ProjectRoot $projectRoot
+    
     $templateInfo = Resolve-ProjectTemplate `
     -TemplateName $Template `
     -TemplatePath $TemplatePath
-    Write-Verbose "Resolving ProjectTemplate $Template $TemplatePath" 
+    Write-RenderKitLog -Message "Resolving ProjectTemplate $Template $TemplatePath" -Level Debug
 
     try{
 
         $structure = Read-ProjectTemplate -Path $templateInfo.Path #-Path $TemplatePath 
-        Write-Verbose "creating Project Root Folder" 
+        Write-RenderKitLog -Message "creating Project Root Folder"  -Level Debug
         New-Item -ItemType Directory -Path $projectRoot | Out-Null
 
         #first things first create .renderkit
@@ -67,9 +69,9 @@ function New-Project{
 
 
         New-FolderTree -Root $projectRoot -Structure $structure
-        Write-Verbose "Project created successfully"
+        Write-RenderKitLog -Message "Project created successfully" -Level Info
     }
     catch{
-        throw "Template validation failed $_"
+        Write-RenderKitLog -Message "Template validation failed $_" -Level Error
     }
 }
