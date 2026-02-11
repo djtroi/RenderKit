@@ -25,7 +25,13 @@ function New-Project{
     }
 
     if (!($TemplatePath)){
-        $TemplatePath = Join-Path $PSScriptRoot "..\Templates\default.json"
+        if ($Template){
+            $TemplatePath = Join-Path $PSScriptRoot "..\Templates\$Template.json"
+        }
+        Else {
+            $TemplatePath = Join-Path $PSScriptRoot "..\Templates\default.json"
+        }
+        
     }
     $projectRoot = Join-Path $Path $ProjectName
     if(Test-Path $projectRoot){
