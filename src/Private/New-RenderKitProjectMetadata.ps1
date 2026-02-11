@@ -37,7 +37,7 @@ function New-RenderKitProjectMetadata {
             createdAt   = (Get-Date).ToString("o") # ISO 8601
             createdBy   = $env:USERNAME
             platform    = Get-Platform
-            toolVersion = $script:RenderKitModule.Version.ToString() #$script:RenderKitVersion
+            toolVersion = $script:RenderKitModuleVersion #$script:RenderKitVersion
         }
 
         paths = @{

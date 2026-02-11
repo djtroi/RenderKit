@@ -6,7 +6,7 @@ function Resolve-ProjectTemplate {
     Write-Verbose "Checking TemplatePath" 
     if ($TemplatePath){
         if(!(Test-Path $TemplatePath)){
-            #Write-RenderKitLog "Template not found at path: $TemplatePath" -Level Error
+            Write-Verbose "Template not found at path: $TemplatePath" -Level Error
         }
 
         return @{

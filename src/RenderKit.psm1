@@ -1,10 +1,14 @@
-# --- Module metadata bootstrap ---
-$script:RenderKitModule = Get-Module -Name RenderKit -ErrorAction SilentlyContinue
+$script:ManifestPath = Join-Path $PSScriptRoot 'RenderKit.psd1'
 
-$script:RenderKitModule.Version.ToString()
-else {
-    "0.0.0-unknown"
+if (Test-Path $script:ManifestPath) {
+    $manifest = Import-PowerShellDataFile -Path $script:ManifestPath
+    $script:RenderKitModuleVersion = $manifest.ModuleVersion
 }
+else {
+    $script:RenderKitModuleVersion = '0.0.0-unknown'
+}
+
+
 $publicPath  = Join-Path $PSScriptRoot 'Public'
 $privatePath = Join-Path $PSScriptRoot 'Private'
 $templatesPath = Join-Path $PSScriptRoot 'Templates'
@@ -28,8 +32,4 @@ if (-not (Test-Path $templatesPath)) {
     Write-Verbose "Templates folder not found: $templatesPath (optional)"
 }
 
-Export-ModuleMember -Alias * -Function `
-    New-Project,
-    Backup-Project,
-    Set-ProjectRoot,
-    Get-ModuleVersion
+
