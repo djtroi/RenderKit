@@ -7,6 +7,8 @@ function Set-ProjectRoot{
         [string]$Path
     )
 
+    I
+
     if (!(Test-Path -Path $Path)) {
         throw "The specified path '$Path' does not exist or is not a directory."
     }

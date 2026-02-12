@@ -3,26 +3,44 @@ function Write-RenderKitLog {
     param(
         [Parameter(Mandatory)]
         [string]$Message,
+
         [validateset("Info", "Debug", "Warning", "Error")]
         [string]$Level = "Info",
-        [switch]$Terminate
+        [switch]$NoConsole
     )
 
-    $timestamp = Get-LogTimeStamp
-    $entry = "[$timestamp] [$Level] $Message"
 
-    $script:LogBuffer.Add($entry)
+$timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+$entry = "[$timestamp] [$level] $Message"
 
-    switch($Level){
-        "Info" { Write-Information $entry -InformationAction Continue }
-        "Debug" { Write-Debug $entry }
-        "Warning" { Write-Warning $entry }
-        "Error" {
-            Write-Error $entry
-            if ($Terminate){
-                throw $Message
+#file logging
+
+if (!( $script:RenderKitLoggingInitialized )) {
+    if (!( $script:RenderKitBootstrapLog )){
+        $script:RenderKitBootstrapLog = New-Object System.Collections.Generic.List[string]
+    }
+    $script:RenderKitBootstrapLog.Add($entry)
+}
+else {
+    Add-Content -Path $script:RenderKitLogFile -Value $entry 
+
+    if ( $script:RenderKitDebugMode -or $Level -eq "Debug "){
+        Add-Content -Path $script:RenderKitDebugLogFile -Value $entry 
+    }
+}
+
+#console output
+
+if (!( $NoConsole )){
+    switch ($Level) {
+        "Info"      { Write-Information $Message -InformationAction Continue }
+        "Warning"   { Write-Warning $Message }
+        "Error"     { Write-Error $Message }
+        "Debug"     {
+            if ( $script:RenderKitDebugMode ) {
+                Write-Verbose "[DEBUG] $Message" -Verbose
             }
         }
-
     }
+}
 }
