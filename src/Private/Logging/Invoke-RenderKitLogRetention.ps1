@@ -17,10 +17,20 @@ function Invoke-RenderKitLogRetention {
             $dateString = $matches[1]
             $parsedDate = $null
             #if([datetime]::ParseExact($dateString, "yyyy-MM-dd HH:mm:ss", $null)){
-            if ([datetime]::TryParse($dateString, [ref]$parsedDate)){
-                if ($parsedDate -ge $cutoff) {
-                    $newContent += $line 
+            
+            try {
+                $parsedDate = [System.DateTime]::ParseExact(
+                    $dateString,
+                    "yyyy-MM-dd HH:mm:ss",
+                    [System.Globalization.CultureInfo]::InvariantCulture
+                )
+
+                if ($parsedDate -ge $cutoff){
+                    $newContent += $line
                 }
+            }
+            catch{
+
             }
         }
     }

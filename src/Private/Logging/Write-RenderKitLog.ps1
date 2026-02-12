@@ -10,7 +10,7 @@ function Write-RenderKitLog {
     )
 
 
-$timestamp = (Get-Date).ToString("yyyy-MMM-dd HH:mm:ss")
+$timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
 $entry = "[$timestamp] [$level] $Message"
 
 #file logging
