@@ -35,7 +35,7 @@ function New-Project{
         return
     }
 
-    $ProjectRoot = Join-Path $Path $ProjectName .\assets
+    $ProjectRoot = Join-Path $Path $ProjectName
 
     if (Test-Path $ProjectRoot){
         Write-RenderKitLog -Level Error -Message "Project already exists: $ProjectRoot"
@@ -70,9 +70,9 @@ function New-Project{
         New-Item -ItemType Directory -Path $ProjectRoot -ErrorAction Stop | Out-Null
 
         $renderKitPath = Join-Path $projectRoot ".renderkit"
-        New-Item -ItemType Directory -Path $renderKitPath -ErrorAction Stop | Out-Null .\assets
+        New-Item -ItemType Directory -Path $renderKitPath -ErrorAction Stop | Out-Null
 
-        Initialize-RenderKitLogging -ProjectRoot $ProjectRoot .\assets
+        Initialize-RenderKitLogging -ProjectRoot $ProjectRoot 
         Write-RenderKitLog -Level Debug -Message "Logging initialized"
 
         #Metadata
@@ -85,7 +85,7 @@ function New-Project{
         -ProjectRoot $ProjectRoot `
         -Metadata $metadata
 
-        New-FolderTree -Root $ProjectRoot -Structure $structure .\assets
+        New-FolderTree -Root $ProjectRoot -Structure $structure
 
         Write-RenderKitLog -Level Info -Message "Project '$ProjectName' created successfully."
 

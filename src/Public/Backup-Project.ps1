@@ -1,23 +1,3 @@
-# 1. Call Function
-# 2. Validation 
-#   -> Does the project exist?
-#   -> Can the function write?
-# 3. Scanning
-#   -> Find Cache-Files (Software based)
-#   -> Find Proxy-Files (path based)
-# 4. Dry-Run Function 
-# 5. Cleanup 
-#   -> Delete Cache
-#   -> Delete Proxies (optional)
-# 6. Backup
-#   -> Create Zip 
-#   -> Password (optional)
-# 7. Logging & Result
-
-#New-Alias -Name Archive-Project -Value Backup-Project
-#New-Alias -Name archive -Value Backup-Project
-#New-Alias -Name bk -Value Backup-Project
-#New-Alias -Name backup -Value Backup-Project
 function Backup-Project{
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -28,72 +8,123 @@ function Backup-Project{
         [switch]$KeepEmptyFolders,
         [switch]$DryRun
     )
+    #-------------------------------------------------------------
+    # PHASE 1 : Command Start 
+    #-------------------------------------------------------------
+    Write-RenderKitLog -Level Info -Message "Starting backup for project '$ProjectName'"
+    Write-RenderKitLog -Level Debug -Message "Parameters: Path='$Path' Software='$Software' Keep empty folders='$KeepEmptyFolders' Dry run='$DryRun'"
 
     $config = Get-RenderKitConfig
-    if(!($Path)){
-        if(!($config.DefaultProjectPath)){
-            Write-Verbose "No default project path set. Use Set-ProjectRoot first or provide a path using the -Path parameter" 
-        }
-    }
-    $Path = $config.DefaultProjectPath
-    Write-Verbose "Resolving RenderKit project '$ProjectName'"
-    $project = Get-RenderKitProject -ProjectName $ProjectName -Path $Path
-    $projectRoot = $project.RootPath
 
-    Write-Verbose "Validated RenderKit project at $projectRoot"
-    Write-Verbose "Project ID: $($project.Id)"
-    if (!($PSCmdlet.ShouldProcess(
-        $projectRoot,
-        "Remove cache/proxy files and create backup archive"
-    ))){
+    #-------------------------------------------------------------
+    # PHASE 2 : Resolve Path 
+    #-------------------------------------------------------------
+
+    If (!($Path)){
+        if (!($config.DefaultProjectPath)){
+            Write-RenderKitLog -Level Error -Message "No default project path configured"
+            return
+        }
+
+        Write-RenderKitLog -Level Warning -Message "No path provided. Using default project path"
+        $Path = $config.DefaultProjectPath
+    }
+
+    #-------------------------------------------------------------
+    # PHASE 3 : Resolve Project 
+    #-------------------------------------------------------------
+
+    $Project = Get-RenderKitProject -ProjectName $ProjectName -Path $Path
+
+    if (!($Project)){
+        Write-RenderKitLog -Level Error -Message "Project '$ProjectName' not found"
         return
     }
-if ($PSCmdlet.ShouldProcess($ProjectRoot, "Backup RenderKit project")){
-    Get-BackupLock -ProjectRoot $projectRoot 
-}
 
-    try {
+    $ProjectRoot = $Project.RootPath
 
-    $rules = Get-CleanupRules -Software $Software
+    Write-RenderKitLog -Level Debug -Message "Project validated at $ProjectRoot"
 
-    Write-Verbose "Cleaning project artifacts..."
+    #-------------------------------------------------------------
+    # PHASE 4 : ShouldProcess 
+    #-------------------------------------------------------------
 
-    Remove-ProjectArtifacts -ProjectPath $projectRoot -Rules $rules -DryRun:$DryRun
+    if (!($PSCmdlet.ShouldProcess(
+        $ProjectRoot,
+        "Clean project artifacts and create backup archive"
+    ))){ return }
 
-    if (!($KeepEmptyFolders)) {
-        Remove-EmptyFolders -Path $projectRoot -DryRun:$DryRun
+    #-------------------------------------------------------------
+    # PHASE 5 : Execution 
+    #-------------------------------------------------------------
+
+    try{
+        Get-BackupLock -ProjectRoot $ProjectRoot
+        $rules = Get-CleanupRules -Software $Software
+
+        Write-RenderKitLog -Level Info -Message "Cleaning project artifacts..."
+
+        Remove-ProjectArtifacts `
+        -ProjectPath $ProjectRoot `
+        -Rules $rules `
+        -DryRun:$DryRun
+
+        if (!($KeepEmptyFolders)){
+            Remove-EmptyFolders -Path $ProjectRoot -DryRun:$DryRun
+        }
+
+        $zipPath = $null 
+
+        if (!($DRyRun)){
+            $zipPath = "$ProjectRoot.zip"
+
+            Compress-Project `
+            -ProjectPath $ProjectRoot `
+            -DestinationPath $zipPath
+
+            WRite-RenderKitLog -Level Info -Message "Backup archive created: $zipPath"
+        }
+        else {
+            Write-RenderKitLog -Level Warning -Message "DryRun enabled - no files were deleted or Archived"
+        }
+
+    #-------------------------------------------------------------
+    # PHASE 6 : Manifest 
+    #-------------------------------------------------------------
+
+    $manifest = New-BackupManifest `
+    -Project $Project
+    -Options @{
+        software            =   $Software
+        KeepEmptyFolders    =   $KeepEmptyFolders.IsPresent
+        dryRun              =   $DryRun.IsPresent
     }
 
-    if (!($DryRun)){
-        $zipPath = "$projectRoot.zip"
-        Compress-Project -ProjectPath $projectRoot -DestinationPath $zipPath
-        Write-Verbose "Backup created: $zipPath"
-    }
-    else{
-        Write-Verbose "DryRun enabled -no files were deleted or archived"
-    }
-return [PSCustomObject]@{
-    ProjectName             = $project.Name
-    ProjectId               = $project.Id
-    RootPath                = $projectRoot
-    BackupPath              = if ($DryRun) { $null } else { "$projectRoot.zip"}
-    DryRun                  = $DryRun
-}
+    Save-BackupManifest `
+    -Manifest $manifest `
+    -ProjectRoot $ProjectRoot
 
+    Write-RenderKitLog -Level Info -Message "Backup process completed successfully."
 
-$manifest = New-BackupManifest `
--Project $project `
--Options @{
-    software            = $Software
-    keepEmptyFolders    = $KeepEmptyFolders.IsPresent
-    dryRun              = $DryRun.IsPresent
-}
+    #-------------------------------------------------------------
+    # PHASE 7 : Result
+    #-------------------------------------------------------------
 
-Save-BackupManifest `
--Manifest $manifest `
--ProjectRoot $projectRoot
+    return [PSCustomObject]@{
+        ProjectName =   $Project.Name    
+        ProjectId   =   $Project.Id 
+        RootPath    =   $ProjectRoot
+        BackupPath  =   $zipPath
+        DryRun      =   $DryRun.IsPresent
     }
-    finally {
-        Unlock-BackupLock -ProjectRoot $projectRoot
+
+    }
+
+    catch{
+        Write-RenderKitLog -Level Error -Message "Backup failed: $_"
+        throw
+    }
+    finally{
+        Unlock-BackupLock -ProjectRoot $ProjectRoot 
     }
 }
