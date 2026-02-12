@@ -1,6 +1,3 @@
-#New-Alias -Name Create-Project -Value New-Project
-#New-Alias -Name create -Value New-Project
-#New-Alias -Name np -Value New-Project
 function New-Project{
     [CmdLetBinding()]
     param(
@@ -11,68 +8,91 @@ function New-Project{
         [string]$Path,
         [string]$TemplatePath
     )
-    $config = Get-RenderKitConfig 
-    if(!($Path)){
-        if(!($config.DefaultProjectPath)){
-            Write-RenderKitLog -Message "No default project path set. Use Set-ProjectRoot first or provide a path using the -Path parameter" -Level Error
+
+    #-------------------------------------------------------------
+    # PHASE 1 : Command Start 
+    #-------------------------------------------------------------
+    Write-RenderKitLog -Level Info -Message "Creating project '$ProjectName'"
+    Write-RenderKitLog -Level Debug -Message "Parameters: Template = '$Template' Path= '$Path' TemplatePath = '$TemplatePath'"
+
+    $config = Get-RenderKitConfig
+
+    #-------------------------------------------------------------
+    # PHASE 2 : Resolve Target Path
+    #-------------------------------------------------------------
+
+    if (!($Path)){
+        if (!($config.DefaultProjectPath)){
+            Write-RenderKitLog -Level Error -Message "No default project path configured."
         }
+
+        Write-RenderKitLog -Level Warning -Message "No path provided. Using default project path."
         $Path = $config.DefaultProjectPath
     }
 
-    if(!(Test-Path $Path)){
-        Write-RenderKitLog -Message "Target path does not exist: $Path" -Level Error
+    if (!(Test-Path $Path)){
+        Write-RenderKitLog -Level Error -Message "Taget path does not exist: $Path"
+        return
     }
 
+    $ProjectRoot = Join-Path $Path $ProjectName .\assets
+
+    if (Test-Path $ProjectRoot){
+        Write-RenderKitLog -Level Error -Message "Project already exists: $ProjectRoot"
+        return
+    }
+
+    #-------------------------------------------------------------
+    # PHASE 3 : Resolve Template
+    #------------------------------------------------------------- 
+
     if (!($TemplatePath)){
-        if ($Template){
+        if($Template){
             $TemplatePath = Join-Path $PSScriptRoot "..\Templates\$Template.json"
         }
-        Else {
+        else{
             $TemplatePath = Join-Path $PSScriptRoot "..\Templates\default.json"
         }
-        
     }
-    $projectRoot = Join-Path $Path $ProjectName
-    if(Test-Path $projectRoot){
-        Write-RenderKitLog -Message "Project already exists: $projectRoot" -Level Error
-    }
-    
+
     $templateInfo = Resolve-ProjectTemplate `
     -TemplateName $Template `
     -TemplatePath $TemplatePath
-    Write-RenderKitLog -Message "Resolving ProjectTemplate $Template $TemplatePath" -Level Debug
+
+    Write-RenderKitLog -Level Info -Message "Using template '$($templateInfo.Name)'"
+    #-------------------------------------------------------------
+    # PHASE 4 : Create Project Structure
+    #------------------------------------------------------------- 
 
     try{
+        $structure = Read-ProjectTemplate -Path $templateInfo.path
 
-        $structure = Read-ProjectTemplate -Path $templateInfo.Path #-Path $TemplatePath 
-        Write-RenderKitLog -Message "creating Project Root Folder"  -Level Debug
-        New-Item -ItemType Directory -Path $projectRoot | Out-Null  
-        #first things first create .renderkit
+        New-Item -ItemType Directory -Path $ProjectRoot -ErrorAction Stop | Out-Null
+
         $renderKitPath = Join-Path $projectRoot ".renderkit"
-        New-Item -ItemType Directory -Path $renderKitPath | Out-Null 
+        New-Item -ItemType Directory -Path $renderKitPath -ErrorAction Stop | Out-Null .\assets
 
-        #Log Init
-        Initialize-RenderKitLogging -ProjectRoot $projectRoot
-        Write-RenderKitLog -Message "Logging initialized" -Level Debug
+        Initialize-RenderKitLogging -ProjectRoot $ProjectRoot .\assets
+        Write-RenderKitLog -Level Debug -Message "Logging initialized"
 
-        #project .json
+        #Metadata
         $metadata = New-RenderKitProjectMetadata `
-        -ProjectName $ProjectName `
+        -ProjectNAme $ProjectName `
         -TemplateName $templateInfo.Name `
-        -TemplateSource $templateInfo.Source
-
-        #$projectJsonPath = Join-Path $renderKitPath "project.json"
-        #$metadata | ConvertTo-Json -Depth 5 | Set-Content -Path $projectJsonPath -Encoding UTF8
+        -TemplateSource $templateInfo.Source 
 
         Write-RenderKitProjectMetadata `
-        -ProjectRoot $projectRoot `
+        -ProjectRoot $ProjectRoot `
         -Metadata $metadata
 
+        New-FolderTree -Root $ProjectRoot -Structure $structure .\assets
 
-        New-FolderTree -Root $projectRoot -Structure $structure
-        Write-RenderKitLog -Message "Project created successfully" -Level Info
+        Write-RenderKitLog -Level Info -Message "Project '$ProjectName' created successfully."
+
     }
     catch{
-        Write-RenderKitLog -Message "Project Creation failed $_" -Level Error
+        Write-RenderKitLog -Level Error -Message "Project creation failed: $_"
+        throw
     }
+
 }
