@@ -8,7 +8,8 @@ function Initialize-RenderKitLogging {
 $renderKitPath = Join-Path $ProjectRoot ".renderkit"
 
 if (!( Test-Path $renderKitPath )) {
-    New-Item -ItemType Directory -Path $renderKitPath -Force | Out-Null
+    #New-Item -ItemType Directory -Path $renderKitPath -Force | Out-Null
+    throw ".renderkit folder not found. Logging cannot be initialized"
 }
 
 $script:RenderKitLogFile        =   Join-Path $renderKitPath "renderkit.log"
@@ -33,5 +34,5 @@ if ( $script:RenderKitBootstrapLog ) {
     $script:RenderKitBootstrapLog = $null
 }
 
-Invoke-RenderKitRetention
+Invoke-RenderKitLogRetention
 }

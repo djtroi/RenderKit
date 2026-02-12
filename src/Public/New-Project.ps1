@@ -36,8 +36,6 @@ function New-Project{
     if(Test-Path $projectRoot){
         Write-RenderKitLog -Message "Project already exists: $projectRoot" -Level Error
     }
-    #Log Init
-    Initialize-RenderKitLogging -ProjectRoot $projectRoot
     
     $templateInfo = Resolve-ProjectTemplate `
     -TemplateName $Template `
@@ -48,11 +46,14 @@ function New-Project{
 
         $structure = Read-ProjectTemplate -Path $templateInfo.Path #-Path $TemplatePath 
         Write-RenderKitLog -Message "creating Project Root Folder"  -Level Debug
-        New-Item -ItemType Directory -Path $projectRoot | Out-Null
-
+        New-Item -ItemType Directory -Path $projectRoot | Out-Null  
         #first things first create .renderkit
         $renderKitPath = Join-Path $projectRoot ".renderkit"
-        New-Item -ItemType Directory -Path $renderKitPath | Out-Null
+        New-Item -ItemType Directory -Path $renderKitPath | Out-Null 
+
+        #Log Init
+        Initialize-RenderKitLogging -ProjectRoot $projectRoot
+        Write-RenderKitLog -Message "Logging initialized" -Level Debug
 
         #project .json
         $metadata = New-RenderKitProjectMetadata `
@@ -72,6 +73,6 @@ function New-Project{
         Write-RenderKitLog -Message "Project created successfully" -Level Info
     }
     catch{
-        Write-RenderKitLog -Message "Template validation failed $_" -Level Error
+        Write-RenderKitLog -Message "Project Creation failed $_" -Level Error
     }
 }

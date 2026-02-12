@@ -11,12 +11,13 @@ function Invoke-RenderKitLogRetention {
     
 
     $newContent = @()
-
+    
     foreach ($line in Get-Content $file){
         if ($line -match "^\[(.*?)\]" ){
             $dateString = $matches[1]
-
-            if([datetime]::TryParse($dateString, [ref]$parseDate)){
+            $parsedDate = $null
+            #if([datetime]::ParseExact($dateString, "yyyy-MM-dd HH:mm:ss", $null)){
+            if ([datetime]::TryParse($dateString, [ref]$parsedDate)){
                 if ($parsedDate -ge $cutoff) {
                     $newContent += $line 
                 }
