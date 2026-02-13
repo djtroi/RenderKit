@@ -11,7 +11,7 @@ else {
 
 $publicPath  = Join-Path $PSScriptRoot 'Public'
 $privatePath = Join-Path $PSScriptRoot 'Private'
-$templatesPath = Join-Path $PSScriptRoot 'Templates'
+$resourcesPath = Join-Path $PSScriptRoot 'Resources'
 $classesPath = Join-Path $PSScriptRoot 'Classes'
 
 if (Test-Path $classesPath){
@@ -28,14 +28,16 @@ if (Test-Path $publicPath) {
 
 
 if (Test-Path $privatePath) {
-    Get-ChildItem "$privatePath\*.ps1" | ForEach-Object { . $_ }
+    Get-ChildItem "$privatePath\*.ps1"  -Recurse | ForEach-Object { . $_ }
 } else {
     Write-Error "Private folder not found: $privatePath "
 }
 
 
-if (-not (Test-Path $templatesPath)) {
-    Write-Error "Templates folder not found: $templatesPath "
+if (-not (Test-Path $resourcesPath)) {
+    Get-ChildItem "$resourcesPath\*.ps1" -Recurse | ForEach-Object { . $_ }
+} else {
+    Write-Error "Resources folder not found: $resourcesPath "
 }
 
 
