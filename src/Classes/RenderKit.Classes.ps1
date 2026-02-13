@@ -15,19 +15,20 @@ class RenderKitMapping{
 class RenderKitTemplate {
     [string]$Name
     [string[]]$Mappings
+    [System.Collections.Generic.List[RenderKitFolder]]$Folders
 
     RenderKitTemplate([string]$name) {
         $this.Name      =   $name 
         $this.Mappings  =   @()
-        $this.Folders   =   @()
+        $this.Folders   =   [System.Collections.Generic.List[RenderKitFolder]]::new()
     }
 
     [void]AddMapping([string]$mappingId) {
         $this.Mappings += $mappingId 
     }
 
-    [void]AddFolders([string]$FolderName) {
-        $this.Folders += $FolderName
+    [void]AddFolder([RenderKitFolder]$Folder) {
+        $this.Folders.Add($Folder)
     }
 }
 
@@ -39,4 +40,20 @@ class RenderKitType {
         $this.Name = $Name
         $this.Extensions = $Extensions
     }
+}
+
+class RenderKitFolder {
+    [string]$Name
+    [string]$Mapping
+    [System.Collections.Generic.List[RenderKitFolder]]$SubFolders
+
+    RenderKitFolder([string]$Name, [string]$Mapping) {
+        $this.Name          =   $Name
+        $this.Mapping       =   $Mapping
+        $this.SubFolders    =   [System.Collections.Generic.List[RenderKitFolder]]::new()
+        }
+
+        [void]AddSubFolder([RenderKitFolder]$Folder) {
+            $this.SubFolders.Add($Folder)
+        }
 }
