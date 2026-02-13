@@ -8,7 +8,7 @@ function Add-RenderKitMappingToTemplate {
     $templatePath = Join-Path $root "templates\$TemplateName.json"
 
     if (!(Test-Path $templatePath)) {
-        New-RenderKitLog -Level Error -Message "Template $TemplateName not found."
+        Write-RenderKitLog -Level Error -Message "Template $TemplateName not found."
     }
 
     $template = Get-Content $templatePath | ConvertFrom-Json
@@ -18,5 +18,5 @@ function Add-RenderKitMappingToTemplate {
     $template | ConvertTo-Json -Depth 5 | 
     Set-Content $templatePath -Encoding UTF8
 
-    New-RenderKitLog -Level Info -Message "Mapping $MappingId inserted into the template. "
+    Write-RenderKitLog -Level Info -Message "Mapping $MappingId inserted into the template. "
 }

@@ -16,6 +16,7 @@
         'Add-RenderKitTypeToMapping'
         'New-RenderKitMapping'
         'New-RenderKitTemplate'
+        'Add-FolderToTemplate'
         )
     CmdletsToExport = @()
     AliasesToExport = @()

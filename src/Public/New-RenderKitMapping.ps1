@@ -5,11 +5,15 @@ function New-RenderKitMapping {
     )
     $root = Get-RenderKitRoot 
     $mappingPath = Join-Path $root "mappings\$Id.json"
+    $mappingFolder = Join-Path $root "mappings\"
 
     if (Test-Path $mappingPath) {
-        New-RenderKitLog -Level Error -Message "Mapping '$Id' already exists."
+        Write-RenderKitLog -Level Error -Message "Mapping '$Id' already exists."
     }
-
+    if (!(Test-Path $mappingFolder)){
+        New-Item -ItemType Directory -Path $mappingFolder -ErrorAction Stop | Out-Null
+        Write-RenderKitLog -Level Error -Message "No mapping folder found... creating one."
+    }
     $mapping = [RenderKitMapping]::new($Id)
 
     $mapping | ConvertTo-Json -Depth 5 | 

@@ -19,10 +19,15 @@ class RenderKitTemplate {
     RenderKitTemplate([string]$name) {
         $this.Name      =   $name 
         $this.Mappings  =   @()
+        $this.Folders   =   @()
     }
 
     [void]AddMapping([string]$mappingId) {
         $this.Mappings += $mappingId 
+    }
+
+    [void]AddFolders([string]$FolderName) {
+        $this.Folders += $FolderName
     }
 }
 

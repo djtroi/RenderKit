@@ -2,14 +2,14 @@ function Add-RenderKitTypeToMapping {
     param(
         [string]$MappingId,
         [string]$TypeName,
-        [string[]]$Extensions
+        [string[]]$Extensions # TODO: Validate and structure extensions
     )
 
     $root = Get-RenderKitRoot
     $mappingPath = Join-Path $root "mappings\$MappingId.json"
 
     if (!(Test-Path $mappingPath)) {
-        New-RenderKitLog -Level Error -Message "Mapping $MappingId not found.0"
+        Write-RenderKitLog -Level Error -Message "Mapping $MappingId not found"
     }
 
     $json = Get-Content $mappingPath | ConvertFrom-Json 
@@ -20,7 +20,7 @@ function Add-RenderKitTypeToMapping {
     }
 
     $json | ConvertTo-Json -Depth 5 | 
-    Set-Content $mappingPath -Encoding UTF8 .\.vscode
+    Set-Content $mappingPath -Encoding UTF8
     
-    Write-RenderKitLog -Level Info -Message "$TypeName added."
+    Write-RenderKitLog -Level Info -Message "Type ""$TypeName"" added to $MappingId."
 }
