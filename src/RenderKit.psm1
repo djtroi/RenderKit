@@ -1,3 +1,4 @@
+#Module Version
 $script:ManifestPath = Join-Path $PSScriptRoot 'RenderKit.psd1'
 
 if (Test-Path $script:ManifestPath) {
@@ -8,7 +9,12 @@ else {
     $script:RenderKitModuleVersion = '0.0.0-unknown'
 }
 
+#Bootstrap Logging
+$script:RenderKitLoggingInitialized = $false
+$script:RenderKitBootstrapLog = New-Object System.Collections.Generic.List[string]
+$script:RenderKitDebugMode = $false
 
+#Release
 $publicPath  = Join-Path $PSScriptRoot 'Public'
 $privatePath = Join-Path $PSScriptRoot 'Private'
 $resourcesPath = Join-Path $PSScriptRoot 'Resources'
@@ -28,7 +34,7 @@ if (Test-Path $publicPath) {
 
 
 if (Test-Path $privatePath) {
-    Get-ChildItem "$privatePath\*.ps1"  -Recurse | ForEach-Object { . $_ }
+    Get-ChildItem -Path $privatePath -Filter *.ps1 -Recurse | ForEach-Object { . $_.FullName }
 } else {
     Write-Error "Private folder not found: $privatePath "
 }
