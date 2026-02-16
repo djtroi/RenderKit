@@ -2,13 +2,14 @@
 RoadMap Architecture:
 
     1. Expand Template-Achitecture Logic
-        - Add into template .json  Folder Mappings
+        - Add into template .json  Folder Mappings - done
         - Each Folder Needs: a global Type from the TypeList 
-        - Each Type Accepts defined File Extensions only (With Override functions)
-        - There can be more Mapping rules. 
-        - The Connection between Mappings and Template are n to n 
+        - Each Type Accepts defined File Extensions only (With Override functions) - done
+        - There can be more Mapping rules. - done
+        - The Connection between Mappings and Template are n to n - done
         - We to define a path for each type. 
         IF json folder type = footage THEN = Path = Template.Folder.Footage
+        - Final: Get it production ready 
 
     2. Create a Drive Detection Engine
         - Function to automatically detect removable drives like Cameras, SD Cards, Thumb Drives etc

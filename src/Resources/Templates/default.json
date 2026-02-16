@@ -1,37 +1,179 @@
 {
-    "folders": {
-        "01_Raw": {
-            "01_01_Video": {},
-            "01_02_Proxy": {},
-            "01_03_Screenshots": {},
-            "01_04_BRoll": {},
-            "01_05_Audio": {},
-            "01_06_Music": {},
-            "01_07_SFX": {},
-            "01_08_VoiceOver": {}
+  "Version": "1.0",
+  "Name": "default",
+  "Description": "Default Project Template",
+  "Folders": [
+    {
+      "Name": "01_Raw",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": [
+        {
+          "Name": "01_01_Video",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
         },
-        "02_Project": {},
-        "03_Editorial": {},
-        "04_Graphics": {
-            "04_01_Thumbnails": {},
-            "04_02_IntroOutro": {},
-            "04_03_Logo": {}
+        {
+          "Name": "01_02_Proxy",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
         },
-        "05_Exports": {
-            "05_01_Full": {},
-            "05_02_Shorts": {},
-            "05_03_Audio_Only": {},
-            "05_04_Previews": {},
-            "05_05_Drafts": {}
+        {
+          "Name": "01_03_Screenshots",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
         },
-        "06_Review": {},
-        "07_Publish":{
-            "07_01_Release": {},
-            "07_02_Meta": {},
-            "07_03_Transcripts": {}
+        {
+          "Name": "01_04_BRoll",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
         },
-        "08_Archive": {},
-        "09_AI": {}
-
+        {
+          "Name": "01_05_Audio",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
+        },
+        {
+          "Name": "01_06_Music",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
+        },
+        {
+          "Name": "01_07_SFX",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
+        },
+        {
+          "Name": "01_08_VoiceOver",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
+        }
+      ]
+    },
+    {
+      "Name": "02_Project",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "03_Editorial",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "04_Graphics",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": [
+        {
+          "Name": "04_01_Thumbnails",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
+        },
+        {
+          "Name": "04_02_IntroOutro",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
+        },
+        {
+          "Name": "04_03_Logo",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
+        }
+      ]
+    },
+    {
+      "Name": "05_Exports",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": [
+        {
+          "Name": "05_01_Full",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
+        },
+        {
+          "Name": "05_02_Shorts",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
+        },
+        {
+          "Name": "05_03_Audio_Only",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
+        },
+        {
+          "Name": "05_04_Previews",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
+        },
+        {
+          "Name": "05_05_Drafts",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
+        }
+      ]
+    },
+    {
+      "Name": "06_Review",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "07_Publish",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": [
+        {
+          "Name": "07_01_Release",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
+        },
+        {
+          "Name": "07_02_Meta",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
+        },
+        {
+          "Name": "07_03_Transcripts",
+          "MappingId": null,
+          "Required": false,
+          "SubFolders": []
+        }
+      ]
+    },
+    {
+      "Name": "08_Archive",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "09_AI",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": []
     }
+  ]
 }
