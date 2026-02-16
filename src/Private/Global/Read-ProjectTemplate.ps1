@@ -15,7 +15,7 @@ function Read-ProjectTemplate{
         ".json"{
             try{
                 $json = Get-Content $Path -Raw | ConvertFrom-Json
-                if(!($json.PSObject.Properties['folders'])){
+                if(!($json.PSObject.Properties['Folders'])){
                     throw "JSON does not contain a folders tag"
                     
             }  
@@ -70,49 +70,34 @@ function Format-Folders {
 
     $result = @()
 
-    # Hashtable (Markdown)
-    if ($Node -is [hashtable]) {
-
-        foreach ($key in $Node.Keys) {
-
+    if ($Node -is [System.Collections.IEnumerable] -and 
+    $Node -isnot [string] -and 
+    $Node -isnot [hashtable]) {
+        foreach ($item in $Node) {
             $children = @()
 
-            if (
-                $Node[$key] -and
-                $Node[$key] -is [hashtable] -and
-                $Node[$key].Count -gt 0
-            ) {
-                $children = Format-Folders -Node $Node[$key]
+            if($item.SubFolders -and $item.SubFolders.Count -gt 0 ) {
+                 $children = Format-Folders -Node $item.SubFolders
             }
 
             $result += [PSCustomObject]@{
-                Name     = $key
-                Children =  @($children)
+                Name        =   $item.Name
+                Children    =   @($children)
             }
         }
     }
 
-    # PSCustomObject (JSON)
-    elseif ($Node -is [PSCustomObject]) {
-
-        foreach ($prop in $Node.PSObject.Properties) {
-
+    elseif ($Node -is [hashtable]) {
+        foreach ($key in $Node.Keys){
             $children = @()
-
-            if (
-                $prop.Value -and
-                (
-                    $prop.Value -is [hashtable] -or
-                    $prop.Value -is [PSCustomObject]
-                ) -and
-                $prop.Value.PSObject.Properties.Count -gt 0
-            ) {
-                $children = Format-Folders -Node $prop.Value
+            
+            if($Node[$key] -and $Node[$key].Count -gt 0 ) {
+                $children = Format-Folders -Node $Node[$key]
             }
 
             $result += [PSCustomObject]@{
-                Name     = $prop.Name
-                Children = $children
+                Name        =   $key
+                Children    =   @($childern)
             }
         }
     }

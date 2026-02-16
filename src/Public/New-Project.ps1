@@ -31,7 +31,7 @@ function New-Project{
     }
 
     if (!(Test-Path $Path)){
-        Write-RenderKitLog -Level Error -Message "Taget path does not exist: $Path"
+        Write-RenderKitLog -Level Error -Message "Target path does not exist: $Path"
         return
     }
 
@@ -45,13 +45,19 @@ function New-Project{
     #-------------------------------------------------------------
     # PHASE 3 : Resolve Template
     #------------------------------------------------------------- 
-
+    $userTemplate = Join-Path $ENV:APPDATA "RenderKit\templates\"
+    $sysTemplate = Join-Path $PSScriptRoot "..\Resources\Templates\"
     if (!($TemplatePath)){
         if($Template){
-            $TemplatePath = Join-Path $PSScriptRoot "..\Resources\Templates\$Template.json"
+            if(Get-ChildItem $userTemplate -Recurse) {
+                $TemplatePath = Join-Path $userTemplate "$Template.json"
+            }
+            elseif(Get-ChildItem $sysTemplate -Recurse){
+                $TemplatePath = Join-Path $sysTemplate "$Template.json"
+            }
         }
         else{
-            $TemplatePath = Join-Path $PSScriptRoot "..\Resources\Templates\default.json"
+            $TemplatePath = Join-Path $sysTemplate "default.json"
         }
     }
 

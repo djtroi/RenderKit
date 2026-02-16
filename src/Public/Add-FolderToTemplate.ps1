@@ -5,21 +5,23 @@ function Add-FolderToTemplate {
     [string]$TemplateName,
     [Parameter(Mandatory, Position = 1)]
     [string]$FolderPath,
-    [string]$Mapping
+    [string]$MappingId
     )
 
- $root = Get-RenderKitRoot
+    $root = Get-RenderKitRoot
     $templatePath = Join-Path $root "templates\$TemplateName.json"
 
     if (!(Test-Path $templatePath)) {
-        throw "Template '$TemplateName' not found."
+        Write-RenderKitLog -Level Error -Message "Template '$TemplateName' not found."
     }
 
     $json = Get-Content $templatePath -Raw | ConvertFrom-Json
 
-    # Ensure Folders exists
-    if (-not $json.PSObject.Properties['Folders']) {
-        $json | Add-Member -MemberType NoteProperty -Name Folders -Value @()
+    if (!($json.Folders)) {
+        $json | Add-Member -MemberType NoteProperty -Name Folders -Value ([System.Collections.ArrayList]::new()) -Force
+    }
+    elseif ($json.Folders -isnot [System.Collections.ArrayList]) {
+        $json.Folders = [System.Collections.ArrayList]@($json.Folders)
     }
 
     $parts = $FolderPath -split '[\\/]'
@@ -29,30 +31,31 @@ function Add-FolderToTemplate {
 
         $existing = $currentLevel | Where-Object Name -eq $part
 
-        if (-not $existing) {
+        if (!($existing)) {
 
             $newFolder = [PSCustomObject]@{
-                Name       = $part
-                Mapping    = $null
-                SubFolders = @()
+                Name            = $part
+                MappingId       = $null
+                SubFolders      = [System.Collections.ArrayList]::new()
             }
 
-            $currentLevel = @($currentLevel) + $newFolder
-
+            #$currentLevel += $newFolder
+            $null = $currentLevel.Add($newFolder)
             $existing = $newFolder
-        }
 
-        # Ensure SubFolders exists
-        if (-not $existing.PSObject.Properties['SubFolders']) {
-            $existing | Add-Member -MemberType NoteProperty -Name SubFolders -Value @()
+        }
+        if (!($existing.SubFolders -isnot [System.Collections.ArrayList])){
+            #$existing | Add-Member -MemberType NoteProperty -Name SubFolders -Value @() -Force
+            $existing.SubFolders = [System.Collections.ArrayList]@($existing.SubFolders)
         }
 
         $currentLevel = $existing.SubFolders
     }
 
     # Mapping nur auf finalem Ordner setzen
-    if ($Mapping) {
-        $existing.Mapping = $Mapping
+    if ($MappingId) {
+        $existing.MappingId = $MappingId
+        Write-RenderKitLog -Level Debug -Message "Mapping found: $MappingId"
     }
 
     $json | ConvertTo-Json -Depth 20 |
@@ -60,5 +63,3 @@ function Add-FolderToTemplate {
 
     Write-RenderKitLog -Level Info -Message "Folder '$FolderPath' added to '$TemplateName'"
 }
-
-#no return in the .json somehow.
