@@ -19,7 +19,7 @@ function Get-ProjectTemplate {
         Write-RenderKitLog -Level Error -Message " Template $TemplateName contains invalid JSON" 
     }
 
-    Validate-ProjectTemplate -Template $json 
+    Confirm-Template -Template $json 
 
     return $json
 }
@@ -41,7 +41,7 @@ function Confirm-Template {
         Write-RenderKitLog -Level Error -Message "Template is Mssing 'Folders' property."
     }
 
-    if (!($Template.Version -ne "1.0")) { #TODO Implement Logic, that reads from .psd1 the actual schema version 
+    if ($Template.Version -ne "1.0") { #TODO Implement Logic, that reads from .psd1 the actual schema version 
         Write-RenderKitLog -Level Warning -Message "Unsupported Template Version '$($Template.Version)'."
     }
 
@@ -69,4 +69,54 @@ function Test-FolderNode {
             Test-FolderNode $sub
         }
     }
+}
+
+function New-ProjectFolderRecursive {
+    param(
+        [Parameter(Mandatory)]
+        [string]$BasePath,
+        [Parameter(Mandatory)]
+        $FolderNode
+    )
+
+    $currentPath = Join-Path $BasePath $FolderNode.Name 
+
+    if (!(Test-Path $currentPath)) {
+        New-Item -ItemType Directory -Path $currentPath | Out-Null 
+    }
+
+    if ($FolderNode.SubFolders) {
+        foreach ($sub in $FolderNode.SubFolders) {
+            New-ProjectFolderRecursive -BasePath $currentPath -FolderNode $sub 
+        }
+    }
+}
+
+function New-ProjectMetadataFolder {
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProjectName,
+        [Parameter(Mandatory)]
+        [string]$ProjectRoot,
+        [Parameter(Mandatory)]
+        [string]$TemplateName,
+        [Parameter(Mandatory)]
+        [string]$TemplateSource
+
+
+    )
+        
+        $renderKitPath = Join-Path $ProjectRoot ".renderkit"
+        New-Item -ItemType Directory -Path $renderKitPath -ErrorAction Stop | Out-Null
+
+        #Metadata
+        $metadata = New-RenderKitProjectMetadata `
+        -ProjectName $ProjectName `
+        -TemplateName $templateInfo.Name `
+        -TemplateSource $templateInfo.Source 
+
+        Write-RenderKitProjectMetadata `
+        -ProjectRoot $ProjectRoot `
+        -Metadata $metadata
+
 }

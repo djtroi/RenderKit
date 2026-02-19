@@ -17,7 +17,7 @@ $script:RenderKitDebugMode = $false
 #Release
 $publicPath  = Join-Path $PSScriptRoot 'Public'
 $privatePath = Join-Path $PSScriptRoot 'Private'
-$resourcesPath = Join-Path $PSScriptRoot 'Resources'
+#$resourcesPath = Join-Path $PSScriptRoot 'Resources'
 $classesPath = Join-Path $PSScriptRoot 'Classes'
 
 if (Test-Path $classesPath){
@@ -40,10 +40,10 @@ if (Test-Path $privatePath) {
 }
 
 
-if (-not (Test-Path $resourcesPath)) {
-    Get-ChildItem "$resourcesPath\*.ps1" -Recurse | ForEach-Object { . $_ }
-} else {
-    Write-Error "Resources folder not found: $resourcesPath "
-}
+# if (-not (Test-Path $resourcesPath)) {
+#     Get-ChildItem "$resourcesPath\*.ps1" -Recurse | ForEach-Object { . $_ }
+# } else {
+#     Write-Error "Resources folder not found: $resourcesPath "
+# }
 
 
