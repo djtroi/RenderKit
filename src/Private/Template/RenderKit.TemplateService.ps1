@@ -1,27 +1,26 @@
 function Get-ProjectTemplate {
+
     param(
-        [Parameter(Mandatory)]
         [string]$TemplateName
     )
-    $root = Get-RenderKitRoot
-    $templatePath = Join-Path $root "templates\$TemplateName.json" 
 
-    if(!(Test-Path $templatePath)) {
-        Write-RenderKitLog -Level Error -Message " $TemplateName not found at $templatePath"
-    }
-
-    $raw = Get-Content $templatePath -Raw 
+    $resolved = Resolve-ProjectTemplate -TemplateName $TemplateName
 
     try {
-        $json = $raw | ConvertFrom-Json -ErrorAction Stop
+        $json = Get-Content $resolved.Path -Raw |
+                ConvertFrom-Json -ErrorAction Stop
     }
     catch {
-        Write-RenderKitLog -Level Error -Message " Template $TemplateName contains invalid JSON" 
+        throw "Invalid JSON in template '$($resolved.Name)'"
     }
 
-    Confirm-Template -Template $json 
+    Confirm-Template -Template $json
 
-    return $json
+    return [PSCustomObject]@{
+        Name    = $resolved.Name
+        Source  = $resolved.Source
+        Folders = $json.Folders
+    }
 }
 
 function Confirm-Template {
@@ -93,30 +92,31 @@ function New-ProjectFolderRecursive {
 }
 
 function New-ProjectMetadataFolder {
+
     param(
         [Parameter(Mandatory)]
         [string]$ProjectName,
+
         [Parameter(Mandatory)]
         [string]$ProjectRoot,
+
         [Parameter(Mandatory)]
         [string]$TemplateName,
+
         [Parameter(Mandatory)]
         [string]$TemplateSource
-
-
     )
-        
-        $renderKitPath = Join-Path $ProjectRoot ".renderkit"
-        New-Item -ItemType Directory -Path $renderKitPath -ErrorAction Stop | Out-Null
 
-        #Metadata
-        $metadata = New-RenderKitProjectMetadata `
+    $renderKitPath = Join-Path $ProjectRoot ".renderkit"
+
+    New-Item -ItemType Directory -Path $renderKitPath -Force | Out-Null
+
+    $metadata = New-RenderKitProjectMetadata `
         -ProjectName $ProjectName `
-        -TemplateName $templateInfo.Name `
-        -TemplateSource $templateInfo.Source 
+        -TemplateName $TemplateName `
+        -TemplateSource $TemplateSource
 
-        Write-RenderKitProjectMetadata `
+    Write-RenderKitProjectMetadata `
         -ProjectRoot $ProjectRoot `
         -Metadata $metadata
-
 }

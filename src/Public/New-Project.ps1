@@ -22,6 +22,7 @@ function New-Project {
     #create root
     
     try{
+    Write-RenderKitLog -Level Debug -Message "Creating new ProjectMEtaDataFolder"
     New-ProjectMetadataFolder `
     -ProjectName $Name `
     -ProjectRoot $ProjectRoot `
@@ -31,8 +32,8 @@ function New-Project {
     Write-RenderKitLog -Level Debug -Message "Logging initialized"
     }
     catch{
-        throw $_ 
         Write-RenderKitLog -Level Error -Message "Couldn't create .renderkit folder"
+        throw
     }
     #create foldertree
     foreach ($folder in $templateObject.Folders){

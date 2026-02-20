@@ -1,58 +1,37 @@
 function Resolve-ProjectTemplate {
+
     param(
-        [string]$TemplateName,
-        [string]$TemplatePath
+        [string]$TemplateName
     )
 
     Write-RenderKitLog -Level Debug -Message "Resolving project template..."
 
-    #explicit path wins
+    $templates = Get-RenderKitTemplates
 
-    if ($TemplatePath) {
-
-        if (!(Test-Path $TemplatePath)) {
-            Write-RenderKitLog -Level Error -Message "Template not found at path: $TemplatePath"
-        }
-
-        return @{
-            Name        =   [IO.Path]::GetFileNameWithoutExtension($TemplatePath)
-            Path        =   (Resolve-Path $TemplatePath).Path 
-            Source      =   "custom"
-        }
-    }
-
-    #resolve by name (User overrides system)
-
+    # user template input overrides system
     if ($TemplateName) {
-        $templates = Get-RenderKitTemplates 
-        $match = $templates | Where-Object Name -eq $TemplateName
 
-        if (!($match)) {
-            Write-RenderKitLog -Level Error -Message "$TemplateName not found. Available templates: $($templates.Name -join ', ')"
+        $match = $templates |
+            Where-Object Name -eq $TemplateName |
+            Sort-Object @{Expression = {$_.Source -eq "user"}; Descending = $true} |
+            Select-Object -First 1
+
+        if (-not $match) {
+            throw "Template '$TemplateName' not found."
         }
 
-        return @{
-            Name        =   $match.Name
-            Path        =   $match.Path 
-            Source      =   if ($match.IsSystem) { "system" } else { "user" }
-        }
+        return $match
     }
 
-    #default template resolution
+    # fallback to default
+    $default = $templates |
+        Where-Object Name -eq "default" |
+        Sort-Object @{Expression = {$_.Source -eq "user"}; Descending = $true} |
+        Select-Object -First 1
 
-    Write-RenderKitLog -Level Warning -Message "No template specified. Resolving default template..."
-
-    $templates = Get-RenderKitTemplates 
-    $default = $templates | Where-Object Name -eq "default"
-
-    if (!($default)) {
-        Write-RenderKitLog -Level Error -Message "Default template not found"
+    if (-not $default) {
+        throw "Default template not found."
     }
 
-    return @{
-        Name        =   $default.Name
-        Path        =   $default.Path
-        Source      =   if ($default.IsSystem) { "system" } else { "user" }
-    }
-
+    return $default
 }
