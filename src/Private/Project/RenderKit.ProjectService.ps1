@@ -15,7 +15,6 @@ function Resolve-ProjectPath {
 
         Write-RenderKitLog -Level Warning -Message "No path provided. Using default project path."
         $Path = $config.DefaultProjectPath
-        throw $_
     }
 
     # Validate Path
