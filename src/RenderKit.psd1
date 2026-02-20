@@ -12,6 +12,11 @@
         'New-Project'
         'Backup-Project'
         'Set-ProjectRoot'
+        'Add-RenderKitMappingToTemplate'
+        'Add-RenderKitTypeToMapping'
+        'New-RenderKitMapping'
+        'New-RenderKitTemplate'
+        'Add-FolderToTemplate'
         )
     CmdletsToExport = @()
     AliasesToExport = @()
