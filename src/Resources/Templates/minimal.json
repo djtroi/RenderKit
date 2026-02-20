@@ -1,8 +1,25 @@
-{   
-    "folders": {
-        "00_Inbox": {},
-        "01_Project": {},
-        "02_Exports": {}
-        
+{
+  "Version": "1.0",
+  "Name": "minimal",
+  "Description": "Minimal Project Template",
+  "Folders": [
+    {
+      "Name": "00_Inbox",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "01_Project",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "02_Exports",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": []
     }
+  ]
 }

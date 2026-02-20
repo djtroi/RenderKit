@@ -1,13 +1,55 @@
+{
+  "Version": "1.0",
+  "Name": "youtube",
+  "Description": "YouTube Project Template",
+  "Folders": [
     {
-    "folders": {
-        "00_Footage": {},
-        "01_Audio": {},
-        "02_BRoll": {},
-        "03_Music": {},
-        "04_Project": {},
-        "05_Color": {},
-        "06_Exports": {},
-        "07_Backups": {}
-        }
+      "Name": "00_Footage",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "01_Audio",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "02_BRoll",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "03_Music",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "04_Project",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "05_Color",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "06_Exports",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "07_Backups",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": []
     }
-    
+  ]
+}

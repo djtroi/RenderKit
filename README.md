@@ -4,29 +4,67 @@
 
 
 # Overview
-**RenderKit** is a Simple yet powerful Powershell Module that helps you optimize your Workflow while editing / producing videos.  <br>
-Please Note, that this Modul is not released yet. 
+**RenderKit** is a simple but powerful PowerShell module that helps you optimize your workflow while editing or producing videos.  
+Please note that this module is not released yet.
 
-## Functions
-RenderKit provides you these Functions: 
-
-- Set-ProjectRoot 
+## Public Functions
+`Set-ProjectRoot`  
+Sets the default base path for your projects (stored in `%APPDATA%\RenderKit\config.json`).
 ```powershell
-Set-ProjectRoot "D:\Editing_Projects\"
+Set-ProjectRoot -Path "D:\Editing_Projects"
 ```
-Set-ProjectRoots lets you set a default Path for all your video project folders so you can save time, defining an absolute path everytime you create a new project. 
 
-- New-Project 
+`New-Project`  
+Creates a new project folder structure from a template. If `-Template` is omitted, `default` is used. If `-Path` is omitted, the configured project root is used.
 ```powershell
-New-Project "WeddingFilm" "template"
-``` 
-New-Project creates for you your designated folder-structure for your project. The structure in .\Template\default.json defined. Feel free to edit it
+New-Project WeddingFilm youtube
+New-Project -Name "WeddingFilm" -Template "youtube"
+New-Project -Name "WeddingFilm" -Path "D:\Projects"
+```
 
--Backup-Project
+`New-RenderKitTemplate`  
+Creates a new user template in AppData.
 ```powershell
-Backup-Project "Weddingfilm" -Software -KeepEmptyFolders -DryRun
-``` 
-Backup-Project creates structured backups of RenderKit projects, cleans temporary files, proxy files and software artifacts (WIP) before backup
+New-RenderKitTemplate -Name "my-template"
+```
+
+`Add-FolderToTemplate`  
+Adds a folder path (and optional mapping) to a template.
+```powershell
+Add-FolderToTemplate -TemplateName "my-template" -FolderPath "01_Raw/01_Video"
+Add-FolderToTemplate -TemplateName "my-template" -FolderPath "01_Raw/01_Video" -MappingId "video"
+```
+
+`New-RenderKitMapping`  
+Creates a new mapping file in AppData.
+```powershell
+New-RenderKitMapping -Id "camera"
+```
+
+`Add-RenderKitTypeToMapping`  
+Adds a file type and extensions to a mapping.
+```powershell
+Add-RenderKitTypeToMapping -MappingId "camera" -TypeName "Video" -Extensions ".mp4",".mov"
+```
+
+`Add-RenderKitMappingToTemplate`  
+Registers a mapping in a template (supports multiple mappings per template).
+```powershell
+Add-RenderKitMappingToTemplate -TemplateName "my-template" -MappingId "camera"
+```
+
+`Backup-Project`  
+Cleans a project and creates a backup archive (supports `-WhatIf` / `-Confirm`).
+```powershell
+Backup-Project -ProjectName "WeddingFilm" -Software "DaVinci" -KeepEmptyFolders
+Backup-Project -ProjectName "WeddingFilm" -DryRun
+```
+
+`Import-Media`  
+Planned import engine. Currently a placeholder.
+```powershell
+Import-Media
+```
 
 # Basic Usage
 ## Installation
@@ -40,9 +78,6 @@ Install-Module -Name RenderKit
 These are the ad hoc functions and improvements that I'm looking forward to implement. If you have the time and motivation, feel free to open a PR for one of the features.
 
 ## Fundamentals & Stability
-
-- Add Debugging & Logging Feature
-
 
 - Add Error- / Exceptionhandling and Rollback
 
@@ -71,3 +106,5 @@ These are the ad hoc functions and improvements that I'm looking forward to impl
 - Create a Naming-Conventions into the configuration
 
 - Create a Multi-Project-Management (list, filter, create status etc.)
+
+- Pester Integration

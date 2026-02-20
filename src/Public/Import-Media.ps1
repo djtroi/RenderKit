@@ -12,9 +12,9 @@ RoadMap Architecture:
 
     2. Create a Drive Detection Engine
         - Function to automatically detect removable drives like Cameras, SD Cards, Thumb Drives etc
-        for convenience
+        for convenience --> Generate a List for User in CLI and let him confirm it 
         - Check for Volume Name (TypeList with common camera names etc. --> Extra Function to 
-        manage this whitelist) Appdata -> RenderKit -> detectlist.json 
+        manage this whitelist) Appdata -> RenderKit -> detectlist.json or .txt --> 
         - Check for Format System of the Drive (TypeList for common Format System for SD cards, cameras etc)
         I need to Do some research about this topic
         - Create a Function to expand the WhiteList with SerialNumber = Once Mapped -> Its saved in AppData config
