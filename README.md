@@ -60,10 +60,38 @@ Backup-Project -ProjectName "WeddingFilm" -Software "DaVinci" -KeepEmptyFolders
 Backup-Project -ProjectName "WeddingFilm" -DryRun
 ```
 
+`Get-RenderKitDriveCandidate`  
+Detects mounted source-drive candidates (`FAT32`/`exFAT`, with `exFAT` priority).
+```powershell
+Get-RenderKitDriveCandidate
+Get-RenderKitDriveCandidate -IncludeFixed
+```
+
+`Select-RenderKitDriveCandidate`  
+Shows detected candidates in CLI and lets you confirm one by index.
+```powershell
+Select-RenderKitDriveCandidate
+```
+
+`Get-RenderKitDeviceWhitelist`  
+Reads the device whitelist from `%APPDATA%\RenderKit\Devices.json` (file is auto-created if missing).
+```powershell
+Get-RenderKitDeviceWhitelist
+```
+
+`Add-RenderKitDeviceWhitelistEntry`  
+Adds volume names and/or serial numbers to the whitelist.
+```powershell
+Add-RenderKitDeviceWhitelistEntry -VolumeName "EOS_DIGITAL"
+Add-RenderKitDeviceWhitelistEntry -DriveLetter "E:"
+Add-RenderKitDeviceWhitelistEntry -FromMountedVolumes
+```
+
 `Import-Media`  
-Planned import engine. Currently a placeholder.
+Entry point for media import detection. Lists candidates or lets you select one.
 ```powershell
 Import-Media
+Import-Media -SelectSource
 ```
 
 # Basic Usage

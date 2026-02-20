@@ -78,5 +78,20 @@ RoadMap Architecture:
 
 #>
 function Import-Media{
+    [CmdletBinding()]
+    param(
+        [switch]$SelectSource,
+        [switch]$IncludeFixed,
+        [switch]$IncludeUnsupportedFileSystem
+    )
 
+    if ($SelectSource) {
+        return Select-RenderKitDriveCandidate `
+            -IncludeFixed:$IncludeFixed `
+            -IncludeUnsupportedFileSystem:$IncludeUnsupportedFileSystem
+    }
+
+    return Get-RenderKitDriveCandidate `
+        -IncludeFixed:$IncludeFixed `
+        -IncludeUnsupportedFileSystem:$IncludeUnsupportedFileSystem
 }

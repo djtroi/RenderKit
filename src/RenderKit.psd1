@@ -11,12 +11,17 @@
     FunctionsToExport = @(
         'New-Project'
         'Backup-Project'
+        'Import-Media'
         'Set-ProjectRoot'
         'Add-RenderKitMappingToTemplate'
         'Add-RenderKitTypeToMapping'
         'New-RenderKitMapping'
         'New-RenderKitTemplate'
         'Add-FolderToTemplate'
+        'Get-RenderKitDriveCandidate'
+        'Select-RenderKitDriveCandidate'
+        'Get-RenderKitDeviceWhitelist'
+        'Add-RenderKitDeviceWhitelistEntry'
         )
     CmdletsToExport = @()
     AliasesToExport = @()
