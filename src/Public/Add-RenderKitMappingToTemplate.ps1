@@ -12,10 +12,19 @@ function Add-RenderKitMappingToTemplate {
 
     $template = Read-RenderKitTemplateFile -Path $templatePath
 
-    if (-not $template.Mappings) {
-        $template | Add-Member -MemberType NoteProperty -Name Mappings -Value @() -Force
+    if (-not ($template.PSObject.Properties.Name -contains "Mappings")) {
+        $template | Add-Member -MemberType NoteProperty -Name Mappings -Value ([System.Collections.ArrayList]::new()) -Force
     }
-    $template.Mappings += $MappingId
+    elseif ($template.Mappings -isnot [System.Collections.ArrayList]) {
+        $template.Mappings = [System.Collections.ArrayList]@($template.Mappings)
+    }
+
+    if ($template.Mappings -contains $MappingId) {
+        Write-RenderKitLog -Level Warning -Message "Mapping $MappingId already exists in template $TemplateName."
+    }
+    else {
+        $null = $template.Mappings.Add($MappingId)
+    }
 
     Write-RenderKitTemplateFile -Template $template -Path $templatePath
 

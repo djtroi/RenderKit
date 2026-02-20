@@ -43,8 +43,10 @@ function Add-FolderToTemplate {
             $existing = $newFolder
 
         }
-        if (!($existing.SubFolders -isnot [System.Collections.ArrayList])){
-            #$existing | Add-Member -MemberType NoteProperty -Name SubFolders -Value @() -Force
+        if (-not $existing.SubFolders) {
+            $existing.SubFolders = [System.Collections.ArrayList]::new()
+        }
+        elseif ($existing.SubFolders -isnot [System.Collections.ArrayList]) {
             $existing.SubFolders = [System.Collections.ArrayList]@($existing.SubFolders)
         }
 

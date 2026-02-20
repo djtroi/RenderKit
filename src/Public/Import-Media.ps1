@@ -8,7 +8,6 @@ RoadMap Architecture:
         - There can be more Mapping rules. - done
         - The Connection between Mappings and Template are n to n - done
         - We to define a path for each type. 
-        IF json folder type = footage THEN = Path = Template.Folder.Footage
         - Final: Get it production ready 
 
     2. Create a Drive Detection Engine

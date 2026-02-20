@@ -6,30 +6,29 @@ function Read-ProjectTemplate{
         
     )
 
-    if (!($Path -or (!(Test-Path $Path)))){
+    if (-not $Path -or -not (Test-Path $Path)) {
         throw "Template not found: $Path"
     }
     $ext = [IO.Path]::GetExtension($Path).ToLower()
 
     switch($ext){
-        ".json"{
-            try{
-                $json = Get-Content $Path -Raw | ConvertFrom-Json
-                if(!($json.PSObject.Properties['Folders'])){
+        ".json" {
+            try {
+                $json = Get-Content $Path -Raw | ConvertFrom-Json -ErrorAction Stop
+                if (-not ($json.PSObject.Properties['Folders'])) {
                     throw "JSON does not contain a folders tag"
-                    
-            }  
-            return Format-Folders -Node $json.folders 
+                }
+                return Format-Folders -Node $json.folders
+            }
+            catch {
+                throw "Invalid json template: $_"
+            }
         }
-        catch{
-            throw "Invalid json template: $_"
-        }
-    }
-    ".md"{
-        try{
-            $lines = Get-Content $Path
-            $stack = @(@{})
-            $lastIndent = 0
+        ".md" {
+            try {
+                $lines = Get-Content $Path
+                $stack = @(@{})
+                $lastIndent = 0
 
             foreach ($line in $lines) {
                 if ($line -notmatch '^\s*-\s+') { continue }
@@ -49,12 +48,13 @@ function Read-ProjectTemplate{
                 $lastIndent = $indent
             }
 
+            $root = $stack[0]
             return Format-Folders -Node $root
+            }
+            catch {
+                throw "Invalid Markdown template $_"
+            }
         }
-        catch {
-            throw "Invalid Markdown template $_"
-        }
-    }
         
     default{
         throw "unsupported template format: $ext"
@@ -97,7 +97,7 @@ function Format-Folders {
 
             $result += [PSCustomObject]@{
                 Name        =   $key
-                Children    =   @($childern)
+                Children    =   @($children)
             }
         }
     }
@@ -105,4 +105,3 @@ function Format-Folders {
     return @($result)
 }
     
-

@@ -12,6 +12,7 @@ function New-Project {
     #project path
     if(Test-Path $ProjectRoot) {
         Write-RenderKitLog -Level Error -Message "Project '$Name' already exists at '$ProjectRoot'."
+        throw $_
     }
 
     #load template

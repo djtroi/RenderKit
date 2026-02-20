@@ -34,7 +34,7 @@ function Get-RenderKitUserMappingsRoot {
 
 function Get-RenderKitSystemTemplatesRoot {
     if (-not $script:RenderKitModuleRoot) {
-        $script:RenderKitModuleRoot = $PSScriptRoot
+        $script:RenderKitModuleRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     }
 
     return Join-Path $script:RenderKitModuleRoot "Resources/Templates"

@@ -12,10 +12,17 @@ function Add-RenderKitTypeToMapping {
 
     $json = Read-RenderKitMappingFile -MappingId $MappingId
 
-    $json.Types += @{
+    if (-not ($json.PSObject.Properties.Name -contains "Types")) {
+        $json | Add-Member -MemberType NoteProperty -Name Types -Value ([System.Collections.ArrayList]::new()) -Force
+    }
+    elseif ($json.Types -isnot [System.Collections.ArrayList]) {
+        $json.Types = [System.Collections.ArrayList]@($json.Types)
+    }
+
+    $null = $json.Types.Add(@{
         Name        =   $TypeName
         Extensions  =   $Extensions
-    }
+    })
 
     Write-RenderKitMappingFile -Mapping $json -MappingId $MappingId
     

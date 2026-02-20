@@ -10,15 +10,18 @@ function Resolve-ProjectPath {
     if (-not $Path) {
         if (-not $config.DefaultProjectPath) {
             Write-RenderKitLog -Level Error -Message "No default project path configured. Use 'Set-ProjectRoot first'"
+            throw $_
         }
 
         Write-RenderKitLog -Level Warning -Message "No path provided. Using default project path."
         $Path = $config.DefaultProjectPath
+        throw $_
     }
 
     # Validate Path
     if (-not (Test-Path $Path)) {
         Write-RenderKitLog -Level Error -Message "Target path does not exist: $Path"
+        throw $_
     }
 
     # Build Project Root
@@ -26,6 +29,7 @@ function Resolve-ProjectPath {
 
     if (Test-Path $ProjectRoot) {
         Write-RenderKitLog -Level Error -Message "Project already exists: $ProjectRoot"
+        throw $_
     }
 
     return $ProjectRoot
@@ -53,7 +57,7 @@ function New-RenderKitProjectFromTemplate {
     }
     catch {
         Write-RenderKitLog -Level Error -Message "Couldn't create .renderkit folder"
-        throw
+        throw $_
     }
 
     foreach ($folder in $Template.Folders){
