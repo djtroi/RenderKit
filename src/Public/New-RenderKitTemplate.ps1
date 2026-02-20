@@ -4,9 +4,8 @@ function New-RenderKitTemplate {
         [string]$Name 
     )
 
-    $root = Get-RenderKitRoot
-    $templateFolder = Join-Path $root "templates\"
-    $templatePath = Join-Path $root "templates\$Name.json"
+    $templateFolder = Get-RenderKitUserTemplatesRoot
+    $templatePath = Get-RenderKitUserTemplatePath -TemplateName $Name
 
     if (Test-Path $templatePath) {
         Write-RenderKitLog -Level Error -Message "Template $Name already exists."
@@ -18,8 +17,7 @@ function New-RenderKitTemplate {
     }
     $template = [RenderKitTemplate]::new($Name)
 
-    $template | ConvertTo-Json -Depth 5 | 
-    Set-Content -Path $templatePath -Encoding UTF8
+    Write-RenderKitTemplateFile -Template $template -Path $templatePath
 
     Write-RenderKitLog -Level Info -Message "Template $Name created successfully."
 }

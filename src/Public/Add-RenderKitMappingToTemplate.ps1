@@ -4,19 +4,20 @@ function Add-RenderKitMappingToTemplate {
         [string]$MappingId
     )
 
-    $root = Get-RenderKitRoot 
-    $templatePath = Join-Path $root "templates\$TemplateName.json"
+    $templatePath = Get-RenderKitUserTemplatePath -TemplateName $TemplateName
 
     if (!(Test-Path $templatePath)) {
         Write-RenderKitLog -Level Error -Message "Template $TemplateName not found."
     }
 
-    $template = Get-Content $templatePath | ConvertFrom-Json
+    $template = Read-RenderKitTemplateFile -Path $templatePath
 
-    $template.Mappings += $MappingId 
+    if (-not $template.Mappings) {
+        $template | Add-Member -MemberType NoteProperty -Name Mappings -Value @() -Force
+    }
+    $template.Mappings += $MappingId
 
-    $template | ConvertTo-Json -Depth 5 | 
-    Set-Content $templatePath -Encoding UTF8
+    Write-RenderKitTemplateFile -Template $template -Path $templatePath
 
     Write-RenderKitLog -Level Info -Message "Mapping $MappingId inserted into the template. "
 }

@@ -1,5 +1,6 @@
 #Module Version
 $script:ManifestPath = Join-Path $PSScriptRoot 'RenderKit.psd1'
+$script:RenderKitModuleRoot = $PSScriptRoot
 
 if (Test-Path $script:ManifestPath) {
     $manifest = Import-PowerShellDataFile -Path $script:ManifestPath

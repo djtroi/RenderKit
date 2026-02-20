@@ -3,9 +3,8 @@ function New-RenderKitMapping {
         [Parameter(Mandatory)]
         [string]$Id 
     )
-    $root = Get-RenderKitRoot 
-    $mappingPath = Join-Path $root "mappings\$Id.json"
-    $mappingFolder = Join-Path $root "mappings\"
+    $mappingPath = Get-RenderKitUserMappingPath -MappingId $Id
+    $mappingFolder = Get-RenderKitUserMappingsRoot
 
     if (Test-Path $mappingPath) {
         Write-RenderKitLog -Level Error -Message "Mapping '$Id' already exists."
@@ -16,8 +15,7 @@ function New-RenderKitMapping {
     }
     $mapping = [RenderKitMapping]::new($Id)
 
-    $mapping | ConvertTo-Json -Depth 5 | 
-    Set-Content -Path $mappingPath -Encoding UTF8 
+    Write-RenderKitMappingFile -Mapping $mapping -MappingId $Id 
 
 Write-RenderKitLog -Level Info -Message "Mapping '$Id' created successfully"
 }

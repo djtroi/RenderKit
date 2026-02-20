@@ -8,14 +8,13 @@ function Add-FolderToTemplate {
     [string]$MappingId
     )
 
-    $root = Get-RenderKitRoot
-    $templatePath = Join-Path $root "templates\$TemplateName.json"
+    $templatePath = Get-RenderKitUserTemplatePath -TemplateName $TemplateName
 
     if (!(Test-Path $templatePath)) {
         Write-RenderKitLog -Level Error -Message "Template '$TemplateName' not found."
     }
 
-    $json = Get-Content $templatePath -Raw | ConvertFrom-Json
+    $json = Read-RenderKitTemplateFile -Path $templatePath
 
     if (!($json.Folders)) {
         $json | Add-Member -MemberType NoteProperty -Name Folders -Value ([System.Collections.ArrayList]::new()) -Force
@@ -58,8 +57,7 @@ function Add-FolderToTemplate {
         Write-RenderKitLog -Level Debug -Message "Mapping found: $MappingId"
     }
 
-    $json | ConvertTo-Json -Depth 20 |
-        Set-Content $templatePath -Encoding UTF8
+    Write-RenderKitTemplateFile -Template $json -Path $templatePath
 
     Write-RenderKitLog -Level Info -Message "Folder '$FolderPath' added to '$TemplateName'"
 }
