@@ -77,21 +77,125 @@ RoadMap Architecture:
         - Camera Profiles (Folder Structure / Import efficiency)
 
 #>
-function Import-Media{
+function Import-Media {
     [CmdletBinding()]
     param(
         [switch]$SelectSource,
         [switch]$IncludeFixed,
-        [switch]$IncludeUnsupportedFileSystem
+        [switch]$IncludeUnsupportedFileSystem,
+        [switch]$ScanAndFilter,
+        [string]$SourcePath,
+        [string[]]$FolderFilter,
+        [Nullable[datetime]]$FromDate,
+        [Nullable[datetime]]$ToDate,
+        [string[]]$Wildcard,
+        [switch]$InteractiveFilter,
+        [ValidateRange(1, 500)]
+        [int]$PreviewCount = 30,
+        [switch]$AutoSelectAll,
+        [switch]$AutoConfirm
     )
 
-    if ($SelectSource) {
-        return Select-RenderKitDriveCandidate `
+    if (-not $ScanAndFilter) {
+        if ($SelectSource) {
+            return Select-RenderKitDriveCandidate `
+                -IncludeFixed:$IncludeFixed `
+                -IncludeUnsupportedFileSystem:$IncludeUnsupportedFileSystem
+        }
+
+        return Get-RenderKitDriveCandidate `
             -IncludeFixed:$IncludeFixed `
             -IncludeUnsupportedFileSystem:$IncludeUnsupportedFileSystem
     }
 
-    return Get-RenderKitDriveCandidate `
+    if ($null -ne $FromDate -and $null -ne $ToDate -and $FromDate -gt $ToDate) {
+        Write-RenderKitLog -Level Error -Message "-FromDate must be earlier than or equal to -ToDate."
+        throw "-FromDate must be earlier than or equal to -ToDate."
+    }
+
+    $resolvedSourcePath = Resolve-RenderKitImportSourcePath `
+        -SourcePath $SourcePath `
+        -SelectSource:$SelectSource `
         -IncludeFixed:$IncludeFixed `
         -IncludeUnsupportedFileSystem:$IncludeUnsupportedFileSystem
+
+    if ([string]::IsNullOrWhiteSpace($resolvedSourcePath)) {
+        Write-RenderKitLog -Level Warning -Message "No source was selected for scanning."
+        return $null
+    }
+
+    Write-Information "Phase 2: scanning source '$resolvedSourcePath'..." -InformationAction Continue
+    $catalog = @(Get-RenderKitImportFileCatalog -SourcePath $resolvedSourcePath)
+
+    $criteria = New-RenderKitImportCriteria `
+        -FolderFilter $FolderFilter `
+        -FromDate $FromDate `
+        -ToDate $ToDate `
+        -Wildcard $Wildcard
+
+    if ($InteractiveFilter) {
+        $additionalCriteria = Read-RenderKitImportAdditionalCriteria
+        if ($additionalCriteria) {
+            $criteria = Merge-RenderKitImportCriteria `
+                -BaseCriteria $criteria `
+                -AdditionalCriteria $additionalCriteria
+        }
+    }
+
+    $matchedFiles = @(
+        Get-RenderKitImportFilteredFiles `
+            -Files $catalog `
+            -Criteria $criteria |
+        Sort-Object LastWriteTime, RelativePath
+    )
+
+    Show-RenderKitImportPreviewTable `
+        -Files $matchedFiles `
+        -PreviewCount $PreviewCount `
+        -Title "Phase 2 preview"
+
+    $selectedFiles = @(
+        Select-RenderKitImportFileSubset `
+            -Files $matchedFiles `
+            -AutoSelectAll:$AutoSelectAll
+    )
+
+    if ($selectedFiles.Count -eq 0) {
+        Write-RenderKitLog -Level Info -Message "No files selected for import." 
+    }
+    else {
+        Show-RenderKitImportPreviewTable `
+            -Files $selectedFiles `
+            -PreviewCount $PreviewCount `
+            -Title "Selected files"
+    }
+
+    $matchedTotalBytes = Get-RenderKitImportTotalBytes -Files $matchedFiles
+    $selectedTotalBytes = Get-RenderKitImportTotalBytes -Files $selectedFiles
+
+    $confirmed = $false
+    if ($selectedFiles.Count -gt 0) {
+        $confirmed = Confirm-RenderKitImportSelection `
+            -FileCount $selectedFiles.Count `
+            -TotalBytes $selectedTotalBytes `
+            -AutoConfirm:$AutoConfirm
+    }
+
+    if (-not $confirmed -and $selectedFiles.Count -gt 0) {
+        Write-RenderKitLog -Level Info -Message "Import cancelled by user."
+    }
+
+    return [PSCustomObject]@{
+        SourcePath         = $resolvedSourcePath
+        ScanFileCount      = $catalog.Count
+        MatchedFileCount   = $matchedFiles.Count
+        SelectedFileCount  = $selectedFiles.Count
+        MatchedTotalBytes  = $matchedTotalBytes
+        SelectedTotalBytes = $selectedTotalBytes
+        MatchedTotalGB     = [Math]::Round(([double]$matchedTotalBytes / 1GB), 3)
+        SelectedTotalGB    = [Math]::Round(([double]$selectedTotalBytes / 1GB), 3)
+        Filters            = $criteria
+        Confirmed          = $confirmed
+        Files              = $selectedFiles
+    }
 }
