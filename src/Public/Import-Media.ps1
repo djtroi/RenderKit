@@ -107,6 +107,31 @@ function Import-Media {
         [string]$TransferHashAlgorithm = "SHA256"
     )
 
+    $isWizardMode = ($PSBoundParameters.Count -eq 0)
+    $wizardTransferSimulate = $false
+
+    if ($isWizardMode) {
+        $wizardConfig = Start-RenderKitImportInteractiveSetup `
+            -UnassignedHandling $UnassignedHandling
+
+        if (-not $wizardConfig) {
+            return $null
+        }
+
+        $ScanAndFilter = [bool]$wizardConfig.ScanAndFilter
+        $SelectSource = $false
+        $IncludeFixed = [bool]$wizardConfig.IncludeFixed
+        $IncludeUnsupportedFileSystem = [bool]$wizardConfig.IncludeUnsupportedFileSystem
+        $SourcePath = [string]$wizardConfig.SourcePath
+        $InteractiveFilter = [bool]$wizardConfig.InteractiveFilter
+        $AutoSelectAll = [bool]$wizardConfig.AutoSelectAll
+        $AutoConfirm = [bool]$wizardConfig.AutoConfirm
+        $ProjectRoot = [string]$wizardConfig.ProjectRoot
+        $Classify = [bool]$wizardConfig.Classify
+        $Transfer = [bool]$wizardConfig.Transfer
+        $UnassignedHandling = [string]$wizardConfig.UnassignedHandling
+    }
+
     if (-not $ScanAndFilter) {
         if ($SelectSource) {
             return Select-RenderKitDriveCandidate `
@@ -137,6 +162,18 @@ function Import-Media {
         return $null
     }
 
+    if ($isWizardMode) {
+        Show-RenderKitImportWizardStatus `
+            -Title "Import context before scan" `
+            -Data ([ordered]@{
+                ProjectRoot                 = $ProjectRoot
+                SourcePath                  = $resolvedSourcePath
+                IncludeFixed                = [bool]$IncludeFixed
+                IncludeUnsupportedFileSystem = [bool]$IncludeUnsupportedFileSystem
+                InteractiveFilter           = [bool]$InteractiveFilter
+            })
+    }
+
     Write-Information "Phase 2: scanning source '$resolvedSourcePath'..." -InformationAction Continue
     $catalog = @(Get-RenderKitImportFileCatalog -SourcePath $resolvedSourcePath)
 
@@ -162,6 +199,16 @@ function Import-Media {
         Sort-Object LastWriteTime, RelativePath
     )
 
+    if ($isWizardMode) {
+        Show-RenderKitImportWizardStatus `
+            -Title "Scan + filter result" `
+            -Data ([ordered]@{
+                ScannedFiles = $catalog.Count
+                MatchedFiles = $matchedFiles.Count
+                SourcePath   = $resolvedSourcePath
+            })
+    }
+
     Show-RenderKitImportPreviewTable `
         -Files $matchedFiles `
         -PreviewCount $PreviewCount `
@@ -181,6 +228,44 @@ function Import-Media {
             -Files $selectedFiles `
             -PreviewCount $PreviewCount `
             -Title "Selected files"
+
+        if ($isWizardMode) {
+            while ($true) {
+                Show-RenderKitImportWizardStatus `
+                    -Title "Selection checkpoint" `
+                    -Data ([ordered]@{
+                        MatchedFiles  = $matchedFiles.Count
+                        SelectedFiles = $selectedFiles.Count
+                        SelectionMode = if ($AutoSelectAll) { "Auto-select all" } else { "Manual selection" }
+                    })
+
+                $selectionReviewAction = Read-RenderKitImportSelectionReviewAction
+                if ($selectionReviewAction -eq "Continue") {
+                    break
+                }
+
+                if ($selectionReviewAction -eq "Cancel") {
+                    $selectedFiles = @()
+                    Write-RenderKitLog -Level Info -Message "Import cancelled during selection review."
+                    break
+                }
+
+                $selectedFiles = @(
+                    Select-RenderKitImportFileSubset `
+                        -Files $matchedFiles
+                )
+
+                if ($selectedFiles.Count -eq 0) {
+                    Write-RenderKitLog -Level Info -Message "No files selected for import."
+                    break
+                }
+
+                Show-RenderKitImportPreviewTable `
+                    -Files $selectedFiles `
+                    -PreviewCount $PreviewCount `
+                    -Title "Selected files (updated)"
+            }
+        }
     }
 
     $matchedTotalBytes = Get-RenderKitImportTotalBytes -Files $matchedFiles
@@ -208,10 +293,6 @@ function Import-Media {
         Write-Information "Phase 3: classifying selected files..." -InformationAction Continue
 
         $effectiveUnassignedHandling = $UnassignedHandling
-        if ($AutoConfirm -and $effectiveUnassignedHandling -eq "Prompt") {
-            $effectiveUnassignedHandling = "ToSort"
-            Write-RenderKitLog -Level Info -Message "AutoConfirm is enabled. Unassigned files default to '$effectiveUnassignedHandling'."
-        }
 
         $classificationResult = Get-RenderKitImportFileClassification `
             -Files $selectedFiles `
@@ -237,6 +318,32 @@ function Import-Media {
         $classifiedFiles = @($classificationResult.Files)
     }
 
+    if ($isWizardMode -and $confirmed -and $selectedFiles.Count -gt 0) {
+        $transferMode = Read-RenderKitImportTransferModeInteractive
+        switch ($transferMode) {
+            "Real" {
+                $Transfer = $true
+                $wizardTransferSimulate = $false
+            }
+            "Simulate" {
+                $Transfer = $true
+                $wizardTransferSimulate = $true
+            }
+            default {
+                $Transfer = $false
+                $wizardTransferSimulate = $false
+            }
+        }
+
+        Show-RenderKitImportWizardStatus `
+            -Title "Transfer decision" `
+            -Data ([ordered]@{
+                TransferRequested = [bool]$Transfer
+                TransferMode      = if ($Transfer) { if ($wizardTransferSimulate) { "Simulation" } else { "Real" } } else { "No transfer" }
+                ClassifiedFiles   = if ($classificationResult) { $classificationResult.FileCount } else { 0 }
+            })
+    }
+
     $transferResult = $null
     if ($Transfer -and $confirmed -and $selectedFiles.Count -gt 0) {
         if (-not $classificationResult) {
@@ -244,11 +351,11 @@ function Import-Media {
             throw "Phase 4 requires a Phase 3 classification result."
         }
 
-        $simulateTransfer = [bool]$WhatIfPreference
+        $simulateTransfer = [bool]$WhatIfPreference -or $wizardTransferSimulate
         $executeTransfer = $true
 
         if ($simulateTransfer) {
-            Write-Information "Phase 4: transaction-safe transfer simulation (-WhatIf)." -InformationAction Continue
+            Write-Information "Phase 4: transaction-safe transfer simulation." -InformationAction Continue
         }
         else {
             $executeTransfer = $PSCmdlet.ShouldProcess(
@@ -264,6 +371,34 @@ function Import-Media {
                 -ProjectRoot $classificationResult.ProjectRoot `
                 -HashAlgorithm $TransferHashAlgorithm `
                 -Simulate:$simulateTransfer
+
+            if ($simulateTransfer -and $isWizardMode -and -not [bool]$WhatIfPreference) {
+                $runRealTransfer = Read-RenderKitImportYesNo `
+                    -Prompt "Simulation completed. Execute real transfer now?" `
+                    -Default $false
+
+                if ($runRealTransfer) {
+                    $executeRealTransfer = $PSCmdlet.ShouldProcess(
+                        $classificationResult.ProjectRoot,
+                        "Phase 4 REAL transfer of $($classificationResult.Files.Count) classified file(s)"
+                    )
+
+                    if ($executeRealTransfer) {
+                        Write-Information "Phase 4: transaction-safe REAL transfer..." -InformationAction Continue
+                        $transferResult = Invoke-RenderKitImportTransactionSafeTransfer `
+                            -ClassifiedFiles $classificationResult.Files `
+                            -ProjectRoot $classificationResult.ProjectRoot `
+                            -HashAlgorithm $TransferHashAlgorithm
+                        $wizardTransferSimulate = $false
+                    }
+                    else {
+                        Write-RenderKitLog -Level Info -Message "Real transfer skipped by ShouldProcess."
+                    }
+                }
+                else {
+                    Write-RenderKitLog -Level Info -Message "Real transfer cancelled. Keeping simulation result only."
+                }
+            }
         }
         else {
             Write-RenderKitLog -Level Info -Message "Phase 4 skipped by ShouldProcess."

@@ -314,6 +314,504 @@ function ConvertFrom-RenderKitImportListInput {
     )
 }
 
+function Read-RenderKitImportYesNo {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Prompt,
+        [bool]$Default = $true
+    )
+
+    $suffix = if ($Default) { "[Y/n]" } else { "[y/N]" }
+
+    while ($true) {
+        $inputValue = Read-Host "$Prompt $suffix"
+        if ([string]::IsNullOrWhiteSpace($inputValue)) {
+            return $Default
+        }
+
+        switch ($inputValue.Trim().ToUpperInvariant()) {
+            "Y" { return $true }
+            "YES" { return $true }
+            "J" { return $true }
+            "JA" { return $true }
+            "N" { return $false }
+            "NO" { return $false }
+            "NEIN" { return $false }
+            default {
+                Write-Warning "Please answer with Y or N."
+            }
+        }
+    }
+}
+
+function Show-RenderKitImportWizardStatus {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Title,
+        [Parameter(Mandatory)]
+        [hashtable]$Data
+    )
+
+    Write-Information $Title -InformationAction Continue
+
+    $rows = @()
+    foreach ($key in $Data.Keys) {
+        $value = $Data[$key]
+        if ($value -is [bool]) {
+            $value = if ($value) { "Yes" } else { "No" }
+        }
+        elseif ($null -eq $value -or [string]::IsNullOrWhiteSpace([string]$value)) {
+            $value = "-"
+        }
+
+        $rows += [PSCustomObject]@{
+            Field = $key
+            Value = $value
+        }
+    }
+
+    $rows | Format-Table -AutoSize | Out-Host
+}
+
+function Read-RenderKitImportSelectionReviewAction {
+    [CmdletBinding()]
+    param()
+
+    while ($true) {
+        $choice = Read-Host "Selection check: [Y] Continue, [E] Edit selection, [C] Cancel import (default Y)"
+        if ([string]::IsNullOrWhiteSpace($choice)) {
+            return "Continue"
+        }
+
+        switch ($choice.Trim().ToUpperInvariant()) {
+            "Y" { return "Continue" }
+            "YES" { return "Continue" }
+            "J" { return "Continue" }
+            "JA" { return "Continue" }
+            "E" { return "Edit" }
+            "EDIT" { return "Edit" }
+            "C" { return "Cancel" }
+            "CANCEL" { return "Cancel" }
+            "N" { return "Cancel" }
+            "NO" { return "Cancel" }
+            default {
+                Write-Warning "Unknown option '$choice'."
+            }
+        }
+    }
+}
+
+function Read-RenderKitImportTransferModeInteractive {
+    [CmdletBinding()]
+    param()
+
+    while ($true) {
+        $choice = Read-Host "Transfer mode: [R]eal transfer, [S]imulate transfer, [N]o transfer (default R)"
+        if ([string]::IsNullOrWhiteSpace($choice)) {
+            return "Real"
+        }
+
+        switch ($choice.Trim().ToUpperInvariant()) {
+            "R" { return "Real" }
+            "REAL" { return "Real" }
+            "S" { return "Simulate" }
+            "SIMULATE" { return "Simulate" }
+            "W" { return "Simulate" }
+            "WHATIF" { return "Simulate" }
+            "N" { return "None" }
+            "NO" { return "None" }
+            "NONE" { return "None" }
+            default {
+                Write-Warning "Unknown option '$choice'."
+            }
+        }
+    }
+}
+
+function Get-RenderKitImportProjectCandidates {
+    [CmdletBinding()]
+    param(
+        [string]$BasePath
+    )
+
+    $roots = @()
+    if (-not [string]::IsNullOrWhiteSpace($BasePath)) {
+        $roots += $BasePath
+    }
+    else {
+        $config = Get-RenderKitConfig
+        if ($config) {
+            if (
+                $config -is [hashtable] -and
+                $config.ContainsKey("DefaultProjectPath") -and
+                -not [string]::IsNullOrWhiteSpace([string]$config.DefaultProjectPath)
+            ) {
+                $roots += [string]$config.DefaultProjectPath
+            }
+            elseif (
+                $config.PSObject.Properties.Name -contains "DefaultProjectPath" -and
+                -not [string]::IsNullOrWhiteSpace([string]$config.DefaultProjectPath)
+            ) {
+                $roots += [string]$config.DefaultProjectPath
+            }
+        }
+    }
+
+    $candidates = New-Object System.Collections.Generic.List[object]
+    foreach ($root in @($roots | Sort-Object -Unique)) {
+        if ([string]::IsNullOrWhiteSpace($root) -or -not (Test-Path -Path $root -PathType Container)) {
+            continue
+        }
+
+        foreach ($projectDir in @(Get-ChildItem -Path $root -Directory -ErrorAction SilentlyContinue)) {
+            $metadataPath = Join-Path $projectDir.FullName ".renderkit\project.json"
+            if (-not (Test-Path -Path $metadataPath -PathType Leaf)) {
+                continue
+            }
+
+            $metadata = $null
+            try {
+                $metadata = Get-Content -Path $metadataPath -Raw | ConvertFrom-Json -ErrorAction Stop
+            }
+            catch {
+                continue
+            }
+
+            if (-not $metadata -or [string]::IsNullOrWhiteSpace([string]$metadata.tool) -or $metadata.tool -ne "RenderKit") {
+                continue
+            }
+
+            $templateName = $null
+            if ($metadata.PSObject.Properties.Name -contains "template" -and $metadata.template) {
+                if ($metadata.template.PSObject.Properties.Name -contains "name") {
+                    $templateName = [string]$metadata.template.name
+                }
+            }
+
+            $createdAt = $null
+            if ($metadata.PSObject.Properties.Name -contains "project" -and $metadata.project) {
+                if ($metadata.project.PSObject.Properties.Name -contains "createdAt") {
+                    $createdAt = [string]$metadata.project.createdAt
+                }
+            }
+
+            $projectName = $projectDir.Name
+            if ($metadata.PSObject.Properties.Name -contains "project" -and $metadata.project) {
+                if (
+                    $metadata.project.PSObject.Properties.Name -contains "name" -and
+                    -not [string]::IsNullOrWhiteSpace([string]$metadata.project.name)
+                ) {
+                    $projectName = [string]$metadata.project.name
+                }
+            }
+
+            $candidates.Add([PSCustomObject]@{
+                    Name       = $projectName
+                    ProjectRoot = $projectDir.FullName
+                    Template   = $templateName
+                    CreatedAt  = $createdAt
+                })
+        }
+    }
+
+    return @($candidates.ToArray() | Sort-Object Name, ProjectRoot)
+}
+
+function Show-RenderKitImportProjectTable {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [object[]]$Projects
+    )
+
+    if (-not $Projects -or $Projects.Count -eq 0) {
+        return
+    }
+
+    $rows = @()
+    for ($i = 0; $i -lt $Projects.Count; $i++) {
+        $rows += [PSCustomObject]@{
+            Index    = $i
+            Project  = $Projects[$i].Name
+            Template = $Projects[$i].Template
+            Path     = $Projects[$i].ProjectRoot
+        }
+    }
+
+    $rows | Format-Table -AutoSize | Out-Host
+}
+
+function Read-RenderKitImportProjectRootInteractive {
+    [CmdletBinding()]
+    param(
+        [string]$ProjectRoot
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($ProjectRoot)) {
+        return Resolve-RenderKitImportProjectRoot -ProjectRoot $ProjectRoot
+    }
+
+    $projects = @(Get-RenderKitImportProjectCandidates)
+    if ($projects.Count -gt 0) {
+        Show-RenderKitImportProjectTable -Projects $projects
+    }
+
+    while ($true) {
+        if ($projects.Count -gt 0) {
+            $inputValue = Read-Host "Destination project: index, absolute path, or Enter for index 0 (Q to cancel)"
+        }
+        else {
+            $inputValue = Read-Host "Destination project root path (Q to cancel)"
+        }
+
+        if ([string]::IsNullOrWhiteSpace($inputValue)) {
+            if ($projects.Count -gt 0) {
+                return $projects[0].ProjectRoot
+            }
+            continue
+        }
+
+        if ($inputValue.Trim().ToUpperInvariant() -eq "Q") {
+            return $null
+        }
+
+        $index = -1
+        if ($projects.Count -gt 0 -and [int]::TryParse($inputValue, [ref]$index)) {
+            if ($index -ge 0 -and $index -lt $projects.Count) {
+                return $projects[$index].ProjectRoot
+            }
+
+            Write-Warning "Index '$index' is out of range."
+            continue
+        }
+
+        try {
+            return Resolve-RenderKitImportProjectRoot -ProjectRoot $inputValue
+        }
+        catch {
+            Write-Warning $_.Exception.Message
+        }
+    }
+}
+
+function Read-RenderKitImportSourcePathInteractive {
+    [CmdletBinding()]
+    param(
+        [switch]$IncludeFixed,
+        [switch]$IncludeUnsupportedFileSystem
+    )
+
+    $effectiveIncludeFixed = if ($PSBoundParameters.ContainsKey("IncludeFixed")) {
+        [bool]$IncludeFixed
+    }
+    else {
+        Read-RenderKitImportYesNo -Prompt "Include fixed drives in source search?" -Default $true
+    }
+
+    $effectiveIncludeUnsupported = if ($PSBoundParameters.ContainsKey("IncludeUnsupportedFileSystem")) {
+        [bool]$IncludeUnsupportedFileSystem
+    }
+    else {
+        Read-RenderKitImportYesNo -Prompt "Include unsupported file systems?" -Default $false
+    }
+
+    $selectedDrive = Select-RenderKitDriveCandidate `
+        -IncludeFixed:$effectiveIncludeFixed `
+        -IncludeUnsupportedFileSystem:$effectiveIncludeUnsupported
+
+    if ($selectedDrive) {
+        $driveRoot = ConvertTo-RenderKitImportDrivePath -DriveLetter $selectedDrive.DriveLetter
+
+        while ($true) {
+            $subPath = Read-Host "Source subfolder on '$($selectedDrive.DriveLetter)' (Enter = drive root, Q = manual path)"
+            if ([string]::IsNullOrWhiteSpace($subPath)) {
+                return [PSCustomObject]@{
+                    SourcePath                   = $driveRoot
+                    IncludeFixed                 = $effectiveIncludeFixed
+                    IncludeUnsupportedFileSystem = $effectiveIncludeUnsupported
+                    SelectedDrive                = $selectedDrive
+                }
+            }
+
+            if ($subPath.Trim().ToUpperInvariant() -eq "Q") {
+                break
+            }
+
+            $candidatePath = if ([IO.Path]::IsPathRooted($subPath)) {
+                $subPath
+            }
+            else {
+                Join-Path $driveRoot $subPath
+            }
+
+            try {
+                $resolvedPath = (Resolve-Path -Path $candidatePath -ErrorAction Stop).ProviderPath
+            }
+            catch {
+                Write-Warning "Source path '$candidatePath' was not found."
+                continue
+            }
+
+            if (-not (Test-Path -Path $resolvedPath -PathType Container)) {
+                Write-Warning "Source path '$resolvedPath' is not a directory."
+                continue
+            }
+
+            return [PSCustomObject]@{
+                SourcePath                   = $resolvedPath
+                IncludeFixed                 = $effectiveIncludeFixed
+                IncludeUnsupportedFileSystem = $effectiveIncludeUnsupported
+                SelectedDrive                = $selectedDrive
+            }
+        }
+    }
+
+    while ($true) {
+        $manualPath = Read-Host "Absolute source folder path (Enter to cancel)"
+        if ([string]::IsNullOrWhiteSpace($manualPath)) {
+            return $null
+        }
+
+        try {
+            $resolvedPath = (Resolve-Path -Path $manualPath -ErrorAction Stop).ProviderPath
+        }
+        catch {
+            Write-Warning "Source path '$manualPath' was not found."
+            continue
+        }
+
+        if (-not (Test-Path -Path $resolvedPath -PathType Container)) {
+            Write-Warning "Source path '$resolvedPath' is not a directory."
+            continue
+        }
+
+        return [PSCustomObject]@{
+            SourcePath                   = $resolvedPath
+            IncludeFixed                 = $effectiveIncludeFixed
+            IncludeUnsupportedFileSystem = $effectiveIncludeUnsupported
+            SelectedDrive                = $null
+        }
+    }
+}
+
+function Read-RenderKitImportUnassignedHandlingInteractive {
+    [CmdletBinding()]
+    param(
+        [ValidateSet("Prompt", "ToSort", "Skip")]
+        [string]$Default = "Prompt"
+    )
+
+    while ($true) {
+        $choice = Read-Host "Unassigned files: [P]rompt, [T]O SORT, [S]kip (default $Default)"
+        if ([string]::IsNullOrWhiteSpace($choice)) {
+            return $Default
+        }
+
+        switch ($choice.Trim().ToUpperInvariant()) {
+            "P" { return "Prompt" }
+            "PROMPT" { return "Prompt" }
+            "T" { return "ToSort" }
+            "TO" { return "ToSort" }
+            "TOSORT" { return "ToSort" }
+            "S" { return "Skip" }
+            "SKIP" { return "Skip" }
+            default {
+                Write-Warning "Unknown option '$choice'."
+            }
+        }
+    }
+}
+
+function Start-RenderKitImportInteractiveSetup {
+    [CmdletBinding()]
+    param(
+        [string]$ProjectRoot,
+        [switch]$IncludeFixed,
+        [switch]$IncludeUnsupportedFileSystem,
+        [ValidateSet("Prompt", "ToSort", "Skip")]
+        [string]$UnassignedHandling = "Prompt"
+    )
+
+    Write-Information "Starting interactive import wizard..." -InformationAction Continue
+    Write-Information "Step 1/3 - Select destination project" -InformationAction Continue
+
+    $resolvedProjectRoot = Read-RenderKitImportProjectRootInteractive -ProjectRoot $ProjectRoot
+    if ([string]::IsNullOrWhiteSpace($resolvedProjectRoot)) {
+        Write-Information "Import wizard cancelled (no project selected)." -InformationAction Continue
+        return $null
+    }
+
+    Show-RenderKitImportWizardStatus `
+        -Title "Current context" `
+        -Data ([ordered]@{
+            Step      = "1/3"
+            Project   = $resolvedProjectRoot
+        })
+
+    Write-Information "Step 2/3 - Select source" -InformationAction Continue
+
+    $sourcePromptParameters = @{}
+    if ($PSBoundParameters.ContainsKey("IncludeFixed")) {
+        $sourcePromptParameters.IncludeFixed = [bool]$IncludeFixed
+    }
+    if ($PSBoundParameters.ContainsKey("IncludeUnsupportedFileSystem")) {
+        $sourcePromptParameters.IncludeUnsupportedFileSystem = [bool]$IncludeUnsupportedFileSystem
+    }
+
+    $sourceSelection = Read-RenderKitImportSourcePathInteractive @sourcePromptParameters
+    if (-not $sourceSelection) {
+        Write-Information "Import wizard cancelled (no source selected)." -InformationAction Continue
+        return $null
+    }
+
+    Show-RenderKitImportWizardStatus `
+        -Title "Current context" `
+        -Data ([ordered]@{
+            Step                         = "2/3"
+            Project                      = $resolvedProjectRoot
+            SourcePath                   = [string]$sourceSelection.SourcePath
+            IncludeFixed                 = [bool]$sourceSelection.IncludeFixed
+            IncludeUnsupportedFileSystem = [bool]$sourceSelection.IncludeUnsupportedFileSystem
+        })
+
+    Write-Information "Step 3/3 - Configure scan and selection behavior" -InformationAction Continue
+
+    $interactiveFilter = Read-RenderKitImportYesNo -Prompt "Add optional filters (folder/date/wildcard)?" -Default $false
+    $autoSelectAll = Read-RenderKitImportYesNo -Prompt "Auto-select all matched files?" -Default $false
+    $autoConfirm = Read-RenderKitImportYesNo -Prompt "Auto-confirm import after selection?" -Default $false
+    $resolvedUnassignedHandling = Read-RenderKitImportUnassignedHandlingInteractive -Default $UnassignedHandling
+
+    Show-RenderKitImportWizardStatus `
+        -Title "Wizard summary before scan" `
+        -Data ([ordered]@{
+            Step                         = "3/3"
+            Project                      = $resolvedProjectRoot
+            SourcePath                   = [string]$sourceSelection.SourcePath
+            InteractiveFilter            = [bool]$interactiveFilter
+            AutoSelectAll                = [bool]$autoSelectAll
+            AutoConfirm                  = [bool]$autoConfirm
+            UnassignedHandling           = $resolvedUnassignedHandling
+            TransferMode                 = "Will be asked at the end"
+        })
+
+    return [PSCustomObject]@{
+        ScanAndFilter               = $true
+        SourcePath                  = [string]$sourceSelection.SourcePath
+        IncludeFixed                = [bool]$sourceSelection.IncludeFixed
+        IncludeUnsupportedFileSystem = [bool]$sourceSelection.IncludeUnsupportedFileSystem
+        InteractiveFilter           = [bool]$interactiveFilter
+        AutoSelectAll               = [bool]$autoSelectAll
+        AutoConfirm                 = [bool]$autoConfirm
+        ProjectRoot                 = $resolvedProjectRoot
+        Classify                    = $true
+        Transfer                    = $true
+        UnassignedHandling          = $resolvedUnassignedHandling
+    }
+}
+
 function Read-RenderKitImportDate {
     [CmdletBinding()]
     param(
@@ -1093,6 +1591,30 @@ function Resolve-RenderKitImportUnassignedFiles {
 
     foreach ($group in ($unassigned | Group-Object NormalizedExtension | Sort-Object Name)) {
         $extensionLabel = if ([string]::IsNullOrWhiteSpace($group.Name)) { "<no extension>" } else { $group.Name }
+
+        $fileRows = @()
+        $groupFiles = @($group.Group | Sort-Object LastWriteTime, Name)
+        $previewLimit = 20
+        $previewFiles = @($groupFiles | Select-Object -First $previewLimit)
+        for ($i = 0; $i -lt $previewFiles.Count; $i++) {
+            $item = $previewFiles[$i]
+            $fileRows += [PSCustomObject]@{
+                Index      = $i
+                File       = $item.Name
+                Folder     = if ([string]::IsNullOrWhiteSpace($item.RelativeDirectory) -or $item.RelativeDirectory -eq ".") { "<root>" } else { $item.RelativeDirectory }
+                Size       = ConvertTo-RenderKitHumanSize -Bytes ([int64]$item.Length)
+                Reason     = $item.UnassignedReason
+            }
+        }
+
+        if ($fileRows.Count -gt 0) {
+            Write-RenderKitLog -Level Info -Message "Unassigned preview for '$extensionLabel' ($($group.Count) file(s))"
+            $fileRows | Format-Table -AutoSize | Out-Host
+            if ($group.Count -gt $previewLimit) {
+                Write-RenderKitLog -Level Info -Message "Showing first $previewLimit of $($group.Count) file(s) for '$extensionLabel'."
+            }
+        }
+
         $action = Read-RenderKitImportUnassignedAction `
             -ExtensionLabel $extensionLabel `
             -FileCount $group.Count `
@@ -1899,67 +2421,135 @@ function Write-RenderKitImportRevisionLog {
     $failedBytes = Get-RenderKitImportTransferredBytesByStatus -Transfer $Transfer -Status "Failed"
     $sourceDrive = [IO.Path]::GetPathRoot($SourcePath)
 
-    $record = [ordered]@{
-        tool = [ordered]@{
-            name          = "RenderKit"
-            moduleVersion = $script:RenderKitModuleVersion
-        }
-        import = [ordered]@{
-            runId            = $importRunId
-            startedAt        = $ImportStartedAt.ToString("o")
-            endedAt          = $ImportEndedAt.ToString("o")
-            durationSeconds  = if ($FinalReport) { $FinalReport.DurationSeconds } else { [Math]::Round((($ImportEndedAt - $ImportStartedAt).TotalSeconds), 3) }
-            user             = $env:USERNAME
-            machine          = $env:COMPUTERNAME
-            sourcePath       = $SourcePath
-            sourceDrive      = $sourceDrive
-            filters          = $Filters
-        }
-        project = [ordered]@{
-            rootPath         = $ProjectRoot
-            schemaVersion    = $projectSchemaVersion
-            metadataPath     = if ($projectMetadata) { Join-Path $ProjectRoot ".renderkit\project.json" } else { $null }
-        }
-        template = [ordered]@{
-            name             = $templateName
-            version          = $templateVersion
-            source           = $templateSource
-        }
-        counts = [ordered]@{
-            scanned              = $ScanFileCount
-            matched              = $MatchedFileCount
-            selected             = $SelectedFileCount
-            classified           = if ($Classification) { $Classification.FileCount } else { 0 }
-            assigned             = if ($Classification) { $Classification.AssignedCount } else { 0 }
-            toSort               = if ($Classification) { $Classification.ToSortCount } else { 0 }
-            skipped              = if ($Classification) { $Classification.SkippedCount } else { 0 }
-            unassignedOpen       = if ($Classification) { $Classification.UnassignedCount } else { 0 }
-            unassignedHandled    = if ($FinalReport) { $FinalReport.UnassignedHandledCount } else { 0 }
-            unassignedUnhandled  = if ($FinalReport) { $FinalReport.UnassignedUnhandledCount } else { 0 }
-            transferPlanned      = if ($Transfer) { $Transfer.PlannedFileCount } else { 0 }
-            transferImported     = if ($Transfer) { $Transfer.ImportedFileCount } else { 0 }
-            transferSimulated    = if ($Transfer) { $Transfer.SimulatedFileCount } else { 0 }
-            transferFailed       = if ($Transfer) { $Transfer.FailedFileCount } else { 0 }
-        }
-        bytes = [ordered]@{
-            selectedBytes        = [int64]$SelectedTotalBytes
-            importedBytes        = [int64]$importedBytes
-            simulatedBytes       = [int64]$simulatedBytes
-            failedBytes          = [int64]$failedBytes
-            processedBytes       = if ($Transfer) { [int64]$Transfer.ProcessedBytes } else { [int64]0 }
-        }
-        transfer = [ordered]@{
-            hashAlgorithm        = if ($Transfer) { $Transfer.HashAlgorithm } else { $null }
-            averageSpeedMBps     = if ($Transfer) { $Transfer.AverageSpeedMBps } else { 0 }
-            durationSeconds      = if ($Transfer) { $Transfer.DurationSeconds } else { 0 }
-            simulated            = if ($Transfer) { [bool]$Transfer.Simulated } else { $false }
-        }
-        finalReport = $FinalReport
-        transactions = if ($Transfer) { $Transfer.Transactions } else { @() }
+    $logPath = Join-Path $renderKitRoot ("{0}.log" -f $importRunId)
+    $durationSeconds = if ($FinalReport) {
+        [double]$FinalReport.DurationSeconds
+    }
+    else {
+        [Math]::Round((($ImportEndedAt - $ImportStartedAt).TotalSeconds), 3)
     }
 
-    $logPath = Join-Path $renderKitRoot ("{0}.log" -f $importRunId)
-    $record | ConvertTo-Json -Depth 30 | Set-Content -Path $logPath -Encoding UTF8
+    $filtersFolder = "-"
+    $filtersWildcard = "-"
+    $filtersFrom = "-"
+    $filtersTo = "-"
+    if ($Filters) {
+        if ($Filters.PSObject.Properties.Name -contains "FolderFilter" -and $Filters.FolderFilter) {
+            $filtersFolder = (@($Filters.FolderFilter) -join ", ")
+            if ([string]::IsNullOrWhiteSpace($filtersFolder)) { $filtersFolder = "-" }
+        }
+        if ($Filters.PSObject.Properties.Name -contains "Wildcard" -and $Filters.Wildcard) {
+            $filtersWildcard = (@($Filters.Wildcard) -join ", ")
+            if ([string]::IsNullOrWhiteSpace($filtersWildcard)) { $filtersWildcard = "-" }
+        }
+        if ($Filters.PSObject.Properties.Name -contains "FromDate" -and $Filters.FromDate) {
+            $filtersFrom = ([datetime]$Filters.FromDate).ToString("yyyy-MM-dd HH:mm:ss")
+        }
+        if ($Filters.PSObject.Properties.Name -contains "ToDate" -and $Filters.ToDate) {
+            $filtersTo = ([datetime]$Filters.ToDate).ToString("yyyy-MM-dd HH:mm:ss")
+        }
+    }
+
+    $metadataPath = if ($projectMetadata) { Join-Path $ProjectRoot ".renderkit\project.json" } else { "-" }
+    $classifiedCount = if ($Classification) { [int]$Classification.FileCount } else { 0 }
+    $assignedCount = if ($Classification) { [int]$Classification.AssignedCount } else { 0 }
+    $toSortCount = if ($Classification) { [int]$Classification.ToSortCount } else { 0 }
+    $skippedCount = if ($Classification) { [int]$Classification.SkippedCount } else { 0 }
+    $unassignedOpen = if ($Classification) { [int]$Classification.UnassignedCount } else { 0 }
+    $unassignedHandled = if ($FinalReport) { [int]$FinalReport.UnassignedHandledCount } else { 0 }
+    $unassignedUnhandled = if ($FinalReport) { [int]$FinalReport.UnassignedUnhandledCount } else { 0 }
+    $transferPlanned = if ($Transfer) { [int]$Transfer.PlannedFileCount } else { 0 }
+    $transferImported = if ($Transfer) { [int]$Transfer.ImportedFileCount } else { 0 }
+    $transferSimulated = if ($Transfer) { [int]$Transfer.SimulatedFileCount } else { 0 }
+    $transferFailed = if ($Transfer) { [int]$Transfer.FailedFileCount } else { 0 }
+    $processedBytes = if ($Transfer) { [int64]$Transfer.ProcessedBytes } else { [int64]0 }
+    $hashAlgorithm = if ($Transfer -and $Transfer.HashAlgorithm) { [string]$Transfer.HashAlgorithm } else { "-" }
+    $averageSpeedMBps = if ($Transfer) { [double]$Transfer.AverageSpeedMBps } else { 0 }
+    $transferDurationSeconds = if ($Transfer) { [double]$Transfer.DurationSeconds } else { 0 }
+    $transferSimulatedFlag = if ($Transfer) { [bool]$Transfer.Simulated } else { $false }
+    $transactions = if ($Transfer -and $Transfer.Transactions) { @($Transfer.Transactions) } else { @() }
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add("RenderKit Import Revision Log")
+    $lines.Add("RunId: $importRunId")
+    $lines.Add(("GeneratedAt: {0}" -f (Get-Date).ToString("o")))
+    $lines.Add("")
+
+    $lines.Add("[Context]")
+    $lines.Add(("Tool: RenderKit {0}" -f $script:RenderKitModuleVersion))
+    $lines.Add(("User: {0}" -f $env:USERNAME))
+    $lines.Add(("Machine: {0}" -f $env:COMPUTERNAME))
+    $lines.Add(("ProjectRoot: {0}" -f $ProjectRoot))
+    $lines.Add(("ProjectMetadata: {0}" -f $metadataPath))
+    $lines.Add(("ProjectSchemaVersion: {0}" -f $(if ($projectSchemaVersion) { $projectSchemaVersion } else { "-" })))
+    $lines.Add(("Template: {0}" -f $(if ($templateName) { $templateName } else { "-" })))
+    $lines.Add(("TemplateSource: {0}" -f $(if ($templateSource) { $templateSource } else { "-" })))
+    $lines.Add(("TemplateVersion: {0}" -f $(if ($templateVersion) { $templateVersion } else { "-" })))
+    $lines.Add(("SourcePath: {0}" -f $SourcePath))
+    $lines.Add(("SourceDrive: {0}" -f $(if ($sourceDrive) { $sourceDrive } else { "-" })))
+    $lines.Add(("StartedAt: {0}" -f $ImportStartedAt.ToString("o")))
+    $lines.Add(("EndedAt: {0}" -f $ImportEndedAt.ToString("o")))
+    $lines.Add(("DurationSeconds: {0:N3}" -f [double]$durationSeconds))
+    $lines.Add("")
+
+    $lines.Add("[Filters]")
+    $lines.Add(("Folders: {0}" -f $filtersFolder))
+    $lines.Add(("Wildcard: {0}" -f $filtersWildcard))
+    $lines.Add(("FromDate: {0}" -f $filtersFrom))
+    $lines.Add(("ToDate: {0}" -f $filtersTo))
+    $lines.Add("")
+
+    $lines.Add("[Counts]")
+    $lines.Add(("Scanned: {0}" -f $ScanFileCount))
+    $lines.Add(("Matched: {0}" -f $MatchedFileCount))
+    $lines.Add(("Selected: {0}" -f $SelectedFileCount))
+    $lines.Add(("Classified: {0}" -f $classifiedCount))
+    $lines.Add(("Assigned: {0}" -f $assignedCount))
+    $lines.Add(("ToSort: {0}" -f $toSortCount))
+    $lines.Add(("Skipped: {0}" -f $skippedCount))
+    $lines.Add(("UnassignedOpen: {0}" -f $unassignedOpen))
+    $lines.Add(("UnassignedHandled: {0}" -f $unassignedHandled))
+    $lines.Add(("UnassignedUnhandled: {0}" -f $unassignedUnhandled))
+    $lines.Add(("TransferPlanned: {0}" -f $transferPlanned))
+    $lines.Add(("TransferImported: {0}" -f $transferImported))
+    $lines.Add(("TransferSimulated: {0}" -f $transferSimulated))
+    $lines.Add(("TransferFailed: {0}" -f $transferFailed))
+    $lines.Add("")
+
+    $lines.Add("[Bytes]")
+    $lines.Add(("Selected: {0} ({1:N3} GB)" -f (ConvertTo-RenderKitHumanSize -Bytes ([int64]$SelectedTotalBytes)), ([double]$SelectedTotalBytes / 1GB)))
+    $lines.Add(("Imported: {0} ({1:N3} GB)" -f (ConvertTo-RenderKitHumanSize -Bytes ([int64]$importedBytes)), ([double]$importedBytes / 1GB)))
+    $lines.Add(("Simulated: {0} ({1:N3} GB)" -f (ConvertTo-RenderKitHumanSize -Bytes ([int64]$simulatedBytes)), ([double]$simulatedBytes / 1GB)))
+    $lines.Add(("Failed: {0} ({1:N3} GB)" -f (ConvertTo-RenderKitHumanSize -Bytes ([int64]$failedBytes)), ([double]$failedBytes / 1GB)))
+    $lines.Add(("Processed: {0} ({1:N3} GB)" -f (ConvertTo-RenderKitHumanSize -Bytes ([int64]$processedBytes)), ([double]$processedBytes / 1GB)))
+    $lines.Add("")
+
+    $lines.Add("[Transfer]")
+    $lines.Add(("HashAlgorithm: {0}" -f $hashAlgorithm))
+    $lines.Add(("TransferDurationSeconds: {0:N3}" -f [double]$transferDurationSeconds))
+    $lines.Add(("AverageSpeedMBps: {0:N3}" -f [double]$averageSpeedMBps))
+    $lines.Add(("SimulationMode: {0}" -f $(if ($transferSimulatedFlag) { "Yes" } else { "No" })))
+    $lines.Add("")
+
+    $lines.Add("[Transactions]")
+    if ($transactions.Count -eq 0) {
+        $lines.Add("No transfer transactions recorded.")
+    }
+    else {
+        $lines.Add("Status | Size | Mapping | Destination | File | Error")
+        foreach ($tx in $transactions) {
+            $txStatus = if ($tx.Status) { [string]$tx.Status } else { "-" }
+            $txSize = ConvertTo-RenderKitHumanSize -Bytes ([int64]$tx.Bytes)
+            $txMapping = if ($tx.MappingId) { [string]$tx.MappingId } else { "-" }
+            $txDestination = if ($tx.DestinationRelativePath) { [string]$tx.DestinationRelativePath } else { "-" }
+            $txFile = if ($tx.SourcePath) { [IO.Path]::GetFileName([string]$tx.SourcePath) } else { "-" }
+            $txError = if ($tx.Error) { [string]$tx.Error } else { "-" }
+
+            $lines.Add(("{0} | {1} | {2} | {3} | {4} | {5}" -f $txStatus, $txSize, $txMapping, $txDestination, $txFile, $txError))
+        }
+    }
+
+    Set-Content -Path $logPath -Value $lines -Encoding UTF8
 
     Write-RenderKitLog -Level Info -Message "Phase 5 revision log written: '$logPath'."
     return $logPath
