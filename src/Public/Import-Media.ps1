@@ -38,13 +38,13 @@ RoadMap Architecture:
             - Now we know what to import, and where to import
             but we don't know that type where to import
             - We Iterate through every file and check the file extension
-            - We search for the Template-Mapping for that file extension
+            - We search for the Template-Mapping for that file extension (We read the template information for the mappings, where we wan to copy the files)
             - Now we search for the Folder type that includes the extension 
             and read out the folder name as a path
             - If we don't find a mapping for an extension we classify it as "unassigned"
             - After the Iteration we ask the user how to Handle unassigned File Types 
             With a List of destination folders from the Project Folder (sexy UI ofc.)
-            with the option to skip it after the import
+            with the option to skip it after the import (It creates a temporary "TO SORT" folder or similar)
         Phase 4 - Transaction-Safe Transfer
             - This is the most critical step, since we don't want to fk up raw Footage from the User.
             - We Copy to a .renderkit\import-temp 
@@ -52,6 +52,8 @@ RoadMap Architecture:
             - We compare the hash 
             - If hash == hash we move from temp to final location
             - If we have an error, we delete the rollback temp
+            - We log every transaktion with timestamp, we build a loading bar, we log the duration, speed, etc.
+            - Whatif option for simulation
         Phase 5 - Logging & Revision
             - Create ".renderkit/import-2026-02-12.log"
             With these Information: StartTime, SourceDrive, FileCount, Hash, Destination,
@@ -78,7 +80,7 @@ RoadMap Architecture:
 
 #>
 function Import-Media {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess)]
     param(
         [switch]$SelectSource,
         [switch]$IncludeFixed,
@@ -93,7 +95,16 @@ function Import-Media {
         [ValidateRange(1, 500)]
         [int]$PreviewCount = 30,
         [switch]$AutoSelectAll,
-        [switch]$AutoConfirm
+        [switch]$AutoConfirm,
+        [switch]$Classify,
+        [string]$ProjectRoot,
+        [string]$TemplateName,
+        [ValidateSet("Prompt", "ToSort", "Skip")]
+        [string]$UnassignedHandling = "Prompt",
+        [string]$UnassignedFolderName = "TO SORT",
+        [switch]$Transfer,
+        [ValidateSet("SHA256", "SHA1", "MD5")]
+        [string]$TransferHashAlgorithm = "SHA256"
     )
 
     if (-not $ScanAndFilter) {
@@ -112,6 +123,8 @@ function Import-Media {
         Write-RenderKitLog -Level Error -Message "-FromDate must be earlier than or equal to -ToDate."
         throw "-FromDate must be earlier than or equal to -ToDate."
     }
+
+    $importStartedAt = Get-Date
 
     $resolvedSourcePath = Resolve-RenderKitImportSourcePath `
         -SourcePath $SourcePath `
@@ -185,8 +198,146 @@ function Import-Media {
         Write-RenderKitLog -Level Info -Message "Import cancelled by user."
     }
 
+    $shouldClassify = $Classify -or $Transfer
+    if ($Transfer -and -not $Classify) {
+        Write-RenderKitLog -Level Info -Message "Phase 4 requires classification. Phase 3 will run automatically."
+    }
+
+    $classificationResult = $null
+    if ($shouldClassify -and $confirmed -and $selectedFiles.Count -gt 0) {
+        Write-Information "Phase 3: classifying selected files..." -InformationAction Continue
+
+        $effectiveUnassignedHandling = $UnassignedHandling
+        if ($AutoConfirm -and $effectiveUnassignedHandling -eq "Prompt") {
+            $effectiveUnassignedHandling = "ToSort"
+            Write-RenderKitLog -Level Info -Message "AutoConfirm is enabled. Unassigned files default to '$effectiveUnassignedHandling'."
+        }
+
+        $classificationResult = Get-RenderKitImportFileClassification `
+            -Files $selectedFiles `
+            -ProjectRoot $ProjectRoot `
+            -TemplateName $TemplateName `
+            -UnassignedHandling $effectiveUnassignedHandling `
+            -UnassignedFolderName $UnassignedFolderName
+
+        Show-RenderKitImportClassificationPreview `
+            -Files $classificationResult.Files `
+            -PreviewCount $PreviewCount `
+            -Title "Phase 3 classification"
+    }
+    elseif ($shouldClassify -and $selectedFiles.Count -eq 0) {
+        Write-RenderKitLog -Level Info -Message "Phase 3 skipped because no files were selected."
+    }
+    elseif ($shouldClassify -and -not $confirmed) {
+        Write-RenderKitLog -Level Info -Message "Phase 3 skipped because import was not confirmed."
+    }
+
+    $classifiedFiles = @()
+    if ($classificationResult) {
+        $classifiedFiles = @($classificationResult.Files)
+    }
+
+    $transferResult = $null
+    if ($Transfer -and $confirmed -and $selectedFiles.Count -gt 0) {
+        if (-not $classificationResult) {
+            Write-RenderKitLog -Level Error -Message "Phase 4 requires a Phase 3 classification result."
+            throw "Phase 4 requires a Phase 3 classification result."
+        }
+
+        $simulateTransfer = [bool]$WhatIfPreference
+        $executeTransfer = $true
+
+        if ($simulateTransfer) {
+            Write-Information "Phase 4: transaction-safe transfer simulation (-WhatIf)." -InformationAction Continue
+        }
+        else {
+            $executeTransfer = $PSCmdlet.ShouldProcess(
+                $classificationResult.ProjectRoot,
+                "Phase 4 transfer of $($classificationResult.Files.Count) classified file(s)"
+            )
+        }
+
+        if ($simulateTransfer -or $executeTransfer) {
+            Write-Information "Phase 4: transaction-safe transfer..." -InformationAction Continue
+            $transferResult = Invoke-RenderKitImportTransactionSafeTransfer `
+                -ClassifiedFiles $classificationResult.Files `
+                -ProjectRoot $classificationResult.ProjectRoot `
+                -HashAlgorithm $TransferHashAlgorithm `
+                -Simulate:$simulateTransfer
+        }
+        else {
+            Write-RenderKitLog -Level Info -Message "Phase 4 skipped by ShouldProcess."
+        }
+    }
+    elseif ($Transfer -and $selectedFiles.Count -eq 0) {
+        Write-RenderKitLog -Level Info -Message "Phase 4 skipped because no files were selected."
+    }
+    elseif ($Transfer -and -not $confirmed) {
+        Write-RenderKitLog -Level Info -Message "Phase 4 skipped because import was not confirmed."
+    }
+
+    $importEndedAt = Get-Date
+    $finalReport = New-RenderKitImportFinalReport `
+        -ImportStartedAt $importStartedAt `
+        -ImportEndedAt $importEndedAt `
+        -SourcePath $resolvedSourcePath `
+        -ScanFileCount $catalog.Count `
+        -MatchedFileCount $matchedFiles.Count `
+        -SelectedFileCount $selectedFiles.Count `
+        -SelectedTotalBytes $selectedTotalBytes `
+        -Classification $classificationResult `
+        -Transfer $transferResult
+
+    Show-RenderKitImportFinalReport -Report $finalReport
+
+    $revisionLogPath = $null
+    $effectiveProjectRoot = $null
+    if ($transferResult -and -not [string]::IsNullOrWhiteSpace([string]$transferResult.ProjectRoot)) {
+        $effectiveProjectRoot = [string]$transferResult.ProjectRoot
+    }
+    elseif ($classificationResult -and -not [string]::IsNullOrWhiteSpace([string]$classificationResult.ProjectRoot)) {
+        $effectiveProjectRoot = [string]$classificationResult.ProjectRoot
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($ProjectRoot)) {
+        try {
+            $effectiveProjectRoot = Resolve-RenderKitImportProjectRoot -ProjectRoot $ProjectRoot
+        }
+        catch {
+            Write-RenderKitLog -Level Warning -Message "Phase 5 skipped: invalid project root '$ProjectRoot'."
+        }
+    }
+
+    if ($confirmed -and [bool]$WhatIfPreference) {
+        Write-RenderKitLog -Level Info -Message "Phase 5 skipped in WhatIf mode (simulation)."
+    }
+    elseif ($confirmed -and -not [string]::IsNullOrWhiteSpace($effectiveProjectRoot)) {
+        try {
+            $revisionLogPath = Write-RenderKitImportRevisionLog `
+                -ProjectRoot $effectiveProjectRoot `
+                -ImportStartedAt $importStartedAt `
+                -ImportEndedAt $importEndedAt `
+                -SourcePath $resolvedSourcePath `
+                -ScanFileCount $catalog.Count `
+                -MatchedFileCount $matchedFiles.Count `
+                -SelectedFileCount $selectedFiles.Count `
+                -SelectedTotalBytes $selectedTotalBytes `
+                -Filters $criteria `
+                -Classification $classificationResult `
+                -Transfer $transferResult `
+                -FinalReport $finalReport
+        }
+        catch {
+            Write-RenderKitLog -Level Warning -Message "Phase 5 revision log could not be written: $($_.Exception.Message)"
+        }
+    }
+    elseif ($confirmed) {
+        Write-RenderKitLog -Level Warning -Message "Phase 5 skipped: no project root context was available."
+    }
+
     return [PSCustomObject]@{
         SourcePath         = $resolvedSourcePath
+        ImportStartedAt    = $importStartedAt
+        ImportEndedAt      = $importEndedAt
         ScanFileCount      = $catalog.Count
         MatchedFileCount   = $matchedFiles.Count
         SelectedFileCount  = $selectedFiles.Count
@@ -196,6 +347,21 @@ function Import-Media {
         SelectedTotalGB    = [Math]::Round(([double]$selectedTotalBytes / 1GB), 3)
         Filters            = $criteria
         Confirmed          = $confirmed
+        Classification     = $classificationResult
+        ClassifiedFileCount = if ($classificationResult) { $classificationResult.FileCount } else { 0 }
+        AssignedFileCount  = if ($classificationResult) { $classificationResult.AssignedCount } else { 0 }
+        ToSortFileCount    = if ($classificationResult) { $classificationResult.ToSortCount } else { 0 }
+        SkippedFileCount   = if ($classificationResult) { $classificationResult.SkippedCount } else { 0 }
+        UnassignedFileCount = if ($classificationResult) { $classificationResult.UnassignedCount } else { 0 }
+        Transfer           = $transferResult
+        ImportedFileCount  = if ($transferResult) { $transferResult.ImportedFileCount } else { 0 }
+        SimulatedFileCount = if ($transferResult) { $transferResult.SimulatedFileCount } else { 0 }
+        FailedTransferFileCount = if ($transferResult) { $transferResult.FailedFileCount } else { 0 }
+        TransferDurationSeconds = if ($transferResult) { $transferResult.DurationSeconds } else { 0 }
+        TransferAverageSpeedMBps = if ($transferResult) { $transferResult.AverageSpeedMBps } else { 0 }
+        FinalReport        = $finalReport
+        RevisionLogPath    = $revisionLogPath
         Files              = $selectedFiles
+        ClassifiedFiles    = $classifiedFiles
     }
 }

@@ -121,6 +121,7 @@ function Get-ProjectTemplate {
 
     return [PSCustomObject]@{
         Name     = $resolved.Name
+        Version  = $json.Version
         Source   = $resolved.Source
         Folders  = $json.Folders
         Mappings = $json.Mappings
