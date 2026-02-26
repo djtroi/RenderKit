@@ -2,52 +2,60 @@
   "Version": "1.0",
   "Name": "youtube",
   "Description": "YouTube Project Template",
+  "Mappings": [
+    "video",
+    "audio",
+    "image",
+    "project",
+    "archive",
+    "document"
+  ],
   "Folders": [
     {
       "Name": "00_Footage",
-      "MappingId": null,
+      "MappingId": "video",
       "Required": true,
       "SubFolders": []
     },
     {
       "Name": "01_Audio",
-      "MappingId": null,
+      "MappingId": "audio",
       "Required": true,
       "SubFolders": []
     },
     {
       "Name": "02_BRoll",
-      "MappingId": null,
+      "MappingId": "video",
       "Required": true,
       "SubFolders": []
     },
     {
       "Name": "03_Music",
-      "MappingId": null,
+      "MappingId": "audio",
       "Required": true,
       "SubFolders": []
     },
     {
       "Name": "04_Project",
-      "MappingId": null,
+      "MappingId": "project",
       "Required": true,
       "SubFolders": []
     },
     {
       "Name": "05_Color",
-      "MappingId": null,
+      "MappingId": "image",
       "Required": true,
       "SubFolders": []
     },
     {
       "Name": "06_Exports",
-      "MappingId": null,
+      "MappingId": "video",
       "Required": true,
       "SubFolders": []
     },
     {
       "Name": "07_Backups",
-      "MappingId": null,
+      "MappingId": "archive",
       "Required": true,
       "SubFolders": []
     }

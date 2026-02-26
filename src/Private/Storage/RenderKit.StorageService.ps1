@@ -40,6 +40,14 @@ function Get-RenderKitSystemTemplatesRoot {
     return Join-Path $script:RenderKitModuleRoot "Resources/Templates"
 }
 
+function Get-RenderKitSystemMappingsRoot {
+    if (-not $script:RenderKitModuleRoot) {
+        $script:RenderKitModuleRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+    }
+
+    return Join-Path $script:RenderKitModuleRoot "Resources/Mappings"
+}
+
 function Resolve-RenderKitTemplateFileName {
     param(
         [Parameter(Mandatory)]
@@ -94,4 +102,14 @@ function Get-RenderKitUserMappingPath {
 
     $file = Resolve-RenderKitMappingFileName -MappingId $MappingId
     return Join-Path (Get-RenderKitUserMappingsRoot) $file
+}
+
+function Get-RenderKitSystemMappingPath {
+    param(
+        [Parameter(Mandatory)]
+        [string]$MappingId
+    )
+
+    $file = Resolve-RenderKitMappingFileName -MappingId $MappingId
+    return Join-Path (Get-RenderKitSystemMappingsRoot) $file
 }

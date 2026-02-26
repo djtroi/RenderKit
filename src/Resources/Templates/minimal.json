@@ -2,22 +2,29 @@
   "Version": "1.0",
   "Name": "minimal",
   "Description": "Minimal Project Template",
+  "Mappings": [
+    "video",
+    "audio",
+    "image",
+    "project",
+    "document"
+  ],
   "Folders": [
     {
       "Name": "00_Inbox",
-      "MappingId": null,
+      "MappingId": "video",
       "Required": true,
       "SubFolders": []
     },
     {
       "Name": "01_Project",
-      "MappingId": null,
+      "MappingId": "project",
       "Required": true,
       "SubFolders": []
     },
     {
       "Name": "02_Exports",
-      "MappingId": null,
+      "MappingId": "video",
       "Required": true,
       "SubFolders": []
     }

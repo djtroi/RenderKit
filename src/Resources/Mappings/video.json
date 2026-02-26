@@ -1,0 +1,21 @@
+{
+  "Id": "video",
+  "Types": [
+    {
+      "Name": "Video",
+      "Extensions": [
+        ".avi",
+        ".braw",
+        ".m2ts",
+        ".m4v",
+        ".mkv",
+        ".mov",
+        ".mp4",
+        ".mts",
+        ".mxf",
+        ".r3d",
+        ".webm"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "Id": "image",
+  "Types": [
+    {
+      "Name": "Image",
+      "Extensions": [
+        ".bmp",
+        ".gif",
+        ".heic",
+        ".jpeg",
+        ".jpg",
+        ".png",
+        ".psd",
+        ".svg",
+        ".tif",
+        ".tiff",
+        ".webp"
+      ]
+    }
+  ]
+}

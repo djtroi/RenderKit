@@ -4,7 +4,7 @@ function Read-RenderKitMappingFile {
         [string]$MappingId
     )
 
-    $path = Get-RenderKitUserMappingPath -MappingId $MappingId
+    $path = Resolve-RenderKitMappingPath -MappingId $MappingId
     if (!(Test-Path $path)) {
         return $null
     }
@@ -15,6 +15,20 @@ function Read-RenderKitMappingFile {
     catch {
         throw "Invalid JSON in mapping '$MappingId'"
     }
+}
+
+function Resolve-RenderKitMappingPath {
+    param(
+        [Parameter(Mandatory)]
+        [string]$MappingId
+    )
+
+    $userPath = Get-RenderKitUserMappingPath -MappingId $MappingId
+    if (Test-Path $userPath) {
+        return $userPath
+    }
+
+    return Get-RenderKitSystemMappingPath -MappingId $MappingId
 }
 
 function Write-RenderKitMappingFile {

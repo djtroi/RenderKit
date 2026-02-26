@@ -2,6 +2,14 @@
   "Version": "1.0",
   "Name": "default",
   "Description": "Default Project Template",
+  "Mappings": [
+    "video",
+    "audio",
+    "image",
+    "project",
+    "archive",
+    "document"
+  ],
   "Folders": [
     {
       "Name": "01_Raw",
@@ -10,49 +18,49 @@
       "SubFolders": [
         {
           "Name": "01_01_Video",
-          "MappingId": null,
+          "MappingId": "video",
           "Required": false,
           "SubFolders": []
         },
         {
           "Name": "01_02_Proxy",
-          "MappingId": null,
+          "MappingId": "video",
           "Required": false,
           "SubFolders": []
         },
         {
           "Name": "01_03_Screenshots",
-          "MappingId": null,
+          "MappingId": "image",
           "Required": false,
           "SubFolders": []
         },
         {
           "Name": "01_04_BRoll",
-          "MappingId": null,
+          "MappingId": "video",
           "Required": false,
           "SubFolders": []
         },
         {
           "Name": "01_05_Audio",
-          "MappingId": null,
+          "MappingId": "audio",
           "Required": false,
           "SubFolders": []
         },
         {
           "Name": "01_06_Music",
-          "MappingId": null,
+          "MappingId": "audio",
           "Required": false,
           "SubFolders": []
         },
         {
           "Name": "01_07_SFX",
-          "MappingId": null,
+          "MappingId": "audio",
           "Required": false,
           "SubFolders": []
         },
         {
           "Name": "01_08_VoiceOver",
-          "MappingId": null,
+          "MappingId": "audio",
           "Required": false,
           "SubFolders": []
         }
@@ -60,36 +68,36 @@
     },
     {
       "Name": "02_Project",
-      "MappingId": null,
+      "MappingId": "project",
       "Required": true,
       "SubFolders": []
     },
     {
       "Name": "03_Editorial",
-      "MappingId": null,
+      "MappingId": "project",
       "Required": true,
       "SubFolders": []
     },
     {
       "Name": "04_Graphics",
-      "MappingId": null,
+      "MappingId": "image",
       "Required": true,
       "SubFolders": [
         {
           "Name": "04_01_Thumbnails",
-          "MappingId": null,
+          "MappingId": "image",
           "Required": false,
           "SubFolders": []
         },
         {
           "Name": "04_02_IntroOutro",
-          "MappingId": null,
+          "MappingId": "video",
           "Required": false,
           "SubFolders": []
         },
         {
           "Name": "04_03_Logo",
-          "MappingId": null,
+          "MappingId": "image",
           "Required": false,
           "SubFolders": []
         }
@@ -97,36 +105,36 @@
     },
     {
       "Name": "05_Exports",
-      "MappingId": null,
+      "MappingId": "video",
       "Required": true,
       "SubFolders": [
         {
           "Name": "05_01_Full",
-          "MappingId": null,
+          "MappingId": "video",
           "Required": false,
           "SubFolders": []
         },
         {
           "Name": "05_02_Shorts",
-          "MappingId": null,
+          "MappingId": "video",
           "Required": false,
           "SubFolders": []
         },
         {
           "Name": "05_03_Audio_Only",
-          "MappingId": null,
+          "MappingId": "audio",
           "Required": false,
           "SubFolders": []
         },
         {
           "Name": "05_04_Previews",
-          "MappingId": null,
+          "MappingId": "video",
           "Required": false,
           "SubFolders": []
         },
         {
           "Name": "05_05_Drafts",
-          "MappingId": null,
+          "MappingId": "video",
           "Required": false,
           "SubFolders": []
         }
@@ -134,30 +142,30 @@
     },
     {
       "Name": "06_Review",
-      "MappingId": null,
+      "MappingId": "video",
       "Required": true,
       "SubFolders": []
     },
     {
       "Name": "07_Publish",
-      "MappingId": null,
+      "MappingId": "video",
       "Required": true,
       "SubFolders": [
         {
           "Name": "07_01_Release",
-          "MappingId": null,
+          "MappingId": "video",
           "Required": false,
           "SubFolders": []
         },
         {
           "Name": "07_02_Meta",
-          "MappingId": null,
+          "MappingId": "document",
           "Required": false,
           "SubFolders": []
         },
         {
           "Name": "07_03_Transcripts",
-          "MappingId": null,
+          "MappingId": "document",
           "Required": false,
           "SubFolders": []
         }
@@ -165,13 +173,13 @@
     },
     {
       "Name": "08_Archive",
-      "MappingId": null,
+      "MappingId": "archive",
       "Required": true,
       "SubFolders": []
     },
     {
       "Name": "09_AI",
-      "MappingId": null,
+      "MappingId": "document",
       "Required": true,
       "SubFolders": []
     }

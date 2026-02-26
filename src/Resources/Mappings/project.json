@@ -1,0 +1,18 @@
+{
+  "Id": "project",
+  "Types": [
+    {
+      "Name": "Project",
+      "Extensions": [
+        ".aep",
+        ".blend",
+        ".drp",
+        ".fcpxml",
+        ".kdenlive",
+        ".prproj",
+        ".veg",
+        ".xml"
+      ]
+    }
+  ]
+}
