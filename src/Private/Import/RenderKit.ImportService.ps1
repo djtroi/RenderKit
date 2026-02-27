@@ -111,7 +111,7 @@ function Resolve-RenderKitImportSourcePath {
         }
 
         if (-not (Test-Path -Path $resolvedPath -PathType Container)) {
-            Write-RenderKitLog -Level Error -Message "Source path '$resolvePath' is not a directory."
+            Write-RenderKitLog -Level Error -Message "Source path '$resolvedPath' is not a directory."
             throw "Source path '$resolvedPath' is not a directory."
         }
 
@@ -652,11 +652,13 @@ function Read-RenderKitImportSourcePathInteractive {
             }
             catch {
                 Write-Warning "Source path '$candidatePath' was not found."
+                Write-RenderKitLog -Level Warning -Message "Source path '$candidatePath' was not found."
                 continue
             }
 
             if (-not (Test-Path -Path $resolvedPath -PathType Container)) {
                 Write-Warning "Source path '$resolvedPath' is not a directory."
+                Write-RenderKitLog -Level Warning -Message "Source path '$resolvedPath' is not a directory."
                 continue
             }
 
@@ -680,11 +682,13 @@ function Read-RenderKitImportSourcePathInteractive {
         }
         catch {
             Write-Warning "Source path '$manualPath' was not found."
+            Write-RenderKitLog -Level Warning -Message "Source path '$manualPath' was not found."
             continue
         }
 
         if (-not (Test-Path -Path $resolvedPath -PathType Container)) {
             Write-Warning "Source path '$resolvedPath' is not a directory."
+            Write-RenderKitLog -Level Warning -Message "Source path '$resolvedPath' is not a directory."
             continue
         }
 
@@ -1190,6 +1194,7 @@ function Get-RenderKitImportTemplateFoldersRecursively {
     )
 
     if ($null -eq $Collector) {
+        Write-RenderKitLog -Level Error -Message "Collector must not be null."
         throw "Collector must not be null."
     }
 
@@ -1857,6 +1862,7 @@ function Resolve-RenderKitImportUniqueFilePath {
     )
 
     if ($null -eq $ReservedPaths) {
+        Write-RenderKitLog -Level Error -Message "ReservedPaths must not be null."
         throw "ReservedPaths must not be null."
     }
 
@@ -2054,6 +2060,7 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
 
             try {
                 if ([string]::IsNullOrWhiteSpace($destinationDirectory)) {
+                    Write-RenderKitLog -Level Error -Message "Destination path is empty for '$sourcePath'."
                     throw "Destination path is empty for '$sourcePath'."
                 }
 
@@ -2082,6 +2089,7 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
                     $stagingHash = Get-RenderKitImportFileHashValue -Path $stagingPath -Algorithm $HashAlgorithm
 
                     if ($sourceHash -ne $stagingHash) {
+                        Write-RenderKitLog -Level Error -Message "Hash mismatch for '$sourcePath'. Source '$sourceHash', staging '$stagingHash'."
                         throw "Hash mismatch for '$sourcePath'. Source '$sourceHash', staging '$stagingHash'."
                     }
 

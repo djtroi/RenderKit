@@ -13,6 +13,7 @@ function Read-RenderKitMappingFile {
         return Get-Content $path -Raw | ConvertFrom-Json -ErrorAction Stop
     }
     catch {
+        Write-RenderKitLog -Level Error -Message "Invalid JSON in mapping '$MappingId'."
         throw "Invalid JSON in mapping '$MappingId'"
     }
 }

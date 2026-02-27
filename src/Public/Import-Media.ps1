@@ -1,83 +1,111 @@
 <#
-RoadMap Architecture:
+.SYNOPSIS
+Scans, filters, classifies, and optionally transfers media into a RenderKit project.
 
-    1. Expand Template-Achitecture Logic
-        - Add into template .json  Folder Mappings - done
-        - Each Folder Needs: a global Type from the TypeList 
-        - Each Type Accepts defined File Extensions only (With Override functions) - done
-        - There can be more Mapping rules. - done
-        - The Connection between Mappings and Template are n to n - done
-        - We to define a path for each type. 
-        - Final: Get it production ready 
+.DESCRIPTION
+Runs the RenderKit import workflow in interactive wizard mode or parameter-driven mode.
+Without `-ScanAndFilter`, the command returns drive candidates or an interactive source selection.
+With `-ScanAndFilter`, it executes scan/filter, optional classification, optional transaction-safe transfer, and final reporting.
+Supports `-WhatIf` / `-Confirm` via `SupportsShouldProcess`.
 
-    2. Create a Drive Detection Engine
-        - Function to automatically detect removable drives like Cameras, SD Cards, Thumb Drives etc
-        for convenience --> Generate a List for User in CLI and let him confirm it 
-        - Check for Volume Name (TypeList with common camera names etc. --> Extra Function to 
-        manage this whitelist) Appdata -> RenderKit -> detectlist.json or .txt --> 
-        - Check for Format System of the Drive (TypeList for common Format System for SD cards, cameras etc)
-        I need to Do some research about this topic
-        - Create a Function to expand the WhiteList with SerialNumber = Once Mapped -> Its saved in AppData config
-        You never need to map your drive again
-        - WhiteLists are always in AppData (Appdata -> RenderKit -> Devices.json)
+.PARAMETER SelectSource
+Uses interactive source selection instead of only listing drive candidates.
 
-    3. ACTUALLY Build an Import-Engine in 6 Phases: 
-        Phase 1 - Detect Source 
-            - Show all the potencial Drives, that we detected in Step 2. 
-            - Get the Confirmation / Correction from User in a sexy CLI UX
-            - If it shows broken things, let the user give the actual absolute path
-        Phase 2 - Scan & Filter
-            - First things first -> We scan the whole Drive with [System.IO.DirectoryInfo]
-            - We Filter --> Folder --> Time Range --> Wildcard --> Combination all of it 
-            - We Return the Results and let the user decide what he wants to import
-            - The User has still the option do define his own filters 
-            - If the Criteria are defined --> List a sexy UI Table with the contents that are 
-            goint to be imported 
-            - We let the User confirm the import 
-        Phase 3 - Classification
-            - Now we know what to import, and where to import
-            but we don't know that type where to import
-            - We Iterate through every file and check the file extension
-            - We search for the Template-Mapping for that file extension (We read the template information for the mappings, where we wan to copy the files)
-            - Now we search for the Folder type that includes the extension 
-            and read out the folder name as a path
-            - If we don't find a mapping for an extension we classify it as "unassigned"
-            - After the Iteration we ask the user how to Handle unassigned File Types 
-            With a List of destination folders from the Project Folder (sexy UI ofc.)
-            with the option to skip it after the import (It creates a temporary "TO SORT" folder or similar)
-        Phase 4 - Transaction-Safe Transfer
-            - This is the most critical step, since we don't want to fk up raw Footage from the User.
-            - We Copy to a .renderkit\import-temp 
-            - We calculate a hash 
-            - We compare the hash 
-            - If hash == hash we move from temp to final location
-            - If we have an error, we delete the rollback temp
-            - We log every transaktion with timestamp, we build a loading bar, we log the duration, speed, etc.
-            - Whatif option for simulation
-        Phase 5 - Logging & Revision
-            - Create ".renderkit/import-2026-02-12.log"
-            With these Information: StartTime, SourceDrive, FileCount, Hash, Destination,
-            User, Template, Template Version, RenderKitVersion, json Schema version, 
-            and maybe some other fancy stuff that is relevant for revision
-        Phase 6 - Final Report
-            - Finally we create an import summary with: 
-                - Count.Files Imported
-                - Total Size in GB
-                - Duration
-                - Average Copy Speed 
-                - Sum of unassigned files (handled / unhandled)
-                - Implement a Progressbar (PS Native)
-                    - Sum of Bytes 
-                    - Already copied bytes
-                    - avg. speed
+.PARAMETER IncludeFixed
+Includes fixed disks in source candidate discovery.
 
-    4. Potential nice to have Features after the implementations of all above
-        - SHA256 Manifest
-        - Duplicate Detection
-        - Pause / Resume Import 
-        - Device Registry
-        - Camera Profiles (Folder Structure / Import efficiency)
+.PARAMETER IncludeUnsupportedFileSystem
+Includes drives with unsupported file systems in source candidate discovery.
 
+.PARAMETER ScanAndFilter
+Enables full import workflow (scan, filter, selection, optional classification/transfer).
+
+.PARAMETER SourcePath
+Explicit source folder path to scan (for example `E:\DCIM`).
+
+.PARAMETER FolderFilter
+Folder-name filters used during scan results filtering.
+
+.PARAMETER FromDate
+Start date for file timestamp filter.
+
+.PARAMETER ToDate
+End date for file timestamp filter. Must be equal to or later than `FromDate`.
+
+.PARAMETER Wildcard
+Wildcard patterns for file filtering (for example `*.mp4`, `*.wav`).
+
+.PARAMETER InteractiveFilter
+Prompts for additional filter criteria interactively.
+
+.PARAMETER PreviewCount
+Maximum number of rows shown in preview tables (1..500).
+
+.PARAMETER AutoSelectAll
+Automatically selects all matched files.
+
+.PARAMETER AutoConfirm
+Automatically confirms selected files for import.
+
+.PARAMETER Classify
+Enables classification into template/mapping destination folders.
+
+.PARAMETER ProjectRoot
+Target RenderKit project root for classification and transfer.
+
+.PARAMETER TemplateName
+Template name used for classification.
+
+.PARAMETER UnassignedHandling
+How files without mapping are handled: `Prompt`, `ToSort`, or `Skip`.
+
+.PARAMETER UnassignedFolderName
+Folder name used when unassigned files are routed to the "to sort" destination.
+
+.PARAMETER Transfer
+Enables phase 4 transaction-safe transfer after classification.
+
+.PARAMETER TransferHashAlgorithm
+Hash algorithm used for transfer integrity checks. Allowed values: `SHA256`, `SHA1`, `MD5`.
+
+.EXAMPLE
+Import-Media
+Starts interactive wizard mode (no parameters).
+
+.EXAMPLE
+Import-Media -SelectSource
+Shows interactive drive selection and returns selected source candidate.
+
+.EXAMPLE
+Import-Media -ScanAndFilter -SourcePath "E:\DCIM" -FolderFilter "100EOSR","101EOSR" -Wildcard "*.mp4","*.mov" -PreviewCount 50
+Runs scan/filter with explicit path and preview settings.
+
+.EXAMPLE
+Import-Media -ScanAndFilter -SourcePath "E:\DCIM" -FromDate (Get-Date).AddDays(-2) -ToDate (Get-Date) -Classify -ProjectRoot "D:\Projects\ClientA_2026" -TemplateName "default"
+Runs scan/filter and classification for the given project and template.
+
+.EXAMPLE
+Import-Media -ScanAndFilter -SourcePath "E:\DCIM" -Classify -Transfer -ProjectRoot "D:\Projects\ClientA_2026" -TemplateName "default" -TransferHashAlgorithm SHA256 -WhatIf
+Simulates classified transfer with integrity hashing.
+
+.INPUTS
+None. You cannot pipe input to this command.
+
+.OUTPUTS
+System.Object
+Returns either drive candidate data (discovery mode) or a detailed import summary object (scan/filter mode).
+
+.LINK
+Get-RenderKitDriveCandidate
+
+.LINK
+Select-RenderKitDriveCandidate
+
+.LINK
+Get-Help Import-Media -Detailed
+
+.LINK
+https://github.com/djtroi/RenderKit
 #>
 function Import-Media {
     [CmdletBinding(SupportsShouldProcess)]
@@ -109,6 +137,7 @@ function Import-Media {
 
     $isWizardMode = ($PSBoundParameters.Count -eq 0)
     $wizardTransferSimulate = $false
+    Write-RenderKitLog -Level Debug -Message "Import-Media started: WizardMode=$isWizardMode, ScanAndFilter=$($ScanAndFilter.IsPresent), SelectSource=$($SelectSource.IsPresent), Classify=$($Classify.IsPresent), Transfer=$($Transfer.IsPresent)."
 
     if ($isWizardMode) {
         $wizardConfig = Start-RenderKitImportInteractiveSetup `
@@ -175,6 +204,7 @@ function Import-Media {
     }
 
     Write-Information "Phase 2: scanning source '$resolvedSourcePath'..." -InformationAction Continue
+    Write-RenderKitLog -Level Info -Message "Phase 2: scanning source '$resolvedSourcePath'..."
     $catalog = @(Get-RenderKitImportFileCatalog -SourcePath $resolvedSourcePath)
 
     $criteria = New-RenderKitImportCriteria `

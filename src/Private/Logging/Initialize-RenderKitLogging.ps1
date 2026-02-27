@@ -5,10 +5,13 @@ function Initialize-RenderKitLogging {
         [string]$ProjectRoot
     )
 
+Write-RenderKitLog -Level Debug -Message "Initialize-RenderKitLogging started for '$ProjectRoot'."
+
 $renderKitPath = Join-Path $ProjectRoot ".renderkit"
 
 if (!( Test-Path $renderKitPath )) {
     #New-Item -ItemType Directory -Path $renderKitPath -Force | Out-Null
+    Write-RenderKitLog -Level Error -Message ".renderkit folder not found for '$ProjectRoot'. Logging cannot be initialized."
     throw ".renderkit folder not found. Logging cannot be initialized"
 }
 

@@ -7,6 +7,7 @@ function Read-ProjectTemplate{
     )
 
     if (-not $Path -or -not (Test-Path $Path)) {
+        Write-RenderKitLog -Level Error -Message "Template file not found: $Path"
         throw "Template not found: $Path"
     }
     $ext = [IO.Path]::GetExtension($Path).ToLower()
@@ -16,11 +17,13 @@ function Read-ProjectTemplate{
             try {
                 $json = Get-Content $Path -Raw | ConvertFrom-Json -ErrorAction Stop
                 if (-not ($json.PSObject.Properties['Folders'])) {
+                    Write-RenderKitLog -Level Error -Message "Template JSON '$Path' does not contain a 'Folders' tag."
                     throw "JSON does not contain a folders tag"
                 }
                 return Format-Folders -Node $json.folders
             }
             catch {
+                Write-RenderKitLog -Level Error -Message "Invalid JSON template '$Path': $($_.Exception.Message)"
                 throw "Invalid json template: $_"
             }
         }
@@ -52,11 +55,13 @@ function Read-ProjectTemplate{
             return Format-Folders -Node $root
             }
             catch {
+                Write-RenderKitLog -Level Error -Message "Invalid Markdown template '$Path': $($_.Exception.Message)"
                 throw "Invalid Markdown template $_"
             }
         }
         
     default{
+        Write-RenderKitLog -Level Error -Message "Unsupported template format '$ext' for '$Path'."
         throw "unsupported template format: $ext"
     }
     }

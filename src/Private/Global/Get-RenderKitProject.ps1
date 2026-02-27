@@ -6,15 +6,17 @@ function Get-RenderKitProject{
         [string]$Path
     )
 
+    Write-RenderKitLog -Level Debug -Message "Get-RenderKitProject started: ProjectName='$ProjectName', Path='$Path'."
+
     $searchRoots = @()
 
     if ($Path) {
         $searchRoots += $Path  
     }
     else {
-        $config = Get-RenderKitProject
+        $config = Get-RenderKitConfig
         if ($config.DefaultProjectPath){
-            $searchRoot += $config.DefaultProjectPath
+            $searchRoots += $config.DefaultProjectPath
         }
     }
 
@@ -28,6 +30,7 @@ function Get-RenderKitProject{
         }
 
         catch {
+            Write-RenderKitLog -Level Error -Message "Invalid project metadata JSON in '$metaPath'."
             throw "Invalid project metadata JSON in $metaPath"
         }
 
@@ -38,6 +41,7 @@ function Get-RenderKitProject{
             !($meta.project.name) -or
             $meta.tool -ne "RenderKit"
         ) {
+            Write-RenderKitLog -Level Error -Message "Invalid RenderKit project metadata schema in '$metaPath'."
             throw "Invalid RenderKit project metadata schema"
         }
 
@@ -50,5 +54,6 @@ function Get-RenderKitProject{
         }
     } 
 
+    Write-RenderKitLog -Level Error -Message "RenderKit project '$ProjectName' not found in search roots: $($searchRoots -join ', ')."
     throw "RenderKit project $ProjectName not found"
 }

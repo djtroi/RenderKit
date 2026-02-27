@@ -57,6 +57,7 @@ function Resolve-ProjectTemplate {
             Select-Object -First 1
 
         if (-not $match) {
+            Write-RenderKitLog -Level Error -Message "Template '$TemplateName' not found."
             throw "Template '$TemplateName' not found."
         }
 
@@ -76,6 +77,7 @@ function Resolve-ProjectTemplate {
     }
 
     if (-not $default) {
+        Write-RenderKitLog -Level Error -Message "Default template not found (default.json)."
         throw "Default template not found (default.json)."
     }
 
@@ -92,6 +94,7 @@ function Read-RenderKitTemplateFile {
         return Get-Content $Path -Raw | ConvertFrom-Json -ErrorAction Stop
     }
     catch {
+        Write-RenderKitLog -Level Error -Message "Invalid JSON in template '$Path'."
         throw "Invalid JSON in template '$Path'"
     }
 }

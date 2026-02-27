@@ -24,6 +24,7 @@ function Read-RenderKitDeviceRegistry {
         $registry = Get-Content -Path $path -Raw | ConvertFrom-Json -ErrorAction Stop
     }
     catch {
+        Write-RenderKitLog -Level Error -Message "Invalid JSON in device whitelist '$path'."
         throw "Invalid JSON in device whitelist '$path'."
     }
 
@@ -165,6 +166,7 @@ function Get-RenderKitMountedDrives {
         $logicalDisks = Get-CimInstance -ClassName Win32_LogicalDisk -ErrorAction Stop
     }
     catch {
+        Write-RenderKitLog -Level Error -Message "Unable to query mounted drives. $($_.Exception.Message)"
         throw "Unable to query mounted drives. $_"
     }
 
