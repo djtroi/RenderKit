@@ -597,6 +597,205 @@ function Read-RenderKitImportProjectRootInteractive {
     }
 }
 
+function Get-RenderKitImportChildDirectories {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    try {
+        $directory = [System.IO.DirectoryInfo]::new($Path)
+        if (-not $directory.Exists) {
+            return @()
+        }
+
+        return @(
+            $directory.EnumerateDirectories() |
+                Sort-Object -Property Name
+        )
+    }
+    catch {
+        Write-RenderKitLog -Level Debug -Message "Could not enumerate subdirectories for '$Path': $($_.Exception.Message)"
+        return @()
+    }
+}
+
+function Get-RenderKitImportDirectoryTreeEntries {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RootPath,
+        [ValidateRange(1, 10)]
+        [int]$MaxDepth = 2,
+        [ValidateRange(10, 1000)]
+        [int]$MaxEntries = 250
+    )
+
+    $entries = New-Object System.Collections.Generic.List[object]
+    $pending = New-Object "System.Collections.Generic.Stack[object]"
+    $rootChildren = @(Get-RenderKitImportChildDirectories -Path $RootPath)
+
+    for ($i = $rootChildren.Count - 1; $i -ge 0; $i--) {
+        $child = $rootChildren[$i]
+        $pending.Push([PSCustomObject]@{
+                FullPath     = $child.FullName
+                RelativePath = $child.Name
+                Name         = $child.Name
+                Depth        = 0
+            })
+    }
+
+    $isTruncated = $false
+    while ($pending.Count -gt 0) {
+        $current = $pending.Pop()
+        $entries.Add([PSCustomObject]@{
+                Index        = $entries.Count
+                FullPath     = [string]$current.FullPath
+                RelativePath = [string]$current.RelativePath
+                Name         = [string]$current.Name
+                Depth        = [int]$current.Depth
+            })
+
+        if ($entries.Count -ge $MaxEntries) {
+            $isTruncated = $true
+            break
+        }
+
+        if ($current.Depth -ge ($MaxDepth - 1)) {
+            continue
+        }
+
+        $children = @(Get-RenderKitImportChildDirectories -Path $current.FullPath)
+        for ($i = $children.Count - 1; $i -ge 0; $i--) {
+            $child = $children[$i]
+            $childRelativePath = [System.IO.Path]::Combine(
+                [string]$current.RelativePath,
+                $child.Name
+            ) -replace '/', '\'
+
+            $pending.Push([PSCustomObject]@{
+                    FullPath     = $child.FullName
+                    RelativePath = $childRelativePath
+                    Name         = $child.Name
+                    Depth        = [int]$current.Depth + 1
+                })
+        }
+    }
+
+    return [PSCustomObject]@{
+        Entries     = $entries.ToArray()
+        IsTruncated = $isTruncated
+    }
+}
+
+function Show-RenderKitImportDirectoryTreeEntries {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RootPath,
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [object[]]$Entries,
+        [bool]$IsTruncated = $false,
+        [int]$MaxDepth = 2,
+        [int]$MaxEntries = 250
+    )
+
+    Write-Information "Folder tree under '$RootPath' (depth $MaxDepth):" -InformationAction Continue
+    if ($Entries.Count -eq 0) {
+        Write-Information "No subfolders found under '$RootPath'." -InformationAction Continue
+        return
+    }
+
+    $lines = foreach ($entry in $Entries) {
+        $indent = "  " * [int]$entry.Depth
+        "[{0}] {1}{2}" -f $entry.Index, $indent, $entry.Name
+    }
+
+    $lines | Out-Host
+
+    if ($IsTruncated) {
+        Write-Warning "Tree output was limited to $MaxEntries entries. Select a folder and continue browsing for more detail."
+    }
+}
+
+function Read-RenderKitImportSubfolderSelectionMode {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$SelectedPath
+    )
+
+    while ($true) {
+        $choice = Read-Host "For '$SelectedPath': [S]elect deeper subfolder, use [A]ll, or [I]ndex list from direct subfolders (default A)"
+        if ([string]::IsNullOrWhiteSpace($choice)) {
+            return "All"
+        }
+
+        switch ($choice.Trim().ToUpperInvariant()) {
+            "S" { return "Browse" }
+            "SELECT" { return "Browse" }
+            "A" { return "All" }
+            "ALL" { return "All" }
+            "I" { return "IndexList" }
+            "INDEX" { return "IndexList" }
+            default {
+                Write-Warning "Unknown option '$choice'."
+            }
+        }
+    }
+}
+
+function Read-RenderKitImportSubfolderIndexList {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ParentPath
+    )
+
+    $children = @(Get-RenderKitImportChildDirectories -Path $ParentPath)
+    if ($children.Count -eq 0) {
+        Write-Warning "Folder '$ParentPath' has no direct subfolders."
+        return $null
+    }
+
+    Write-Information "Direct subfolders in '$ParentPath':" -InformationAction Continue
+    $lines = for ($i = 0; $i -lt $children.Count; $i++) {
+        "[{0}] {1}" -f $i, $children[$i].Name
+    }
+    $lines | Out-Host
+
+    while ($true) {
+        $indexText = Read-Host "Subfolder index list (example: 0,2,4-6; Enter to cancel)"
+        if ([string]::IsNullOrWhiteSpace($indexText)) {
+            return $null
+        }
+
+        try {
+            $indexes = ConvertTo-RenderKitImportIndexSelection `
+                -InputText $indexText `
+                -MaxIndex ($children.Count - 1)
+
+            $selectedSubfolders = @(
+                $indexes |
+                    ForEach-Object { [System.Management.Automation.WildcardPattern]::Escape($children[$_].Name) } |
+                    Sort-Object -Unique
+            )
+
+            if ($selectedSubfolders.Count -eq 0) {
+                Write-Warning "No subfolders selected."
+                continue
+            }
+
+            return $selectedSubfolders
+        }
+        catch {
+            Write-Warning $_.Exception.Message
+        }
+    }
+}
+
 function Read-RenderKitImportSourcePathInteractive {
     [CmdletBinding()]
     param(
@@ -624,27 +823,130 @@ function Read-RenderKitImportSourcePathInteractive {
 
     if ($selectedDrive) {
         $driveRoot = ConvertTo-RenderKitImportDrivePath -DriveLetter $selectedDrive.DriveLetter
+        $browseRoot = $driveRoot
+        $treeMaxDepth = 2
+        $treeMaxEntries = 250
 
         while ($true) {
-            $subPath = Read-Host "Source subfolder on '$($selectedDrive.DriveLetter)' (Enter = drive root, Q = manual path)"
+            $tree = Get-RenderKitImportDirectoryTreeEntries `
+                -RootPath $browseRoot `
+                -MaxDepth $treeMaxDepth `
+                -MaxEntries $treeMaxEntries
+
+            Show-RenderKitImportDirectoryTreeEntries `
+                -RootPath $browseRoot `
+                -Entries $tree.Entries `
+                -IsTruncated:[bool]$tree.IsTruncated `
+                -MaxDepth $treeMaxDepth `
+                -MaxEntries $treeMaxEntries
+
+            $isAtDriveRoot = [string]::Equals(
+                [string]$browseRoot.TrimEnd('\'),
+                [string]$driveRoot.TrimEnd('\'),
+                [System.StringComparison]::OrdinalIgnoreCase
+            )
+
+            $subPathPrompt = if ($isAtDriveRoot) {
+                "Source subfolder on '$($selectedDrive.DriveLetter)' by index/path (Enter = drive root, Q = manual path)"
+            }
+            else {
+                "Source subfolder in '$browseRoot' by index/path (Enter = use this folder, U = up, Q = manual path)"
+            }
+
+            $subPath = Read-Host $subPathPrompt
             if ([string]::IsNullOrWhiteSpace($subPath)) {
                 return [PSCustomObject]@{
-                    SourcePath                   = $driveRoot
+                    SourcePath                   = $browseRoot
+                    FolderFilter                 = @()
                     IncludeFixed                 = $effectiveIncludeFixed
                     IncludeUnsupportedFileSystem = $effectiveIncludeUnsupported
                     SelectedDrive                = $selectedDrive
                 }
             }
 
-            if ($subPath.Trim().ToUpperInvariant() -eq "Q") {
+            $normalizedInput = $subPath.Trim()
+            if ($normalizedInput.ToUpperInvariant() -eq "Q") {
                 break
+            }
+
+            if ($normalizedInput.ToUpperInvariant() -eq "U") {
+                if ($isAtDriveRoot) {
+                    Write-Warning "Already at drive root '$driveRoot'."
+                    continue
+                }
+
+                $parentPath = Split-Path -Path $browseRoot -Parent
+                if ([string]::IsNullOrWhiteSpace($parentPath)) {
+                    $browseRoot = $driveRoot
+                }
+                else {
+                    $browseRoot = $parentPath
+                }
+
+                continue
+            }
+
+            $selectedTreeEntry = $null
+            $selectedIndex = -1
+            if ([int]::TryParse($normalizedInput, [ref]$selectedIndex)) {
+                if ($selectedIndex -lt 0 -or $selectedIndex -ge $tree.Entries.Count) {
+                    Write-Warning "Index '$selectedIndex' is out of range. Allowed: 0-$($tree.Entries.Count - 1)."
+                    continue
+                }
+
+                $selectedTreeEntry = $tree.Entries[$selectedIndex]
+                $selectedPath = [string]$selectedTreeEntry.FullPath
+                $continueBrowse = $false
+
+                while ($true) {
+                    $subfolderMode = Read-RenderKitImportSubfolderSelectionMode -SelectedPath $selectedPath
+                    switch ($subfolderMode) {
+                        "Browse" {
+                            $browseRoot = $selectedPath
+                            $continueBrowse = $true
+                            break
+                        }
+                        "All" {
+                            return [PSCustomObject]@{
+                                SourcePath                   = $selectedPath
+                                FolderFilter                 = @()
+                                IncludeFixed                 = $effectiveIncludeFixed
+                                IncludeUnsupportedFileSystem = $effectiveIncludeUnsupported
+                                SelectedDrive                = $selectedDrive
+                            }
+                        }
+                        "IndexList" {
+                            $selectedFolderFilter = Read-RenderKitImportSubfolderIndexList -ParentPath $selectedPath
+                            if ($null -eq $selectedFolderFilter -or $selectedFolderFilter.Count -eq 0) {
+                                Write-Warning "No subfolder index selection entered."
+                                continue
+                            }
+
+                            return [PSCustomObject]@{
+                                SourcePath                   = $selectedPath
+                                FolderFilter                 = @($selectedFolderFilter)
+                                IncludeFixed                 = $effectiveIncludeFixed
+                                IncludeUnsupportedFileSystem = $effectiveIncludeUnsupported
+                                SelectedDrive                = $selectedDrive
+                            }
+                        }
+                    }
+
+                    if ($continueBrowse) {
+                        break
+                    }
+                }
+
+                if ($continueBrowse) {
+                    continue
+                }
             }
 
             $candidatePath = if ([IO.Path]::IsPathRooted($subPath)) {
                 $subPath
             }
             else {
-                Join-Path $driveRoot $subPath
+                Join-Path $browseRoot $subPath
             }
 
             try {
@@ -664,6 +966,7 @@ function Read-RenderKitImportSourcePathInteractive {
 
             return [PSCustomObject]@{
                 SourcePath                   = $resolvedPath
+                FolderFilter                 = @()
                 IncludeFixed                 = $effectiveIncludeFixed
                 IncludeUnsupportedFileSystem = $effectiveIncludeUnsupported
                 SelectedDrive                = $selectedDrive
@@ -694,6 +997,7 @@ function Read-RenderKitImportSourcePathInteractive {
 
         return [PSCustomObject]@{
             SourcePath                   = $resolvedPath
+            FolderFilter                 = @()
             IncludeFixed                 = $effectiveIncludeFixed
             IncludeUnsupportedFileSystem = $effectiveIncludeUnsupported
             SelectedDrive                = $null
@@ -777,6 +1081,7 @@ function Start-RenderKitImportInteractiveSetup {
             Step                         = "2/3"
             Project                      = $resolvedProjectRoot
             SourcePath                   = [string]$sourceSelection.SourcePath
+            SourceFolderFilter           = if ($sourceSelection.FolderFilter.Count -gt 0) { $sourceSelection.FolderFilter -join ", " } else { "<none>" }
             IncludeFixed                 = [bool]$sourceSelection.IncludeFixed
             IncludeUnsupportedFileSystem = [bool]$sourceSelection.IncludeUnsupportedFileSystem
         })
@@ -794,6 +1099,7 @@ function Start-RenderKitImportInteractiveSetup {
             Step                         = "3/3"
             Project                      = $resolvedProjectRoot
             SourcePath                   = [string]$sourceSelection.SourcePath
+            SourceFolderFilter           = if ($sourceSelection.FolderFilter.Count -gt 0) { $sourceSelection.FolderFilter -join ", " } else { "<none>" }
             InteractiveFilter            = [bool]$interactiveFilter
             AutoSelectAll                = [bool]$autoSelectAll
             AutoConfirm                  = [bool]$autoConfirm
@@ -804,6 +1110,7 @@ function Start-RenderKitImportInteractiveSetup {
     return [PSCustomObject]@{
         ScanAndFilter               = $true
         SourcePath                  = [string]$sourceSelection.SourcePath
+        FolderFilter                = @($sourceSelection.FolderFilter)
         IncludeFixed                = [bool]$sourceSelection.IncludeFixed
         IncludeUnsupportedFileSystem = [bool]$sourceSelection.IncludeUnsupportedFileSystem
         InteractiveFilter           = [bool]$interactiveFilter

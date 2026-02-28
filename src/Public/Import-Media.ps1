@@ -152,6 +152,7 @@ function Import-Media {
         $IncludeFixed = [bool]$wizardConfig.IncludeFixed
         $IncludeUnsupportedFileSystem = [bool]$wizardConfig.IncludeUnsupportedFileSystem
         $SourcePath = [string]$wizardConfig.SourcePath
+        $FolderFilter = @($wizardConfig.FolderFilter)
         $InteractiveFilter = [bool]$wizardConfig.InteractiveFilter
         $AutoSelectAll = [bool]$wizardConfig.AutoSelectAll
         $AutoConfirm = [bool]$wizardConfig.AutoConfirm
