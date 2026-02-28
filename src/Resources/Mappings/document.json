@@ -1,0 +1,23 @@
+{
+  "Id": "document",
+  "Types": [
+    {
+      "Name": "Document",
+      "Extensions": [
+        ".csv",
+        ".doc",
+        ".docx",
+        ".md",
+        ".ods",
+        ".odt",
+        ".pdf",
+        ".ppt",
+        ".pptx",
+        ".rtf",
+        ".txt",
+        ".xls",
+        ".xlsx"
+      ]
+    }
+  ]
+}

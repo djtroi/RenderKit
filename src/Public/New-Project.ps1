@@ -1,98 +1,76 @@
-function New-Project{
-    [CmdLetBinding()]
+<#
+.SYNOPSIS
+Creates a new project from a template.
+
+.DESCRIPTION
+Resolves project path and template, creates metadata/logging structure, and builds folder tree.
+
+.PARAMETER Name
+Name of the new project folder.
+
+.PARAMETER Template
+Template name to use (with or without `.json` extension).
+If omitted, the module's default template resolution is used.
+
+.PARAMETER Path
+Base path where the project folder should be created.
+If omitted, the default project root from config is used.
+
+.EXAMPLE
+New-Project -Name "ClientA_2026"
+Creates project `ClientA_2026` using default template and default project root.
+
+.EXAMPLE
+New-Project -Name "ClientA_2026" -Template "default"
+Creates project with explicit template selection.
+
+.EXAMPLE
+New-Project -Name "ClientA_2026" -Template "commercial" -Path "D:\Projects"
+Creates project in a custom location with a custom template.
+
+.INPUTS
+None. You cannot pipe input to this command.
+
+.OUTPUTS
+None. The command creates project structure on disk.
+
+.LINK
+Set-ProjectRoot
+
+.LINK
+Get-Help Get-ProjectTemplate
+
+.LINK
+https://github.com/djtroi/RenderKit
+#>
+function New-Project {
     param(
         [Parameter(Mandatory, Position = 0)]
-        [string]$ProjectName,
-        [Parameter(Position =1)]
+        [string]$Name,
+        [Parameter(Position = 1)]
         [string]$Template,
-        [string]$Path,
-        [string]$TemplatePath
+        [string]$Path
     )
+    Write-RenderKitLog -Level Debug -Message "New-Project started: Name='$Name', Template='$Template', Path='$Path'."
 
-    #-------------------------------------------------------------
-    # PHASE 1 : Command Start 
-    #-------------------------------------------------------------
-    Write-RenderKitLog -Level Info -Message "Creating project '$ProjectName'"
-    Write-RenderKitLog -Level Debug -Message "Parameters: Template = '$Template' Path= '$Path' TemplatePath = '$TemplatePath'"
-
-    $config = Get-RenderKitConfig
-
-    #-------------------------------------------------------------
-    # PHASE 2 : Resolve Target Path
-    #-------------------------------------------------------------
-
-    if (!($Path)){
-        if (!($config.DefaultProjectPath)){
-            Write-RenderKitLog -Level Error -Message "No default project path configured."
-        }
-
-        Write-RenderKitLog -Level Warning -Message "No path provided. Using default project path."
-        $Path = $config.DefaultProjectPath
+    #define Template
+    $ProjectRoot = Resolve-ProjectPath -ProjectName $Name -Path $Path 
+    
+    #project path
+    if(Test-Path $ProjectRoot) {
+        Write-RenderKitLog -Level Error -Message "Project '$Name' already exists at '$ProjectRoot'."
+        throw $_
     }
 
-    if (!(Test-Path $Path)){
-        Write-RenderKitLog -Level Error -Message "Taget path does not exist: $Path"
-        return
-    }
+    #load template
+    $templateObject = Get-ProjectTemplate -TemplateName $Template
 
-    $ProjectRoot = Join-Path $Path $ProjectName
+    Write-RenderKitLog -Level Info -Message "Creating project '$Name' at '$ProjectRoot' using template '$($templateObject.Name)' ($($templateObject.Source))."
 
-    if (Test-Path $ProjectRoot){
-        Write-RenderKitLog -Level Error -Message "Project already exists: $ProjectRoot"
-        return
-    }
-
-    #-------------------------------------------------------------
-    # PHASE 3 : Resolve Template
-    #------------------------------------------------------------- 
-
-    if (!($TemplatePath)){
-        if($Template){
-            $TemplatePath = Join-Path $PSScriptRoot "..\Templates\$Template.json"
-        }
-        else{
-            $TemplatePath = Join-Path $PSScriptRoot "..\Templates\default.json"
-        }
-    }
-
-    $templateInfo = Resolve-ProjectTemplate `
-    -TemplateName $Template `
-    -TemplatePath $TemplatePath
-
-    Write-RenderKitLog -Level Info -Message "Using template '$($templateInfo.Name)'"
-    #-------------------------------------------------------------
-    # PHASE 4 : Create Project Structure
-    #------------------------------------------------------------- 
-
-    try{
-        $structure = Read-ProjectTemplate -Path $templateInfo.path
-
-        New-Item -ItemType Directory -Path $ProjectRoot -ErrorAction Stop | Out-Null
-
-        $renderKitPath = Join-Path $projectRoot ".renderkit"
-        New-Item -ItemType Directory -Path $renderKitPath -ErrorAction Stop | Out-Null
-
-        Initialize-RenderKitLogging -ProjectRoot $ProjectRoot 
-        Write-RenderKitLog -Level Debug -Message "Logging initialized"
-
-        #Metadata
-        $metadata = New-RenderKitProjectMetadata `
-        -ProjectNAme $ProjectName `
-        -TemplateName $templateInfo.Name `
-        -TemplateSource $templateInfo.Source 
-
-        Write-RenderKitProjectMetadata `
+    New-RenderKitProjectFromTemplate `
+        -ProjectName $Name `
         -ProjectRoot $ProjectRoot `
-        -Metadata $metadata
+        -Template $templateObject
 
-        New-FolderTree -Root $ProjectRoot -Structure $structure
-
-        Write-RenderKitLog -Level Info -Message "Project '$ProjectName' created successfully."
-
-    }
-    catch{
-        Write-RenderKitLog -Level Error -Message "Project creation failed: $_"
-        throw
-    }
-
+    Write-RenderKitLog -Level Info -Message "Project '$Name' created successfully."
 }

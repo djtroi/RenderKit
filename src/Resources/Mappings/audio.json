@@ -1,0 +1,19 @@
+{
+  "Id": "audio",
+  "Types": [
+    {
+      "Name": "Audio",
+      "Extensions": [
+        ".aac",
+        ".aif",
+        ".aiff",
+        ".flac",
+        ".m4a",
+        ".mp3",
+        ".ogg",
+        ".wav",
+        ".wma"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "Version": "1.0",
+  "Name": "podcast",
+  "Description": "Podcast Project Template",
+  "Mappings": [
+    "video",
+    "audio",
+    "image",
+    "project",
+    "archive",
+    "document"
+  ],
+  "Folders": [
+    {
+      "Name": "00_Raw",
+      "MappingId": null,
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "01_Audio",
+      "MappingId": "audio",
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "02_Video",
+      "MappingId": "video",
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "03_ProjectFiles",
+      "MappingId": "project",
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "04_Graphics",
+      "MappingId": "image",
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "05_Exports",
+      "MappingId": "video",
+      "Required": true,
+      "SubFolders": []
+    },
+    {
+      "Name": "06_Thumbnails",
+      "MappingId": "image",
+      "Required": true,
+      "SubFolders": []
+    }
+  ]
+}

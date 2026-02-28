@@ -1,3 +1,55 @@
+<#
+.SYNOPSIS
+Cleans and archives a RenderKit project.
+
+.DESCRIPTION
+Resolves a project, removes configured artifacts, optionally removes empty folders, creates a ZIP, and writes a backup manifest.
+Supports `-WhatIf` / `-Confirm` via `SupportsShouldProcess`.
+
+.PARAMETER ProjectName
+Name of the project folder to back up.
+
+.PARAMETER Path
+Project root directory that contains the project folder.
+If omitted, the default path from RenderKit config is used.
+
+.PARAMETER Software
+Cleanup profile names used to decide which artifacts are removed before archiving.
+
+.PARAMETER KeepEmptyFolders
+Keeps empty folders after cleanup when set.
+
+.PARAMETER DryRun
+Simulates cleanup and archive operations without changing files.
+
+.EXAMPLE
+Backup-Project -ProjectName "ClientA_2026"
+Backs up project `ClientA_2026` from the configured default project root.
+
+.EXAMPLE
+Backup-Project -ProjectName "ClientA_2026" -Path "D:\Projects" -Software DaVinci -DryRun
+Simulates a DaVinci-focused backup for the given path.
+
+.EXAMPLE
+Backup-Project -ProjectName "ClientA_2026" -Path "D:\Projects" -KeepEmptyFolders -Confirm
+Runs backup and asks for confirmation because of `SupportsShouldProcess`.
+
+.INPUTS
+None. You cannot pipe input to this command.
+
+.OUTPUTS
+System.Management.Automation.PSCustomObject
+Returns project and backup result data (project id, root path, backup path, dry-run flag).
+
+.LINK
+Set-ProjectRoot
+
+.LINK
+New-Project
+
+.LINK
+https://github.com/djtroi/RenderKit
+#>
 function Backup-Project{
     [CmdletBinding(SupportsShouldProcess)]
     param(

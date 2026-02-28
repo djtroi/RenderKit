@@ -12,6 +12,7 @@ function Test-BackupLock {
         $lock = Get-Content $lockPath -Raw | ConvertFrom-Json
     }
     catch {
+        Write-RenderKitLog -Level Error -Message "Backup lock exists but is corrupted: '$lockPath'."
         throw "Backup lock exists but is corrupted $lockPath"
     }
 
