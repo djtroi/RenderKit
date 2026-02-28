@@ -7,7 +7,62 @@ function Compress-Project{
         [string]$DestinationPath
     )
 
-    Compress-Archive -Path $ProjectPath -DestinationPath $DestinationPath -Force
+    $resolvedProjectPath = (Resolve-Path -Path $ProjectPath -ErrorAction Stop).ProviderPath
+    if (-not (Test-Path -Path $resolvedProjectPath -PathType Container)) {
+        throw "Project path '$ProjectPath' is not a directory."
+    }
+
+    $destinationDirectory = Split-Path -Path $DestinationPath -Parent
+    if (-not [string]::IsNullOrWhiteSpace($destinationDirectory) -and -not (Test-Path -Path $destinationDirectory -PathType Container)) {
+        New-Item -ItemType Directory -Path $destinationDirectory -Force | Out-Null
+    }
+
+    if (Test-Path -Path $DestinationPath -PathType Leaf) {
+        Remove-Item -Path $DestinationPath -Force
+    }
+
+    $basePath = Split-Path -Path $resolvedProjectPath -Parent
+    if ([string]::IsNullOrWhiteSpace($basePath)) {
+        throw "Could not resolve base path for '$resolvedProjectPath'."
+    }
+
+    $directories = @(
+        Get-ChildItem -Path $resolvedProjectPath -Recurse -Directory -Force -ErrorAction SilentlyContinue
+    )
+    $files = @(
+        Get-ChildItem -Path $resolvedProjectPath -Recurse -File -Force -ErrorAction SilentlyContinue
+    )
+
+    $zip = [System.IO.Compression.ZipFile]::Open($DestinationPath, [System.IO.Compression.ZipArchiveMode]::Create)
+    try {
+        $projectRootEntryName = $resolvedProjectPath.Substring($basePath.Length).TrimStart('\', '/') -replace '\\', '/'
+        if (-not $projectRootEntryName.EndsWith('/')) {
+            $projectRootEntryName = "$projectRootEntryName/"
+        }
+        [void]$zip.CreateEntry($projectRootEntryName)
+
+        foreach ($directory in $directories) {
+            $entryName = $directory.FullName.Substring($basePath.Length).TrimStart('\', '/') -replace '\\', '/'
+            if (-not $entryName.EndsWith('/')) {
+                $entryName = "$entryName/"
+            }
+
+            [void]$zip.CreateEntry($entryName)
+        }
+
+        foreach ($file in $files) {
+            $entryName = $file.FullName.Substring($basePath.Length).TrimStart('\', '/') -replace '\\', '/'
+            [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $zip,
+                $file.FullName,
+                $entryName,
+                [System.IO.Compression.CompressionLevel]::Optimal
+            )
+        }
+    }
+    finally {
+        $zip.Dispose()
+    }
 
     $archiveItem = Get-Item -Path $DestinationPath -ErrorAction Stop
     $hash = Get-FileHash -Path $DestinationPath -Algorithm SHA256 -ErrorAction Stop

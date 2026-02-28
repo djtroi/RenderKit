@@ -1,23 +1,35 @@
 function Save-BackupManifest {
     [CmdletBinding()]
     param(
-    [Parameter(Mandatory)]
-    [pscustomobject]$Manifest,
-    [Parameter(Mandatory)]
-    [string]$ProjectRoot
+        [Parameter(Mandatory)]
+        [pscustomobject]$Manifest,
+        [string]$ProjectRoot,
+        [string]$ManifestPath
     )
 
-    $renderKitPath = Join-Path $ProjectRoot ".renderkit"
+    $targetPath = $ManifestPath
+    if ([string]::IsNullOrWhiteSpace($targetPath)) {
+        if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
+            throw "Either -ProjectRoot or -ManifestPath must be provided."
+        }
 
-    if (!(Test-Path $renderKitPath)) {
-        New-Item -ItemType Directory -Path $renderKitPath | Out-Null
+        $renderKitPath = Join-Path $ProjectRoot ".renderkit"
+        if (-not (Test-Path -Path $renderKitPath -PathType Container)) {
+            New-Item -ItemType Directory -Path $renderKitPath | Out-Null
+        }
+
+        $targetPath = Join-Path $renderKitPath "backup.manifest.json"
+    }
+    else {
+        $manifestDirectory = Split-Path -Path $targetPath -Parent
+        if (-not [string]::IsNullOrWhiteSpace($manifestDirectory) -and -not (Test-Path -Path $manifestDirectory -PathType Container)) {
+            New-Item -ItemType Directory -Path $manifestDirectory -Force | Out-Null
+        }
     }
 
-    $manifestPath = Join-Path $renderKitPath "backup.manifest.json"
-
     $Manifest |
-        ConvertTo-Json -Depth 10 | 
-        Set-Content -Path $manifestPath -Encoding UTF8
+        ConvertTo-Json -Depth 10 |
+        Set-Content -Path $targetPath -Encoding UTF8
 
-    return $manifestPath
+    return $targetPath
 }
