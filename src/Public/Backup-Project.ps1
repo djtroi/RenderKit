@@ -196,6 +196,12 @@ function Backup-Project{
                 -Algorithm "SHA256"
 
             if (-not $integrityCheck.IsMatch) {
+                Write-RenderKitLog -Level Error -Message (
+                    "Archive integrity check failed. MissingInArchive={0}, ExtraInArchive={1}, HashMismatches={2}." -f
+                    $integrityCheck.MissingInArchiveCount,
+                    $integrityCheck.ExtraInArchiveCount,
+                    $integrityCheck.HashMismatchCount
+                )
                 throw (
                     "Archive integrity check failed. MissingInArchive={0}, ExtraInArchive={1}, HashMismatches={2}." -f
                     $integrityCheck.MissingInArchiveCount,
@@ -249,6 +255,7 @@ function Backup-Project{
 
             $sourceRemoved = -not (Test-Path -Path $projectRoot -PathType Container)
             if (-not $sourceRemoved) {
+                Write-RenderKitLog -Level Error -Message "Source project folder '$projectRoot' could not be removed."
                 throw "Source project folder '$projectRoot' could not be removed."
             }
 

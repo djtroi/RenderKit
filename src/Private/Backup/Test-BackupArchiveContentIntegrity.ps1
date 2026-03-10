@@ -11,11 +11,15 @@ function Test-BackupArchiveContentIntegrity {
     )
 
     if (-not (Test-Path -Path $ProjectPath -PathType Container)) {
+        Write-RenderKitLog -Level Error -Message "Project path '$ProjectPath' does not exist."
         throw "Project path '$ProjectPath' does not exist."
     }
     if (-not (Test-Path -Path $ArchivePath -PathType Leaf)) {
+        Write-RenderKitLog -Level Error -Message "Archive path '$ArchivePath' does not exist."
         throw "Archive path '$ArchivePath' does not exist."
     }
+
+    Write-RenderKitLog -Level Debug -Message "Test-BackupArchiveContentIntegrity started: ProjectPath='$ProjectPath', ArchivePath='$ArchivePath', Algorithm='$Algorithm', SourceIndexProvided=$($null -ne $SourceIndex -and $SourceIndex.Count -gt 0)."
 
     $extractRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("renderkit-archive-verify-" + [guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $extractRoot -Force | Out-Null
@@ -85,6 +89,14 @@ function Test-BackupArchiveContentIntegrity {
         }
 
         $isMatch = ($missingInArchive.Count -eq 0 -and $extraInArchive.Count -eq 0 -and $hashMismatches.Count -eq 0)
+        Write-RenderKitLog -Level Debug -Message (
+            "Archive integrity computed: SourceFiles={0}, ArchiveFiles={1}, Missing={2}, Extra={3}, HashMismatches={4}." -f
+            $sourcePaths.Count,
+            $archivePaths.Count,
+            $missingInArchive.Count,
+            $extraInArchive.Count,
+            $hashMismatches.Count
+        )
         return [PSCustomObject]@{
             IsMatch                = $isMatch
             Algorithm              = $Algorithm

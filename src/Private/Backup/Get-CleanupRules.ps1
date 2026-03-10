@@ -5,6 +5,8 @@ function Get-CleanupRules{
         [string[]]$Profile
     )
 
+    Write-RenderKitLog -Level Debug -Message "Get-CleanupRules started: ProfileCount=$(@($Profile).Count)."
+
     $profiles = Get-BackupCleanupProfiles
     $requestedProfiles = @(
         $Profile |
@@ -14,6 +16,7 @@ function Get-CleanupRules{
     )
 
     if ($requestedProfiles.Count -eq 0) {
+        Write-RenderKitLog -Level Warning -Message "No cleanup profiles specified. Using default profile 'General'."
         $requestedProfiles = @("General")
     }
 
@@ -23,6 +26,7 @@ function Get-CleanupRules{
     )
     if ($unknownProfiles.Count -gt 0) {
         $available = @($profiles.Keys | Sort-Object) -join ", "
+        Write-RenderKitLog -Level Error -Message "Unknown backup profile(s): $($unknownProfiles -join ', '). Available profiles: $available."
         throw "Unknown backup profile(s): $($unknownProfiles -join ', '). Available profiles: $available."
     }
 

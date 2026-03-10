@@ -7,8 +7,11 @@ function Compress-Project{
         [string]$DestinationPath
     )
 
+    Write-RenderKitLog -Level Debug -Message "Compress-Project started: ProjectPath='$ProjectPath', DestinationPath='$DestinationPath'."
+
     $resolvedProjectPath = (Resolve-Path -Path $ProjectPath -ErrorAction Stop).ProviderPath
     if (-not (Test-Path -Path $resolvedProjectPath -PathType Container)) {
+        Write-RenderKitLog -Level Error -Message "Project path '$ProjectPath' is not a directory."
         throw "Project path '$ProjectPath' is not a directory."
     }
 
@@ -23,6 +26,7 @@ function Compress-Project{
 
     $basePath = Split-Path -Path $resolvedProjectPath -Parent
     if ([string]::IsNullOrWhiteSpace($basePath)) {
+        Write-RenderKitLog -Level Error -Message "Could not resolve base path for '$resolvedProjectPath'."
         throw "Could not resolve base path for '$resolvedProjectPath'."
     }
 
@@ -32,6 +36,8 @@ function Compress-Project{
     $files = @(
         Get-ChildItem -Path $resolvedProjectPath -Recurse -File -Force -ErrorAction SilentlyContinue
     )
+
+    Write-RenderKitLog -Level Debug -Message "Compress-Project collected items: Directories=$($directories.Count), Files=$($files.Count)."
 
     $zip = [System.IO.Compression.ZipFile]::Open($DestinationPath, [System.IO.Compression.ZipArchiveMode]::Create)
     try {
@@ -66,6 +72,8 @@ function Compress-Project{
 
     $archiveItem = Get-Item -Path $DestinationPath -ErrorAction Stop
     $hash = Get-FileHash -Path $DestinationPath -Algorithm SHA256 -ErrorAction Stop
+
+    Write-RenderKitLog -Level Info -Message "Compressed '$resolvedProjectPath' to '$($archiveItem.FullName)' ($([int64]$archiveItem.Length) bytes)."
 
     return [PSCustomObject]@{
         Path          = $archiveItem.FullName
