@@ -1,6 +1,6 @@
 @{
     RootModule = 'RenderKit.psm1'
-    ModuleVersion = '0.2.0' # Major.Minor.Patch
+    ModuleVersion = '0.3.0' # Major.Minor.Patch
     Author = 'Norbert Marton'
     Description = 'Powershell tools for video editing project workflows.'
     GUID = '32e3f476-8e44-4511-82c7-952748e6463b'
@@ -43,8 +43,6 @@
             # ReleaseNotes of this module
             ReleaseNotes = 'https://github.com/djtroi/RenderKit/releases/latest'
 
-            # Prerelease tag for PSGallery.
-            Prerelease = 'alpha'
 
          } # End of PSData hashtable
 

@@ -1,3 +1,54 @@
+# 0.3.0 – 2026-03-31
+## Minor Release
+
+---
+
+## Added
+
+### Import-Media full workflow
+- Added interactive import wizard mode when `Import-Media` is called without parameters
+- Added parameter-driven scan/filter mode (`-ScanAndFilter`) with folder/date/wildcard criteria
+- Added optional classification phase to route files by template/mapping rules
+- Added optional transaction-safe transfer phase with hash verification (`SHA256`, `SHA1`, `MD5`)
+- Added improved preview and selection flow for matched files
+
+### Drive detection and source selection
+- Added include switches for fixed and unsupported filesystems
+- Added interactive source candidate selection workflow
+- Added whitelist integration for known source devices
+
+### Backup hardening
+- Added ZIP archive creation to backup pipeline
+- Added archive content integrity check against source file hash index
+- Added backup log injection into archive
+- Added backup manifest generation and persistence
+
+---
+
+## Changed
+
+- Updated module manifest version to `0.3.0`
+- Updated documentation and README examples for release `0.3.0`
+
+---
+
+## Removed
+
+- Removed prerelease tag (`alpha`) from module manifest for the `0.3.0` release
+
+---
+
+## Fixed
+
+- Stabilized backup flow around cleanup, integrity validation, and archive finalization output
+- Improved import flow validation for invalid date ranges (`-FromDate` / `-ToDate`)
+
+---
+
+## Security
+
+- No changes
+
 # 0.2.0 – 2026-02-11
 ## Minor Release
 

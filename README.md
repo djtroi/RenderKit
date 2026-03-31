@@ -3,136 +3,82 @@
 ![GitHub Release](https://img.shields.io/github/v/release/djtroi/RenderKit)
 
 
-# Overview
-**RenderKit** is a simple but powerful PowerShell module that helps you optimize your workflow while editing or producing videos.  
-Please note that this module is not released yet.
+## Overview
+**RenderKit** is a PowerShell module for structured video-production workflows.
+It helps you create standardized projects, manage templates/mappings, import media with filter and transfer workflows, and archive projects safely.
+
+## What's new in 0.3.0
+### 1) End-to-end media import workflow (`Import-Media`)
+You can now run a full scan → filter → selection → classification → transfer pipeline in one command.
+# Interactive wizard
+Import-Media
+# Parameter-driven scan and filter
+Import-Media -ScanAndFilter -SourcePath "E:\DCIM" -FolderFilter "100EOSR" -Wildcard "*.mp4","*.mov"
+# Scan + classify + transfer (with integrity hash)
+Import-Media -ScanAndFilter -SourcePath "E:\DCIM" -Classify -Transfer -ProjectRoot "D:\Projects\ClientA_2026" -TemplateName "default" -TransferHashAlgorithm SHA256
+
+### 2) Production-ready backup pipeline (`Backup-Project`)
+Backups now include cleanup profiles, archive creation, integrity verification, log injection, and manifest handling.
+# Standard backup
+Backup-Project -ProjectName "ClientA_2026"
+# Backup preview without writing changes
+Backup-Project -ProjectName "ClientA_2026" -Profile DaVinci -DryRun
+# Backup and keep source project
+Backup-Project -ProjectName "ClientA_2026" -DestinationRoot "E:\Backups" -KeepSourceProject
+
+### 3) Drive detection + whitelist workflow
+Source selection and whitelisting are integrated for faster import setup.
+# Detect candidate drives
+Get-RenderKitDriveCandidate
+# Interactively select a source drive
+Select-RenderKitDriveCandidate -IncludeFixed
+# Add known media devices to whitelist
+Add-RenderKitDeviceWhitelistEntry -FromMountedVolumes
+
+---
 
 ## Public Functions
-`Set-ProjectRoot`  
-Sets the default base path for your projects (stored in `%APPDATA%\RenderKit\config.json`).
-```powershell
-Set-ProjectRoot -Path "D:\Editing_Projects"
-```
 
-`New-Project`  
-Creates a new project folder structure from a template. If `-Template` is omitted, `default` is used. If `-Path` is omitted, the configured project root is used.
-```powershell
-New-Project WeddingFilm youtube
-New-Project -Name "WeddingFilm" -Template "youtube"
-New-Project -Name "WeddingFilm" -Path "D:\Projects"
-```
+### Project & template setup
+- `Set-ProjectRoot`
+- `New-Project`
+- `New-RenderKitTemplate`
+- `Add-FolderToTemplate`
+- `New-RenderKitMapping`
+- `Add-RenderKitTypeToMapping`
+- `Add-RenderKitMappingToTemplate`
 
-`New-RenderKitTemplate`  
-Creates a new user template in AppData.
-```powershell
-New-RenderKitTemplate -Name "my-template"
-```
+### Import & source detection
+- `Import-Media`
+- `Get-RenderKitDriveCandidate`
+- `Select-RenderKitDriveCandidate`
+- `Get-RenderKitDeviceWhitelist`
+- `Add-RenderKitDeviceWhitelistEntry`
 
-`Add-FolderToTemplate`  
-Adds a folder path (and optional mapping) to a template.
-```powershell
-Add-FolderToTemplate -TemplateName "my-template" -FolderPath "01_Raw/01_Video"
-Add-FolderToTemplate -TemplateName "my-template" -FolderPath "01_Raw/01_Video" -MappingId "video"
-```
+### Backup
+- `Backup-Project`
 
-`New-RenderKitMapping`  
-Creates a new mapping file in AppData.
-```powershell
-New-RenderKitMapping -Id "camera"
-```
+---
 
-`Add-RenderKitTypeToMapping`  
-Adds a file type and extensions to a mapping.
-```powershell
-Add-RenderKitTypeToMapping -MappingId "camera" -TypeName "Video" -Extensions ".mp4",".mov"
-```
+## Basic Usage
 
-`Add-RenderKitMappingToTemplate`  
-Registers a mapping in a template (supports multiple mappings per template).
+### Installation
 ```powershell
-Add-RenderKitMappingToTemplate -TemplateName "my-template" -MappingId "camera"
-```
-
-`Backup-Project`  
-Cleans a project and creates a backup archive (supports `-WhatIf` / `-Confirm`).
-```powershell
-Backup-Project -ProjectName "WeddingFilm" -Software "DaVinci" -KeepEmptyFolders
-Backup-Project -ProjectName "WeddingFilm" -DryRun
-```
-
-`Get-RenderKitDriveCandidate`  
-Detects mounted source-drive candidates (`FAT32`/`exFAT`, with `exFAT` priority).
-```powershell
-Get-RenderKitDriveCandidate
-Get-RenderKitDriveCandidate -IncludeFixed
-```
-
-`Select-RenderKitDriveCandidate`  
-Shows detected candidates in CLI and lets you confirm one by index.
-```powershell
-Select-RenderKitDriveCandidate
-```
-
-`Get-RenderKitDeviceWhitelist`  
-Reads the device whitelist from `%APPDATA%\RenderKit\Devices.json` (file is auto-created if missing).
-```powershell
-Get-RenderKitDeviceWhitelist
-```
-
-`Add-RenderKitDeviceWhitelistEntry`  
-Adds volume names and/or serial numbers to the whitelist.
-```powershell
-Add-RenderKitDeviceWhitelistEntry -VolumeName "EOS_DIGITAL"
-Add-RenderKitDeviceWhitelistEntry -DriveLetter "E:"
-Add-RenderKitDeviceWhitelistEntry -FromMountedVolumes
-```
-
-`Import-Media`  
-Entry point for media import detection. Lists candidates or lets you select one.
-```powershell
-Import-Media
-Import-Media -SelectSource
-```
-
-# Basic Usage
-## Installation
-```powershell 
 Install-Module -Name RenderKit
 ```
 
+### Minimal setup
+```powershell
+Set-ProjectRoot -Path "D:\Editing_Projects"
+New-Project -Name "WeddingFilm" -Template "youtube"
+```
 
-# RoadMap
+---
+## Roadmap
 
-These are the ad hoc functions and improvements that I'm looking forward to implement. If you have the time and motivation, feel free to open a PR for one of the features.
-
-## Fundamentals & Stability
-
-- Add Error- / Exceptionhandling and Rollback
-
-- Add Function to create a project with an absolute path
-
-- Add Markdown template support
-
-- Add Template management functions (show templates, create template, validate template(intern))
-
-- Optimize Normalization and Validation of templates
-
-- Add function to deliver files to a customer (grab and zip together your latest rendered files in your folder)
-
-- Add function to use multiple "deliver" export-profiles 
-
-- Add versioning for project-templates for rollback-possibilty
-
-- Create Project-Statistics / Reporting
-
-- Create Cmdlet Alias / Shortcuts
-
-- Cloud Integration
-
-- Maybe GUI / WEB-Frontend
-
-- Create a Naming-Conventions into the configuration
-
-- Create a Multi-Project-Management (list, filter, create status etc.)
-
-- Pester Integration
+- Add markdown template support
+- Add template management and validation functions
+- Add delivery/export profile workflow
+- Add project statistics/reporting
+- Add multi-project management
+- Explore cloud integration and optional GUI/Web frontend
