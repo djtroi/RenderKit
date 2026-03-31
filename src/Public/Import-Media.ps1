@@ -157,7 +157,7 @@ function Import-Media {
         $AutoSelectAll = [bool]$wizardConfig.AutoSelectAll
         $AutoConfirm = [bool]$wizardConfig.AutoConfirm
         $ProjectRoot = [string]$wizardConfig.ProjectRoot
-        $Classify = [bool]$wizardConfig.Classify
+        $Classify = [bool]$wizardConfig.Class 
         $Transfer = [bool]$wizardConfig.Transfer
         $UnassignedHandling = [string]$wizardConfig.UnassignedHandling
     }

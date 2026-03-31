@@ -1,4 +1,5 @@
 function Test-BackupLock {
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [string]$ProjectRoot
@@ -6,7 +7,15 @@ function Test-BackupLock {
 
     $lockPath = Get-BackupLockPath -ProjectRoot $ProjectRoot
 
-    if (!(Test-Path $lockPath)) { return $False }
+    if (-not (Test-Path -Path $lockPath -PathType Leaf)) {
+        return [PSCustomObject]@{
+            Exists   = $false
+            IsLocked = $false
+            IsStale  = $false
+            LockPath = $lockPath
+            Lock     = $null
+        }
+    }
 
     try {
         $lock = Get-Content $lockPath -Raw | ConvertFrom-Json
@@ -16,19 +25,33 @@ function Test-BackupLock {
         throw "Backup lock exists but is corrupted $lockPath"
     }
 
-    #Stale lock detection
+    $lockMachine = $null
+    if ($lock.PSObject.Properties.Name -contains "machine") {
+        $lockMachine = [string]$lock.machine
+    }
+    elseif ($lock.PSObject.Properties.Name -contains "maschine") {
+        $lockMachine = [string]$lock.maschine
+    }
 
-    if ($lock.processId -and -not (Get-Process -Id $lock.processId -ErrorAction SilentlyContinue)) {
-        return @{
-            IsLocked        = $False
-            IsStale         = $True
-            Lock            = $lock
+    # stale lock detection is only safe for local-machine locks
+    $isLocalMachine = [string]::IsNullOrWhiteSpace($lockMachine) -or
+        $lockMachine.Equals($env:COMPUTERNAME, [System.StringComparison]::OrdinalIgnoreCase)
+
+    if ($isLocalMachine -and $lock.processId -and -not (Get-Process -Id $lock.processId -ErrorAction SilentlyContinue)) {
+        return [PSCustomObject]@{
+            Exists   = $true
+            IsLocked = $false
+            IsStale  = $true
+            LockPath = $lockPath
+            Lock     = $lock
         }
     }
 
-    return @{
-        IsLocked            = $True
-        IsStale             = $False
-        Lock                = $lock
+    return [PSCustomObject]@{
+        Exists   = $true
+        IsLocked = $true
+        IsStale  = $false
+        LockPath = $lockPath
+        Lock     = $lock
     }
 }
