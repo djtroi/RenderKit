@@ -1,6 +1,7 @@
 # RenderKit
 ![Static Badge](https://img.shields.io/badge/Version-Alpha-blue)
 ![GitHub Release](https://img.shields.io/github/v/release/djtroi/RenderKit)
+[![PSScriptAnalyzer](https://github.com/djtroi/RenderKit/actions/workflows/powershell_PSScriptAnalyzer.yml/badge.svg)](https://github.com/djtroi/RenderKit/actions/workflows/powershell_PSScriptAnalyzer.yml)
 
 
 ## Overview
