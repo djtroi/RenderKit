@@ -8,7 +8,21 @@
     Copyright = 'Copyright © 2026 Norbert Marton'
     # Minimum version of the Windows PowerShell engine required by this module
     PowerShellVersion = '5.1'
-    FunctionsToExport = '*'
+    FunctionsToExport = @(
+        'Add-FolderToTemplate'
+        'Add-RenderKitDeviceWhitelistEntry'
+        'Add-RenderKitMappingToTeamplate'
+        'Add-RenderKitTypeToMapping'
+        'Backup-Project'
+        'Get-RenderKitDeviceWhitelist'
+        'Get-RenderKitDriveCandidate'
+        'Import-Media'
+        'New-Project'
+        'New-RenderKitMapping'
+        'New-RenderKitTemplate'
+        'Select-RenderKitDriveCandidate'
+        'Set-ProjectRoot'
+    )
     CmdletsToExport = @()
     AliasesToExport = @()
     VariablesToExport = '*'
