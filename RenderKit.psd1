@@ -7,29 +7,15 @@
     CompanyName = "Concept MARTON"
     Copyright = 'Copyright © 2026 Norbert Marton'
     # Minimum version of the Windows PowerShell engine required by this module
-    PowerShellVersion = '5.1.14393.0'
-    FunctionsToExport = @(
-        'New-Project'
-        'Backup-Project'
-        'Import-Media'
-        'Set-ProjectRoot'
-        'Add-RenderKitMappingToTemplate'
-        'Add-RenderKitTypeToMapping'
-        'New-RenderKitMapping'
-        'New-RenderKitTemplate'
-        'Add-FolderToTemplate'
-        'Get-RenderKitDriveCandidate'
-        'Select-RenderKitDriveCandidate'
-        'Get-RenderKitDeviceWhitelist'
-        'Add-RenderKitDeviceWhitelistEntry'
-        )
+    PowerShellVersion = '5.1'
+    FunctionsToExport = '*'
     CmdletsToExport = @()
     AliasesToExport = @()
     VariablesToExport = '*'
     PrivateData = @{
         PSData = @{
             # Tags applied to this module. These help with module discovery in online galleries.
-            Tags = 'RenderKit', 'renderkit', 'rk', 'rkit', 'render', 'kit', 'video editing', 'cutting', 'production', 'video', 'workflow', 'projectmanagement'
+            Tags = @('RenderKit', 'renderkit', 'rk', 'rkit', 'render', 'kit', 'video editing', 'cutting', 'production', 'video', 'workflow', 'projectmanagement')
 
             # A URL to the license for this module.
             LicenseUri = 'https://github.com/djtroi/RenderKit?tab=MIT-1-ov-file'
