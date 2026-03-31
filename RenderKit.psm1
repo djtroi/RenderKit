@@ -1,4 +1,4 @@
-#Module Version
+# Module Version
 $script:ManifestPath = Join-Path $PSScriptRoot 'RenderKit.psd1'
 $script:RenderKitModuleRoot = $PSScriptRoot
 
@@ -10,41 +10,36 @@ else {
     $script:RenderKitModuleVersion = '0.0.0-unknown'
 }
 
-#Bootstrap Logging
+# Bootstrap Logging
 $script:RenderKitLoggingInitialized = $false
 $script:RenderKitBootstrapLog = New-Object System.Collections.Generic.List[string]
 $script:RenderKitDebugMode = $false
 
-#Release
+# Paths
 $publicPath  = Join-Path $PSScriptRoot 'Public'
 $privatePath = Join-Path $PSScriptRoot 'Private'
-#$resourcesPath = Join-Path $PSScriptRoot 'Resources'
 $classesPath = Join-Path $PSScriptRoot 'Classes'
 
+# Load Classes
 if (Test-Path $classesPath){
-    Get-ChildItem -Path $classesPath\*.ps1 | ForEach-Object {. $_ }
-} else {
-    Write-Error "No Classes folder found $classesPath"
+    Get-ChildItem -Path $classesPath -Filter *.ps1 -Recurse | ForEach-Object { . $_.FullName }
+}
+else {
+    Write-Verbose "No Classes folder found: $classesPath"
 }
 
+# Load Public
 if (Test-Path $publicPath) {
-    Get-ChildItem "$publicPath\*.ps1" | ForEach-Object { . $_ }
-} else {
-    Write-Error "Public folder not found: $publicPath"
+    Get-ChildItem -Path $publicPath -Filter *.ps1 -Recurse | ForEach-Object { . $_.FullName }
+}
+else {
+    Write-Verbose "Public folder not found: $publicPath"
 }
 
-
+# Load Private
 if (Test-Path $privatePath) {
     Get-ChildItem -Path $privatePath -Filter *.ps1 -Recurse | ForEach-Object { . $_.FullName }
-} else {
-    Write-Error "Private folder not found: $privatePath "
 }
-
-
-# if (-not (Test-Path $resourcesPath)) {
-#     Get-ChildItem "$resourcesPath\*.ps1" -Recurse | ForEach-Object { . $_ }
-# } else {
-#     Write-Error "Resources folder not found: $resourcesPath "
-# }
-
-
+else {
+    Write-Verbose "Private folder not found: $privatePath"
+}
