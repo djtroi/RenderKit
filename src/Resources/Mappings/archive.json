@@ -1,0 +1,16 @@
+{
+  "Id": "archive",
+  "Types": [
+    {
+      "Name": "Archive",
+      "Extensions": [
+        ".7z",
+        ".rar",
+        ".tar",
+        ".tar.gz",
+        ".tgz",
+        ".zip"
+      ]
+    }
+  ]
+}

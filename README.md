@@ -4,71 +4,82 @@
 [![PSScriptAnalyzer](https://github.com/djtroi/RenderKit/actions/workflows/powershell_PSScriptAnalyzer.yml/badge.svg)](https://github.com/djtroi/RenderKit/actions/workflows/powershell_PSScriptAnalyzer.yml)
 
 
-# Overview
-**RenderKit** is a Simple yet powerful Powershell Module that helps you optimize your Workflow while editing / producing videos.  <br>
-Please Note, that this Modul is not released yet. 
+## Overview
+**RenderKit** is a PowerShell module for structured video-production workflows.
+It helps you create standardized projects, manage templates/mappings, import media with filter and transfer workflows, and archive projects safely.
 
-## Functions
-RenderKit provides you these Functions: 
+## What's new in 0.3.0
+### 1) End-to-end media import workflow (`Import-Media`)
+You can now run a full scan → filter → selection → classification → transfer pipeline in one command.
+# Interactive wizard
+Import-Media
+# Parameter-driven scan and filter
+Import-Media -ScanAndFilter -SourcePath "E:\DCIM" -FolderFilter "100EOSR" -Wildcard "*.mp4","*.mov"
+# Scan + classify + transfer (with integrity hash)
+Import-Media -ScanAndFilter -SourcePath "E:\DCIM" -Classify -Transfer -ProjectRoot "D:\Projects\ClientA_2026" -TemplateName "default" -TransferHashAlgorithm SHA256
 
-- Set-ProjectRoot 
+### 2) Production-ready backup pipeline (`Backup-Project`)
+Backups now include cleanup profiles, archive creation, integrity verification, log injection, and manifest handling.
+# Standard backup
+Backup-Project -ProjectName "ClientA_2026"
+# Backup preview without writing changes
+Backup-Project -ProjectName "ClientA_2026" -Profile DaVinci -DryRun
+# Backup and keep source project
+Backup-Project -ProjectName "ClientA_2026" -DestinationRoot "E:\Backups" -KeepSourceProject
+
+### 3) Drive detection + whitelist workflow
+Source selection and whitelisting are integrated for faster import setup.
+# Detect candidate drives
+Get-RenderKitDriveCandidate
+# Interactively select a source drive
+Select-RenderKitDriveCandidate -IncludeFixed
+# Add known media devices to whitelist
+Add-RenderKitDeviceWhitelistEntry -FromMountedVolumes
+
+---
+
+## Public Functions
+
+### Project & template setup
+- `Set-ProjectRoot`
+- `New-Project`
+- `New-RenderKitTemplate`
+- `Add-FolderToTemplate`
+- `New-RenderKitMapping`
+- `Add-RenderKitTypeToMapping`
+- `Add-RenderKitMappingToTemplate`
+
+### Import & source detection
+- `Import-Media`
+- `Get-RenderKitDriveCandidate`
+- `Select-RenderKitDriveCandidate`
+- `Get-RenderKitDeviceWhitelist`
+- `Add-RenderKitDeviceWhitelistEntry`
+
+### Backup
+- `Backup-Project`
+
+---
+
+## Basic Usage
+
+### Installation
 ```powershell
-Set-ProjectRoot "D:\Editing_Projects\"
-```
-Set-ProjectRoots lets you set a default Path for all your video project folders so you can save time, defining an absolute path everytime you create a new project. 
-
-- New-Project 
-```powershell
-New-Project "WeddingFilm" "template"
-``` 
-New-Project creates for you your designated folder-structure for your project. The structure in .\Template\default.json defined. Feel free to edit it
-
--Backup-Project
-```powershell
-Backup-Project "Weddingfilm" -Software -KeepEmptyFolders -DryRun
-``` 
-Backup-Project creates structured backups of RenderKit projects, cleans temporary files, proxy files and software artifacts (WIP) before backup
-
-# Basic Usage
-## Installation
-```powershell 
 Install-Module -Name RenderKit
 ```
 
+### Minimal setup
+```powershell
+Set-ProjectRoot -Path "D:\Editing_Projects"
+New-Project -Name "WeddingFilm" -Template "youtube"
+```
 
-# RoadMap
+---
+## Roadmap
 
-These are the ad hoc functions and improvements that I'm looking forward to implement. If you have the time and motivation, feel free to open a PR for one of the features.
-
-## Fundamentals & Stability
-
-- Add Debugging & Logging Feature
-
-
-- Add Error- / Exceptionhandling and Rollback
-
-- Add Function to create a project with an absolute path
-
-- Add Markdown template support
-
-- Add Template management functions (show templates, create template, validate template(intern))
-
-- Optimize Normalization and Validation of templates
-
-- Add function to deliver files to a customer (grab and zip together your latest rendered files in your folder)
-
-- Add function to use multiple "deliver" export-profiles 
-
-- Add versioning for project-templates for rollback-possibilty
-
-- Create Project-Statistics / Reporting
-
-- Create Cmdlet Alias / Shortcuts
-
-- Cloud Integration
-
-- Maybe GUI / WEB-Frontend
-
-- Create a Naming-Conventions into the configuration
-
-- Create a Multi-Project-Management (list, filter, create status etc.)
+- Add markdown template support
+- Add template management and validation functions
+- Add delivery/export profile workflow
+- Add project statistics/reporting
+- Add multi-project management
+- Explore cloud integration and optional GUI/Web frontend
