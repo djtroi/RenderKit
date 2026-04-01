@@ -34,7 +34,7 @@ https://github.com/djtroi/RenderKit
 function New-RenderKitMapping {
     param(
         [Parameter(Mandatory)]
-        [string]$Id 
+        [string]$Id
     )
 
     Write-RenderKitLog -Level Debug -Message "New-RenderKitMapping started: Id='$Id'."
@@ -51,7 +51,7 @@ function New-RenderKitMapping {
     }
     $mapping = [RenderKitMapping]::new($Id)
 
-    Write-RenderKitMappingFile -Mapping $mapping -MappingId $Id 
+    Write-RenderKitMappingFile -Mapping $mapping -MappingId $Id
 
 Write-RenderKitLog -Level Info -Message "Mapping '$Id' created successfully"
 }

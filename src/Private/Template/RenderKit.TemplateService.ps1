@@ -148,7 +148,7 @@ function Confirm-Template {
         Write-RenderKitLog -Level Error -Message "Template is Missing 'Folders' property."
     }
 
-    if ($Template.Version -ne "1.0") { #TODO Implement Logic, that reads from .psd1 the actual schema version 
+    if ($Template.Version -ne "1.0") { #TODO Implement Logic, that reads from .psd1 the actual schema version
         Write-RenderKitLog -Level Warning -Message "Unsupported Template Version '$($Template.Version)'."
     }
 

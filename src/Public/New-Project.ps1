@@ -54,8 +54,7 @@ function New-Project {
     Write-RenderKitLog -Level Debug -Message "New-Project started: Name='$Name', Template='$Template', Path='$Path'."
 
     #define Template
-    $ProjectRoot = Resolve-ProjectPath -ProjectName $Name -Path $Path 
-    
+    $ProjectRoot = Resolve-ProjectPath -ProjectName $Name -Path $Path
     #project path
     if(Test-Path $ProjectRoot) {
         Write-RenderKitLog -Level Error -Message "Project '$Name' already exists at '$ProjectRoot'."

@@ -19,14 +19,14 @@ $script:RenderKitLogFile        =   Join-Path $renderKitPath "renderkit.log"
 $script:RenderKitDebugLogFile   =   Join-Path $renderKitPath "renderkit.debug.log"
 
 if (!( Test-Path $script:RenderKitLogFile )) {
-    New-Item -ItemType File -Path $script:RenderKitLogFile | Out-Null   
+    New-Item -ItemType File -Path $script:RenderKitLogFile | Out-Null
 }
 
 if (!( Test-Path $script:RenderKitDebugLogFile )) {
     New-Item -ItemType File -Path $script:RenderKitDebugLogFile | Out-Null
 }
 
-$script:RenderKitLoggingInitialized = $true 
+$script:RenderKitLoggingInitialized = $true
 
 #flush bootstrap logs
 
