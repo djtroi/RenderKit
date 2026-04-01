@@ -1,4 +1,4 @@
-function Remove-ProjectArtifacts{
+function Remove-ProjectArtifact{
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]

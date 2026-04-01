@@ -1,4 +1,4 @@
-function Get-BackupProjectStatistics {
+function Get-BackupProjectStatistic {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]

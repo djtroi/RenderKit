@@ -1,4 +1,4 @@
-function Get-CleanupRules{
+function Get-CleanupRule{
     [CmdletBinding()]
     param(
         [Alias("Software")]
@@ -7,7 +7,7 @@ function Get-CleanupRules{
 
     Write-RenderKitLog -Level Debug -Message "Get-CleanupRules started: ProfileCount=$(@($Profile).Count)."
 
-    $profiles = Get-BackupCleanupProfiles
+    $profiles = Get-BackupCleanupProfile
     $requestedProfiles = @(
         $Profile |
             Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |

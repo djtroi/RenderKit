@@ -1,4 +1,4 @@
-function Remove-EmptyFolders{
+function Remove-EmptyFolder{
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]

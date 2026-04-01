@@ -95,7 +95,7 @@ function Backup-Project{
     $project = Get-RenderKitProject -ProjectName $ProjectName -Path $Path
     $projectRoot = [string]$project.RootPath
 
-    $rules = Get-CleanupRules -Profile $Profile
+    $rules = Get-CleanupRule -Profile $Profile
     $startedAt = Get-Date
     $archiveDescriptor = Resolve-BackupArchivePath `
         -Project $project `
@@ -136,10 +136,10 @@ function Backup-Project{
             Write-RenderKitLog -Level Info -Message "DryRun mode: no files will be modified, created, or deleted."
         }
 
-        $statsBefore = Get-BackupProjectStatistics -ProjectPath $projectRoot
+        $statsBefore = Get-BackupProjectStatistic -ProjectPath $projectRoot
 
         Write-RenderKitLog -Level Info -Message "Cleaning project artifacts..."
-        $artifactCleanup = Remove-ProjectArtifacts `
+        $artifactCleanup = Remove-ProjectArtifact `
             -ProjectPath $projectRoot `
             -Rules $rules `
             -DryRun:$DryRun
@@ -153,7 +153,7 @@ function Backup-Project{
         }
 
         if (-not $KeepEmptyFolders) {
-            $emptyFolderCleanup = Remove-EmptyFolders -Path $projectRoot -DryRun:$DryRun
+            $emptyFolderCleanup = Remove-EmptyFolder -Path $projectRoot -DryRun:$DryRun
             Add-Member -InputObject $emptyFolderCleanup -NotePropertyName Skipped -NotePropertyValue $false -Force
         }
 
@@ -238,7 +238,7 @@ function Backup-Project{
             $statsBefore
         }
         else {
-            Get-BackupProjectStatistics -ProjectPath $projectRoot
+            Get-BackupProjectStatistic -ProjectPath $projectRoot
         }
 
         if (-not $DryRun -and -not $KeepSourceProject) {

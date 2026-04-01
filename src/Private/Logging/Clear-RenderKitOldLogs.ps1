@@ -1,4 +1,4 @@
-function Clear-RenderKitOldLogs{
+function Clear-RenderKitOldLog{
     if (!($script:RenderKitLogContext)) { return }
 
     $limit = (Get-Date).AddDays(-$script:RenderKitLogContext.RetentionDays)

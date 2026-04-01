@@ -1,4 +1,4 @@
-function Get-BackupCleanupProfiles {
+function Get-BackupCleanupProfile {
     [CmdletBinding()]
     param()
 

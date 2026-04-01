@@ -19,7 +19,7 @@ function Read-ProjectTemplate{
                     Write-RenderKitLog -Level Error -Message "Template JSON '$Path' does not contain a 'Folders' tag."
                     throw "JSON does not contain a folders tag"
                 }
-                return Format-Folders -Node $json.folders
+                return Format-Folder -Node $json.folders
             }
             catch {
                 Write-RenderKitLog -Level Error -Message "Invalid JSON template '$Path': $($_.Exception.Message)"
@@ -51,7 +51,7 @@ function Read-ProjectTemplate{
             }
 
             $root = $stack[0]
-            return Format-Folders -Node $root
+            return Format-Folder -Node $root
             }
             catch {
                 Write-RenderKitLog -Level Error -Message "Invalid Markdown template '$Path': $($_.Exception.Message)"
@@ -64,7 +64,7 @@ function Read-ProjectTemplate{
     }
     }
 }
-function Format-Folders{
+function Format-Folder{
 
     param(
         [Parameter(Mandatory)]
@@ -80,7 +80,7 @@ function Format-Folders{
             $children = @()
 
             if($item.SubFolders -and $item.SubFolders.Count -gt 0 ) {
-                 $children = Format-Folders -Node $item.SubFolders
+                 $children = Format-Folder -Node $item.SubFolders
             }
 
             $result += [PSCustomObject]@{
@@ -94,7 +94,7 @@ function Format-Folders{
         foreach ($key in $Node.Keys){
             $children = @()
             if($Node[$key] -and $Node[$key].Count -gt 0 ){
-                $children = Format-Folders -Node $Node[$key]
+                $children = Format-Folder -Node $Node[$key]
             }
 
             $result += [PSCustomObject]@{

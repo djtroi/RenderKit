@@ -108,6 +108,8 @@ Get-Help Import-Media -Detailed
 https://github.com/djtroi/RenderKit
 #>
 function Import-Media {
+     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '',
+     Justification = '"Media" is already singular (Latin plural of medium, but treated as uncountable in English).')]
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [switch]$SelectSource,
@@ -208,23 +210,23 @@ function Import-Media {
     Write-RenderKitLog -Level Info -Message "Phase 2: scanning source '$resolvedSourcePath'..."
     $catalog = @(Get-RenderKitImportFileCatalog -SourcePath $resolvedSourcePath)
 
-    $criteria = New-RenderKitImportCriteria `
+    $criteria = New-RenderKitImportCriterion `
         -FolderFilter $FolderFilter `
         -FromDate $FromDate `
         -ToDate $ToDate `
         -Wildcard $Wildcard
 
     if ($InteractiveFilter) {
-        $additionalCriteria = Read-RenderKitImportAdditionalCriteria
+        $additionalCriteria = Read-RenderKitImportAdditionalCriterion
         if ($additionalCriteria) {
-            $criteria = Merge-RenderKitImportCriteria `
+            $criteria = Merge-RenderKitImportCriterion `
                 -BaseCriteria $criteria `
                 -AdditionalCriteria $additionalCriteria
         }
     }
 
     $matchedFiles = @(
-        Get-RenderKitImportFilteredFiles `
+        Get-RenderKitImportFilteredFile `
             -Files $catalog `
             -Criteria $criteria |
         Sort-Object LastWriteTime, RelativePath
@@ -299,8 +301,8 @@ function Import-Media {
         }
     }
 
-    $matchedTotalBytes = Get-RenderKitImportTotalBytes -Files $matchedFiles
-    $selectedTotalBytes = Get-RenderKitImportTotalBytes -Files $selectedFiles
+    $matchedTotalBytes = Get-RenderKitImportTotalByte -Files $matchedFiles
+    $selectedTotalBytes = Get-RenderKitImportTotalByte -Files $selectedFiles
 
     $confirmed = $false
     if ($selectedFiles.Count -gt 0) {
