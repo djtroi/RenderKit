@@ -1,6 +1,6 @@
 @{
     RootModule = 'RenderKit.psm1'
-    ModuleVersion = '0.3.1' # Major.Minor.Patch
+    ModuleVersion = '0.3.2' # Major.Minor.Patch
     Author = 'Norbert Marton'
     Description = 'Powershell tools for video editing project workflows.'
     GUID = '32e3f476-8e44-4511-82c7-952748e6463b'
@@ -8,7 +8,22 @@
     Copyright = 'Copyright © 2026 Norbert Marton'
     # Minimum version of the Windows PowerShell engine required by this module
     PowerShellVersion = '5.1'
-    FunctionsToExport = '*'
+    FunctionsToExport = @(
+        'Add-FolderToTemplate'
+        'Add-RenderKitDeviceWhitelistEntry'
+        'Add-RenderKitMappingtoTemplate'
+        'Add-RenderKitTypeToMappingToTemplate'
+        'Add-RenderKitTypeToMapping'
+        'Backup-Project'
+        'Get-RenderKitDeviceWhitelist'
+        'Get-RenderKitDriveCandidate'
+        'Import-Media'
+        'New-Project'
+        'New-RenderKitMapping'
+        'New-RenderKitTemplate'
+        'Select-RenderKitDriveCandidate'
+        'Set-ProjectRoot'
+    )
     CmdletsToExport = @()
     AliasesToExport = @()
     VariablesToExport = '*'
