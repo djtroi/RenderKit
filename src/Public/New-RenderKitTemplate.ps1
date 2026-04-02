@@ -34,7 +34,7 @@ https://github.com/djtroi/RenderKit
 function New-RenderKitTemplate {
     param(
         [Parameter(Mandatory)]
-        [string]$Name 
+        [string]$Name
     )
 
     Write-RenderKitLog -Level Debug -Message "New-RenderKitTemplate started: Name='$Name'."

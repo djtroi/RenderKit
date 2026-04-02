@@ -22,10 +22,10 @@ if (!( $script:RenderKitLoggingInitialized )) {
     $script:RenderKitBootstrapLog.Add($entry)
 }
 else {
-    Add-Content -Path $script:RenderKitLogFile -Value $entry 
+    Add-Content -Path $script:RenderKitLogFile -Value $entry
 
     if ( $script:RenderKitDebugMode -or $Level -eq "Debug "){
-        Add-Content -Path $script:RenderKitDebugLogFile -Value $entry 
+        Add-Content -Path $script:RenderKitDebugLogFile -Value $entry
     }
 }
 

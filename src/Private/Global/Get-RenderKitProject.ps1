@@ -11,7 +11,7 @@ function Get-RenderKitProject{
     $searchRoots = @()
 
     if ($Path) {
-        $searchRoots += $Path  
+        $searchRoots += $Path
     }
     else {
         $config = Get-RenderKitConfig
@@ -52,7 +52,7 @@ function Get-RenderKitProject{
             MetadataPath    =  $metaPath
             Metadata        =  $meta
         }
-    } 
+    }
 
     Write-RenderKitLog -Level Error -Message "RenderKit project '$ProjectName' not found in search roots: $($searchRoots -join ', ')."
     throw "RenderKit project $ProjectName not found"

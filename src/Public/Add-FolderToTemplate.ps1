@@ -38,7 +38,7 @@ https://github.com/djtroi/RenderKit
 #>
 function Add-FolderToTemplate {
     param(
-    [Parameter(Mandatory, Position = 0)]    
+    [Parameter(Mandatory, Position = 0)]
     [string]$TemplateName,
     [Parameter(Mandatory, Position = 1)]
     [string]$FolderPath,

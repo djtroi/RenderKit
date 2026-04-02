@@ -157,7 +157,7 @@ function Import-Media {
         $AutoSelectAll = [bool]$wizardConfig.AutoSelectAll
         $AutoConfirm = [bool]$wizardConfig.AutoConfirm
         $ProjectRoot = [string]$wizardConfig.ProjectRoot
-        $Classify = [bool]$wizardConfig.Class 
+        $Classify = [bool]$wizardConfig.Class
         $Transfer = [bool]$wizardConfig.Transfer
         $UnassignedHandling = [string]$wizardConfig.UnassignedHandling
     }
@@ -252,7 +252,7 @@ function Import-Media {
     )
 
     if ($selectedFiles.Count -eq 0) {
-        Write-RenderKitLog -Level Info -Message "No files selected for import." 
+        Write-RenderKitLog -Level Info -Message "No files selected for import."
     }
     else {
         Show-RenderKitImportPreviewTable `
