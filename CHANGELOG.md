@@ -1,3 +1,12 @@
+# 0.3.1 - 2026-04-02
+## Patch
+
+---
+
+## Removed
+
+- Removed trailing white spaces in the code 
+
 # 0.3.0 – 2026-03-31
 ## Minor Release
 
