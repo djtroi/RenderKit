@@ -16,9 +16,10 @@ $script:RenderKitBootstrapLog = New-Object System.Collections.Generic.List[strin
 $script:RenderKitDebugMode = $false
 
 # Paths
-$publicPath  = Join-Path $PSScriptRoot 'Public'
-$privatePath = Join-Path $PSScriptRoot 'Private'
-$classesPath = Join-Path $PSScriptRoot 'Classes'
+$srcPath     = Join-Path $PSScriptRoot 'src'
+$publicPath  = Join-Path $srcPath 'Public'
+$privatePath = Join-Path $srcPath 'Private'
+$classesPath = Join-Path $srcPath 'Classes'
 
 # Load Classes
 if (Test-Path $classesPath){

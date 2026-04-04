@@ -34,7 +34,7 @@ Backup-Project
 https://github.com/djtroi/RenderKit
 #>
 function Set-ProjectRoot{
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess)]
     param (
         [Parameter(Mandatory)]
         [string]$Path
@@ -48,8 +48,10 @@ function Set-ProjectRoot{
     }
 
     $configDir = Join-Path $env:APPDATA "RenderKit"
+    if ($PSCmdlet.ShouldProcess($configDir, "Ensure config directory exists")){
     if(!(Test-Path $configDir)){
         New-Item -ItemType Directory -Path $configDir | Out-Null
+    }
     }
 
     $configPath = Join-Path $configDir "config.json"
@@ -58,8 +60,10 @@ function Set-ProjectRoot{
         $config = Get-Content $configPath -Raw | ConvertFrom-Json
     }
     $config.DefaultProjectPath = $Path
+    if ($PSCmdlet.ShouldProcess($configPath, "Write RenderKit Config")){
     $config | ConvertTo-Json -Depth 5 | Set-Content $configPath
+    }
 
     Write-RenderKitLog -Level Info -Message "Default project root set to '$Path'."
-    Write-Host "Project root set to: $Path"
+    Write-Output "Project root set to: $Path"
 }

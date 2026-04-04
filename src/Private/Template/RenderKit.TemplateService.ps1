@@ -1,4 +1,4 @@
-function Get-RenderKitTemplates {
+function Get-RenderKitTemplate {
     param(
         [ValidateSet("all", "system", "user")]
         [string]$Source = "all"
@@ -42,7 +42,7 @@ function Resolve-ProjectTemplate {
 
     Write-RenderKitLog -Level Debug -Message "Resolving project template..."
 
-    $templates = Get-RenderKitTemplates
+    $templates = Get-RenderKitTemplate
 
     $normalizedName = $null
     if (-not [string]::IsNullOrWhiteSpace($TemplateName)) {

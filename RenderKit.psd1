@@ -1,6 +1,6 @@
 @{
     RootModule = 'RenderKit.psm1'
-    ModuleVersion = '0.3.2' # Major.Minor.Patch
+    ModuleVersion = '0.3.3' # Major.Minor.Patch
     Author = 'Norbert Marton'
     Description = 'Powershell tools for video editing project workflows.'
     GUID = '32e3f476-8e44-4511-82c7-952748e6463b'
@@ -11,8 +11,7 @@
     FunctionsToExport = @(
         'Add-FolderToTemplate'
         'Add-RenderKitDeviceWhitelistEntry'
-        'Add-RenderKitMappingtoTemplate'
-        'Add-RenderKitTypeToMappingToTemplate'
+        'Add-RenderKitMappingToTemplate'
         'Add-RenderKitTypeToMapping'
         'Backup-Project'
         'Get-RenderKitDeviceWhitelist'
@@ -25,7 +24,7 @@
         'Set-ProjectRoot'
     )
     CmdletsToExport = @()
-    AliasesToExport = @()
+    AliasesToExport = '*'
     VariablesToExport = '*'
     PrivateData = @{
         PSData = @{
@@ -45,7 +44,7 @@
             ReleaseNotes = 'https://github.com/djtroi/RenderKit/releases/latest'
 
 
-         } # End of PSData hashtable
+        } # End of PSData hashtable
 
-         } # End of PrivateData hashtable
-}
+        } # End of PrivateData hashtable
+    }

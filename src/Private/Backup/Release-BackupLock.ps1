@@ -1,5 +1,6 @@
 function Unlock-BackupLock {
     [CmdletBinding()]
+    [OutputType([System.Boolean])]
     param(
         [Parameter(Mandatory)]
         [string]$ProjectRoot,

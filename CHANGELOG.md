@@ -1,3 +1,19 @@
+# 0.3.3 - 2026-04-04
+## Patch
+
+---
+## Added
+ - Added OutputTypes to some Functions
+ - Added ShouldProcess functionalities to some Functions 
+
+## Changed
+
+ - Fixed the error that caused an error at loading the functions. 
+
+## Removed
+
+ - Removed some PluralNouns that make sense. Suppressed some others. 
+
 # 0.3.2 - 2026.04.02
 ## Patch
 

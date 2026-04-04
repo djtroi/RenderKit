@@ -1,5 +1,6 @@
 function Get-BackupFileHashIndex {
     [CmdletBinding()]
+    [OutputType([hashtable])]
     param(
         [Parameter(Mandatory)]
         [string]$RootPath,

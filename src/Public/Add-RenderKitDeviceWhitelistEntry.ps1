@@ -83,7 +83,7 @@ function Add-RenderKitDeviceWhitelistEntry {
     }
 
     if ($FromMountedVolumes) {
-        $mounted = Get-RenderKitMountedDrives `
+        $mounted = Get-RenderKitMountedDrive `
             -IncludeFixed:$IncludeFixed `
             -IncludeUnsupportedFileSystem
 
@@ -98,7 +98,7 @@ function Add-RenderKitDeviceWhitelistEntry {
 
     if ($DriveLetter) {
         $normalizedDriveLetter = Resolve-RenderKitDriveLetter -DriveLetter $DriveLetter
-        $mounted = Get-RenderKitMountedDrives -IncludeFixed -IncludeUnsupportedFileSystem
+        $mounted = Get-RenderKitMountedDrive -IncludeFixed -IncludeUnsupportedFileSystem
 
         $matchedDrive = $mounted |
             Where-Object DriveLetter -eq $normalizedDriveLetter |

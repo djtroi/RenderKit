@@ -44,6 +44,7 @@ https://github.com/djtroi/RenderKit
 #>
 function Get-RenderKitDriveCandidate {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [switch]$IncludeFixed,
         [switch]$IncludeUnsupportedFileSystem,

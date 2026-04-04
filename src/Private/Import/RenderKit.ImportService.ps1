@@ -1,4 +1,4 @@
-function New-RenderKitImportCriteria {
+function New-RenderKitImportCriterion {
     [CmdletBinding()]
     param(
         [string[]]$FolderFilter,
@@ -29,7 +29,7 @@ function New-RenderKitImportCriteria {
     }
 }
 
-function Merge-RenderKitImportCriteria {
+function Merge-RenderKitImportCriterion {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -63,7 +63,7 @@ function Merge-RenderKitImportCriteria {
         $toDate = $AdditionalCriteria.ToDate
     }
 
-    return New-RenderKitImportCriteria `
+    return New-RenderKitImportCriterion `
         -FolderFilter $folderFilter `
         -FromDate $fromDate `
         -ToDate $toDate `
@@ -72,6 +72,7 @@ function Merge-RenderKitImportCriteria {
 
 function ConvertTo-RenderKitImportDrivePath {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param(
         [Parameter(Mandatory)]
         [string]$DriveLetter
@@ -203,6 +204,7 @@ function Get-RenderKitImportFileCatalog {
 
 function Test-RenderKitImportFolderMatch {
     [CmdletBinding()]
+    [OutputType([System.Boolean])]
     param(
         [Parameter(Mandatory)]
         [string]$RelativeDirectory,
@@ -243,8 +245,9 @@ function Test-RenderKitImportFolderMatch {
     return $false
 }
 
-function Get-RenderKitImportFilteredFiles {
+function Get-RenderKitImportFilteredFile {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
@@ -298,6 +301,7 @@ function Get-RenderKitImportFilteredFiles {
 
 function ConvertFrom-RenderKitImportListInput {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [string]$InputText
     )
@@ -316,6 +320,7 @@ function ConvertFrom-RenderKitImportListInput {
 
 function Read-RenderKitImportYesNo {
     [CmdletBinding()]
+    [OutputType([System.Boolean])]
     param(
         [Parameter(Mandatory)]
         [string]$Prompt,
@@ -377,6 +382,7 @@ function Show-RenderKitImportWizardStatus {
 
 function Read-RenderKitImportSelectionReviewAction {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param()
 
     while ($true) {
@@ -405,6 +411,7 @@ function Read-RenderKitImportSelectionReviewAction {
 
 function Read-RenderKitImportTransferModeInteractive {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param()
 
     while ($true) {
@@ -430,8 +437,9 @@ function Read-RenderKitImportTransferModeInteractive {
     }
 }
 
-function Get-RenderKitImportProjectCandidates {
+function Get-RenderKitImportProjectCandidate {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [string]$BasePath
     )
@@ -554,7 +562,7 @@ function Read-RenderKitImportProjectRootInteractive {
         return Resolve-RenderKitImportProjectRoot -ProjectRoot $ProjectRoot
     }
 
-    $projects = @(Get-RenderKitImportProjectCandidates)
+    $projects = @(Get-RenderKitImportProjectCandidate)
     if ($projects.Count -gt 0) {
         Show-RenderKitImportProjectTable -Projects $projects
     }
@@ -597,8 +605,9 @@ function Read-RenderKitImportProjectRootInteractive {
     }
 }
 
-function Get-RenderKitImportChildDirectories {
+function Get-RenderKitImportChildDirectory {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory)]
         [string]$Path
@@ -621,7 +630,7 @@ function Get-RenderKitImportChildDirectories {
     }
 }
 
-function Get-RenderKitImportDirectoryTreeEntries {
+function Get-RenderKitImportDirectoryTreeEntry {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -634,7 +643,7 @@ function Get-RenderKitImportDirectoryTreeEntries {
 
     $entries = New-Object System.Collections.Generic.List[object]
     $pending = New-Object "System.Collections.Generic.Stack[object]"
-    $rootChildren = @(Get-RenderKitImportChildDirectories -Path $RootPath)
+    $rootChildren = @(Get-RenderKitImportChildDirectory -Path $RootPath)
 
     for ($i = $rootChildren.Count - 1; $i -ge 0; $i--) {
         $child = $rootChildren[$i]
@@ -666,7 +675,7 @@ function Get-RenderKitImportDirectoryTreeEntries {
             continue
         }
 
-        $children = @(Get-RenderKitImportChildDirectories -Path $current.FullPath)
+        $children = @(Get-RenderKitImportChildDirectory -Path $current.FullPath)
         for ($i = $children.Count - 1; $i -ge 0; $i--) {
             $child = $children[$i]
             $childRelativePath = [System.IO.Path]::Combine(
@@ -689,7 +698,7 @@ function Get-RenderKitImportDirectoryTreeEntries {
     }
 }
 
-function Show-RenderKitImportDirectoryTreeEntries {
+function Show-RenderKitImportDirectoryTreeEntry {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -722,6 +731,7 @@ function Show-RenderKitImportDirectoryTreeEntries {
 
 function Read-RenderKitImportSubfolderSelectionMode {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param(
         [Parameter(Mandatory)]
         [string]$SelectedPath
@@ -749,12 +759,13 @@ function Read-RenderKitImportSubfolderSelectionMode {
 
 function Read-RenderKitImportSubfolderIndexList {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory)]
         [string]$ParentPath
     )
 
-    $children = @(Get-RenderKitImportChildDirectories -Path $ParentPath)
+    $children = @(Get-RenderKitImportChildDirectory -Path $ParentPath)
     if ($children.Count -eq 0) {
         Write-Warning "Folder '$ParentPath' has no direct subfolders."
         return $null
@@ -828,12 +839,12 @@ function Read-RenderKitImportSourcePathInteractive {
         $treeMaxEntries = 250
 
         while ($true) {
-            $tree = Get-RenderKitImportDirectoryTreeEntries `
+            $tree = Get-RenderKitImportDirectoryTreeEntry `
                 -RootPath $browseRoot `
                 -MaxDepth $treeMaxDepth `
                 -MaxEntries $treeMaxEntries
 
-            Show-RenderKitImportDirectoryTreeEntries `
+            Show-RenderKitImportDirectoryTreeEntry `
                 -RootPath $browseRoot `
                 -Entries $tree.Entries `
                 -IsTruncated:[bool]$tree.IsTruncated `
@@ -1007,6 +1018,7 @@ function Read-RenderKitImportSourcePathInteractive {
 
 function Read-RenderKitImportUnassignedHandlingInteractive {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param(
         [ValidateSet("Prompt", "ToSort", "Skip")]
         [string]$Default = "Prompt"
@@ -1125,6 +1137,7 @@ function Start-RenderKitImportInteractiveSetup {
 
 function Read-RenderKitImportDate {
     [CmdletBinding()]
+    [OutputType([System.DateTime])]
     param(
         [Parameter(Mandatory)]
         [string]$Prompt
@@ -1145,7 +1158,7 @@ function Read-RenderKitImportDate {
     }
 }
 
-function Read-RenderKitImportAdditionalCriteria {
+function Read-RenderKitImportAdditionalCriterion {
     [CmdletBinding()]
     param()
 
@@ -1166,15 +1179,16 @@ function Read-RenderKitImportAdditionalCriteria {
         return $null
     }
 
-    return New-RenderKitImportCriteria `
+    return New-RenderKitImportCriterion `
         -FolderFilter $folderFilter `
         -FromDate $fromDate `
         -ToDate $toDate `
         -Wildcard $wildcard
 }
 
-function Get-RenderKitImportTotalBytes {
+function Get-RenderKitImportTotalByte {
     [CmdletBinding()]
+    [OutputType([System.Int64])]
     param(
         [object[]]$Files
     )
@@ -1193,6 +1207,7 @@ function Get-RenderKitImportTotalBytes {
 
 function ConvertTo-RenderKitHumanSize {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param(
         [Parameter(Mandatory)]
         [int64]$Bytes
@@ -1251,13 +1266,14 @@ function Show-RenderKitImportPreviewTable {
     if ($Files.Count -gt $PreviewCount) {
         Write-RenderKitLog -Level Info -Message "Showing first $PreviewCount of $($Files.Count) file(s)."
 
-    $totalBytes = Get-RenderKitImportTotalBytes -Files $Files
+    $totalBytes = Get-RenderKitImportTotalByte -Files $Files
     $totalGB = [Math]::Round(([double]$totalBytes / 1GB), 3)
     Write-RenderKitLog -Level Info -Message  "Total size: $totalGB GB"
 }
 }
 function ConvertTo-RenderKitImportIndexSelection {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory)]
         [string]$InputText,
@@ -1318,6 +1334,7 @@ function ConvertTo-RenderKitImportIndexSelection {
 
 function Select-RenderKitImportFileSubset {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
@@ -1373,6 +1390,7 @@ function Select-RenderKitImportFileSubset {
 
 function Confirm-RenderKitImportSelection {
     [CmdletBinding()]
+    [OutputType([System.Boolean])]
     param(
         [Parameter(Mandatory)]
         [int]$FileCount,
@@ -1402,6 +1420,7 @@ function Confirm-RenderKitImportSelection {
 
 function ConvertTo-RenderKitImportNormalizedExtension {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param(
         [string]$Extension
     )
@@ -1854,8 +1873,9 @@ function Read-RenderKitImportUnassignedAction {
     }
 }
 
-function Resolve-RenderKitImportUnassignedFiles {
+function Resolve-RenderKitImportUnassignedFile {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
@@ -2106,7 +2126,7 @@ function Get-RenderKitImportFileClassification {
     }
 
     $resolvedClassified = @(
-        Resolve-RenderKitImportUnassignedFiles `
+        Resolve-RenderKitImportUnassignedFile `
             -ClassifiedFiles $classified.ToArray() `
             -DestinationFolders $lookupContext.DestinationFolders `
             -ProjectRoot $templateContext.ProjectRoot `
@@ -2130,17 +2150,18 @@ function Get-RenderKitImportFileClassification {
         ToSortCount        = $toSort.Count
         SkippedCount       = $skipped.Count
         UnassignedCount    = $stillUnassigned.Count
-        AssignedBytes      = Get-RenderKitImportTotalBytes -Files $assigned
-        ToSortBytes        = Get-RenderKitImportTotalBytes -Files $toSort
-        SkippedBytes       = Get-RenderKitImportTotalBytes -Files $skipped
-        UnassignedBytes    = Get-RenderKitImportTotalBytes -Files $stillUnassigned
+        AssignedBytes      = Get-RenderKitImportTotalByte -Files $assigned
+        ToSortBytes        = Get-RenderKitImportTotalByte -Files $toSort
+        SkippedBytes       = Get-RenderKitImportTotalByte -Files $skipped
+        UnassignedBytes    = Get-RenderKitImportTotalByte -Files $stillUnassigned
         DestinationFolders = @($lookupContext.DestinationFolders)
         Files              = $resolvedClassified
     }
 }
 
-function Get-RenderKitImportTransferCandidateFiles {
+function Get-RenderKitImportTransferCandidateFile {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
@@ -2223,6 +2244,7 @@ function New-RenderKitImportTransferRunContext {
 
 function Get-RenderKitImportFileHashValue {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param(
         [Parameter(Mandatory)]
         [string]$Path,
@@ -2297,7 +2319,7 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
         [switch]$Simulate
     )
 
-    $transferCandidates = @(Get-RenderKitImportTransferCandidateFiles -ClassifiedFiles $ClassifiedFiles)
+    $transferCandidates = @(Get-RenderKitImportTransferCandidateFile -ClassifiedFiles $ClassifiedFiles)
     $notTransferable = @(
         $ClassifiedFiles |
             Where-Object {
@@ -2306,7 +2328,7 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
             }
     )
 
-    $plannedBytes = Get-RenderKitImportTotalBytes -Files $transferCandidates
+    $plannedBytes = Get-RenderKitImportTotalByte -Files $transferCandidates
     if ($transferCandidates.Count -eq 0) {
         return [PSCustomObject]@{
             ProjectRoot             = $ProjectRoot
@@ -2543,6 +2565,7 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
 
 function Get-RenderKitImportTransferredBytesByStatus {
     [CmdletBinding()]
+    [OutputType([System.Int64])]
     param(
         [object]$Transfer,
         [Parameter(Mandatory)]

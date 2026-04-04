@@ -32,6 +32,7 @@ Add-RenderKitMappingToTemplate
 https://github.com/djtroi/RenderKit
 #>
 function New-RenderKitMapping {
+    [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory)]
         [string]$Id
@@ -43,15 +44,21 @@ function New-RenderKitMapping {
     $mappingFolder = Get-RenderKitUserMappingsRoot
 
     if (Test-Path $mappingPath) {
+        if($PSCmdlet.ShouldProcess($Id, "Create a new mapping Folder")){
         Write-RenderKitLog -Level Error -Message "Mapping '$Id' already exists."
     }
+}
     if (!(Test-Path $mappingFolder)){
-        New-Item -ItemType Directory -Path $mappingFolder -ErrorAction Stop | Out-Null
+        if($PSCmdlet.ShouldProcess($mappingFolder, "Create a new mapping Folder")){
+            New-Item -ItemType Directory -Path $mappingFolder -ErrorAction Stop | Out-Null
+        }
         Write-RenderKitLog -Level Error -Message "No mapping folder found... creating one."
     }
     $mapping = [RenderKitMapping]::new($Id)
-
-    Write-RenderKitMappingFile -Mapping $mapping -MappingId $Id
+    if($PSCmdlet.ShouldProcess($mappingPath, "Create a new mapping File")){
+        Write-RenderKitMappingFile -Mapping $mapping -MappingId $Id
+    }
 
 Write-RenderKitLog -Level Info -Message "Mapping '$Id' created successfully"
 }
+

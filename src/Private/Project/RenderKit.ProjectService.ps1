@@ -97,6 +97,7 @@ function New-ProjectFolderRecursive {
 }
 
 function New-ProjectMetadataFolder {
+    [CmdletBinding(SupportsShouldProcess)]
 
     param(
         [Parameter(Mandatory)]
@@ -120,10 +121,11 @@ function New-ProjectMetadataFolder {
         -ProjectName $ProjectName `
         -TemplateName $TemplateName `
         -TemplateSource $TemplateSource
-
-    Write-RenderKitProjectMetadata `
-        -ProjectRoot $ProjectRoot `
-        -Metadata $metadata
+    if ($PSCmdlet.ShouldProcess($ProjectName, "Write RenderKit ProjectMetadata")){
+        Write-RenderKitProjectMetadata `
+            -ProjectRoot $ProjectRoot `
+            -Metadata $metadata
+    }
 }
 
 function Get-Platform {
@@ -144,8 +146,13 @@ function Get-RenderKitProjectMetadataPath{
     return Join-Path $ProjectRoot ".renderkit\project.json"
 }
 
+
 function New-RenderKitProjectMetadata {
-    [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSUseShouldProcessForStateChangingFunctions",
+        "",
+        Justification = "Function only creates an in-memory object and does not modify state"
+    )]
     param(
         [Parameter(Mandatory)]
         [string]$ProjectName,

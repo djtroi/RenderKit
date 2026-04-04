@@ -150,7 +150,7 @@ function Get-RenderKitFileSystemPriority {
     }
 }
 
-function Get-RenderKitMountedDrives {
+function Get-RenderKitMountedDrive {
     [CmdletBinding()]
     param(
         [switch]$IncludeFixed,
@@ -218,7 +218,7 @@ function Get-RenderKitDriveCandidatesInternal {
     )
 
     $registry = Read-RenderKitDeviceRegistry
-    $drives = Get-RenderKitMountedDrives `
+    $drives = Get-RenderKitMountedDrive `
         -IncludeFixed:$IncludeFixed `
         -IncludeUnsupportedFileSystem:$IncludeUnsupportedFileSystem
 
