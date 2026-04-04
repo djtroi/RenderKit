@@ -11,5 +11,5 @@ if (!(Test-Path $path)){
     Write-RenderKitLog -Level Error -Message "Project path not found: $path"
     throw "Project not found: $path"
 }
-return $path 
+return $path
 }

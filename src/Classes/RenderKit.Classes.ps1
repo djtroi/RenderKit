@@ -18,13 +18,13 @@ class RenderKitTemplate {
     [System.Collections.Generic.List[RenderKitFolder]]$Folders
 
     RenderKitTemplate([string]$name) {
-        $this.Name      =   $name 
+        $this.Name      =   $name
         $this.Mappings  =   @()
         $this.Folders   =   [System.Collections.Generic.List[RenderKitFolder]]::new()
     }
 
     [void]AddMapping([string]$mappingId) {
-        $this.Mappings += $mappingId 
+        $this.Mappings += $mappingId
     }
 
     [void]AddFolder([RenderKitFolder]$Folder) {

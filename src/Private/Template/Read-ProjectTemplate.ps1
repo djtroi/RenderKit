@@ -3,7 +3,6 @@ function Read-ProjectTemplate{
     [CmdletBinding()]
     param(
         [string]$Path #JSON or Markdown
-        
     )
 
     if (-not $Path -or -not (Test-Path $Path)) {
@@ -59,14 +58,13 @@ function Read-ProjectTemplate{
                 throw "Invalid Markdown template $_"
             }
         }
-        
     default{
         Write-RenderKitLog -Level Error -Message "Unsupported template format '$ext' for '$Path'."
         throw "unsupported template format: $ext"
     }
     }
 }
-function Format-Folders {
+function Format-Folders{
 
     param(
         [Parameter(Mandatory)]
@@ -75,9 +73,9 @@ function Format-Folders {
 
     $result = @()
 
-    if ($Node -is [System.Collections.IEnumerable] -and 
-    $Node -isnot [string] -and 
-    $Node -isnot [hashtable]) {
+    if ($Node -is [System.Collections.IEnumerable] -and
+    $Node -isnot [string] -and
+    $Node -isnot [hashtable]){
         foreach ($item in $Node) {
             $children = @()
 
@@ -95,8 +93,7 @@ function Format-Folders {
     elseif ($Node -is [hashtable]) {
         foreach ($key in $Node.Keys){
             $children = @()
-            
-            if($Node[$key] -and $Node[$key].Count -gt 0 ) {
+            if($Node[$key] -and $Node[$key].Count -gt 0 ){
                 $children = Format-Folders -Node $Node[$key]
             }
 
@@ -109,4 +106,3 @@ function Format-Folders {
 
     return @($result)
 }
-    

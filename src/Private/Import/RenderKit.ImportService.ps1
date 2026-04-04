@@ -139,7 +139,7 @@ function Resolve-RenderKitImportSourcePath {
         return $null
     }
 
-    Write-RenderKitLog -Level Info -Message "Auto-selected source drive '$($autoCandidate.DriveLetter)'." 
+    Write-RenderKitLog -Level Info -Message "Auto-selected source drive '$($autoCandidate.DriveLetter)'."
     return ConvertTo-RenderKitImportDrivePath -DriveLetter $autoCandidate.DriveLetter
 }
 

@@ -5,7 +5,7 @@ function Set-RenderKitDebugMode {
         [bool]$Enabled
     )
 
-    $script:RenderKitDebugMode = $Enabled 
+    $script:RenderKitDebugMode = $Enabled
 
     if ( $Enabled ){
         Write-RenderKitLog -Message "Debug Mode enqabled." -Level Info

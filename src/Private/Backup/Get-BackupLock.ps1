@@ -8,7 +8,7 @@ function Get-BackupLock {
     Write-RenderKitLog -Level Debug -Message "Get-BackupLock started for '$ProjectRoot'."
 
     $lockPath = Get-BackupLockPath -ProjectRoot $ProjectRoot
-    $lockDir = Split-Path $lockPath 
+    $lockDir = Split-Path $lockPath
 
     if (!(Test-Path $lockDir)){
         Write-RenderKitLog -Level Error -Message "RenderKit metadata folder is missing for project '$ProjectRoot'."
@@ -42,7 +42,7 @@ function Get-BackupLock {
         lockType        = "backup"
         lockedAt        = (Get-Date).ToString("o")
         ownerToken      = $ownerToken
-        processId       = $PID 
+        processId       = $PID
         machine         = $ENV:COMPUTERNAME
         maschine        = $ENV:COMPUTERNAME
         user            = $ENV:USERNAME

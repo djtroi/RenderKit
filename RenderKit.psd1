@@ -1,6 +1,6 @@
 @{
     RootModule = 'RenderKit.psm1'
-    ModuleVersion = '0.3.0' # Major.Minor.Patch
+    ModuleVersion = '0.3.2' # Major.Minor.Patch
     Author = 'Norbert Marton'
     Description = 'Powershell tools for video editing project workflows.'
     GUID = '32e3f476-8e44-4511-82c7-952748e6463b'
@@ -11,7 +11,8 @@
     FunctionsToExport = @(
         'Add-FolderToTemplate'
         'Add-RenderKitDeviceWhitelistEntry'
-        'Add-RenderKitMappingToTeamplate'
+        'Add-RenderKitMappingtoTemplate'
+        'Add-RenderKitTypeToMappingToTemplate'
         'Add-RenderKitTypeToMapping'
         'Backup-Project'
         'Get-RenderKitDeviceWhitelist'
@@ -46,5 +47,5 @@
 
          } # End of PSData hashtable
 
-         } # End of PrivateData hashtable 
+         } # End of PrivateData hashtable
 }

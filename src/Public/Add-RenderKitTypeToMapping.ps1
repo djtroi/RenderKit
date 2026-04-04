@@ -67,6 +67,5 @@ function Add-RenderKitTypeToMapping {
     })
 
     Write-RenderKitMappingFile -Mapping $json -MappingId $MappingId
-    
     Write-RenderKitLog -Level Info -Message "Type ""$TypeName"" added to $MappingId."
 }
