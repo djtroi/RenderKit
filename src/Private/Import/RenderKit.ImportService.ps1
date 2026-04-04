@@ -72,6 +72,7 @@ function Merge-RenderKitImportCriterion {
 
 function ConvertTo-RenderKitImportDrivePath {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param(
         [Parameter(Mandatory)]
         [string]$DriveLetter
@@ -203,6 +204,7 @@ function Get-RenderKitImportFileCatalog {
 
 function Test-RenderKitImportFolderMatch {
     [CmdletBinding()]
+    [OutputType([System.Boolean])]
     param(
         [Parameter(Mandatory)]
         [string]$RelativeDirectory,
@@ -245,6 +247,7 @@ function Test-RenderKitImportFolderMatch {
 
 function Get-RenderKitImportFilteredFile {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
@@ -298,6 +301,7 @@ function Get-RenderKitImportFilteredFile {
 
 function ConvertFrom-RenderKitImportListInput {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [string]$InputText
     )
@@ -316,6 +320,7 @@ function ConvertFrom-RenderKitImportListInput {
 
 function Read-RenderKitImportYesNo {
     [CmdletBinding()]
+    [OutputType([System.Boolean])]
     param(
         [Parameter(Mandatory)]
         [string]$Prompt,
@@ -377,6 +382,7 @@ function Show-RenderKitImportWizardStatus {
 
 function Read-RenderKitImportSelectionReviewAction {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param()
 
     while ($true) {
@@ -405,6 +411,7 @@ function Read-RenderKitImportSelectionReviewAction {
 
 function Read-RenderKitImportTransferModeInteractive {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param()
 
     while ($true) {
@@ -432,6 +439,7 @@ function Read-RenderKitImportTransferModeInteractive {
 
 function Get-RenderKitImportProjectCandidate {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [string]$BasePath
     )
@@ -599,6 +607,7 @@ function Read-RenderKitImportProjectRootInteractive {
 
 function Get-RenderKitImportChildDirectory {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory)]
         [string]$Path
@@ -722,6 +731,7 @@ function Show-RenderKitImportDirectoryTreeEntry {
 
 function Read-RenderKitImportSubfolderSelectionMode {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param(
         [Parameter(Mandatory)]
         [string]$SelectedPath
@@ -749,6 +759,7 @@ function Read-RenderKitImportSubfolderSelectionMode {
 
 function Read-RenderKitImportSubfolderIndexList {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory)]
         [string]$ParentPath
@@ -1007,6 +1018,7 @@ function Read-RenderKitImportSourcePathInteractive {
 
 function Read-RenderKitImportUnassignedHandlingInteractive {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param(
         [ValidateSet("Prompt", "ToSort", "Skip")]
         [string]$Default = "Prompt"
@@ -1125,6 +1137,7 @@ function Start-RenderKitImportInteractiveSetup {
 
 function Read-RenderKitImportDate {
     [CmdletBinding()]
+    [OutputType([System.DateTime])]
     param(
         [Parameter(Mandatory)]
         [string]$Prompt
@@ -1175,6 +1188,7 @@ function Read-RenderKitImportAdditionalCriterion {
 
 function Get-RenderKitImportTotalByte {
     [CmdletBinding()]
+    [OutputType([System.Int64])]
     param(
         [object[]]$Files
     )
@@ -1193,6 +1207,7 @@ function Get-RenderKitImportTotalByte {
 
 function ConvertTo-RenderKitHumanSize {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param(
         [Parameter(Mandatory)]
         [int64]$Bytes
@@ -1258,6 +1273,7 @@ function Show-RenderKitImportPreviewTable {
 }
 function ConvertTo-RenderKitImportIndexSelection {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory)]
         [string]$InputText,
@@ -1318,6 +1334,7 @@ function ConvertTo-RenderKitImportIndexSelection {
 
 function Select-RenderKitImportFileSubset {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
@@ -1373,6 +1390,7 @@ function Select-RenderKitImportFileSubset {
 
 function Confirm-RenderKitImportSelection {
     [CmdletBinding()]
+    [OutputType([System.Boolean])]
     param(
         [Parameter(Mandatory)]
         [int]$FileCount,
@@ -1402,6 +1420,7 @@ function Confirm-RenderKitImportSelection {
 
 function ConvertTo-RenderKitImportNormalizedExtension {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param(
         [string]$Extension
     )
@@ -1856,6 +1875,7 @@ function Read-RenderKitImportUnassignedAction {
 
 function Resolve-RenderKitImportUnassignedFile {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
@@ -2141,6 +2161,7 @@ function Get-RenderKitImportFileClassification {
 
 function Get-RenderKitImportTransferCandidateFile {
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
@@ -2223,6 +2244,7 @@ function New-RenderKitImportTransferRunContext {
 
 function Get-RenderKitImportFileHashValue {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param(
         [Parameter(Mandatory)]
         [string]$Path,
@@ -2543,6 +2565,7 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
 
 function Get-RenderKitImportTransferredBytesByStatus {
     [CmdletBinding()]
+    [OutputType([System.Int64])]
     param(
         [object]$Transfer,
         [Parameter(Mandatory)]

@@ -1,5 +1,6 @@
 function Get-BackupCleanupProfile {
     [CmdletBinding()]
+    [OutputType([hashtable])]
     param()
 
     if ($script:RenderKitBackupCleanupProfiles) {

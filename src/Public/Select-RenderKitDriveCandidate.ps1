@@ -79,6 +79,7 @@ function Read-RenderKitDriveCandidateIndex {
     Select-RenderKitDriveCandidate
     #>
     [CmdletBinding()]
+    [OutputType([int])]
     param(
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
@@ -146,6 +147,7 @@ function Select-RenderKitDriveCandidate {
     https://github.com/djtroi/RenderKit
     #>
     [CmdletBinding()]
+    [OutputType([System.Object])]
     param(
         [switch]$IncludeFixed,
         [switch]$IncludeUnsupportedFileSystem

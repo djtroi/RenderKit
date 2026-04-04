@@ -1,5 +1,6 @@
 function Get-CleanupRule{
     [CmdletBinding()]
+    [OutputType([System.Collections.Hashtable])]
     param(
         [Alias("Software")]
         [string[]]$Profile

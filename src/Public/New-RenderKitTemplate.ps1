@@ -32,6 +32,7 @@ Add-RenderKitMappingToTemplate
 https://github.com/djtroi/RenderKit
 #>
 function New-RenderKitTemplate {
+    [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory)]
         [string]$Name
@@ -47,12 +48,14 @@ function New-RenderKitTemplate {
     }
 
     if (!(Test-Path $templateFolder)){
+        if ($PSCmdlet.ShouldProcess($Name, "Create a new Template Folder")){
         New-Item -ItemType Directory -Path $templateFolder -ErrorAction Stop | Out-Null
+        }
         Write-RenderKitLog -Level Debug -Message "No template folder in AppData... creating one."
     }
     $template = [RenderKitTemplate]::new($Name)
-
-    Write-RenderKitTemplateFile -Template $template -Path $templatePath
-
+    if ($PSCmdlet.ShouldProcess($Name, "Create a new Template")){
+        Write-RenderKitTemplateFile -Template $template -Path $templatePath
+    }
     Write-RenderKitLog -Level Info -Message "Template $Name created successfully."
 }

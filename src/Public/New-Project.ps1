@@ -44,6 +44,7 @@ Get-Help Get-ProjectTemplate
 https://github.com/djtroi/RenderKit
 #>
 function New-Project {
+    [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory, Position = 0)]
         [string]$Name,
@@ -65,11 +66,11 @@ function New-Project {
     $templateObject = Get-ProjectTemplate -TemplateName $Template
 
     Write-RenderKitLog -Level Info -Message "Creating project '$Name' at '$ProjectRoot' using template '$($templateObject.Name)' ($($templateObject.Source))."
-
-    New-RenderKitProjectFromTemplate `
-        -ProjectName $Name `
-        -ProjectRoot $ProjectRoot `
-        -Template $templateObject
-
+    if ($PSCmdlet.ShouldProcess($Name, "New Project from Templte")){
+        New-RenderKitProjectFromTemplate `
+            -ProjectName $Name `
+            -ProjectRoot $ProjectRoot `
+            -Template $templateObject
+    }
     Write-RenderKitLog -Level Info -Message "Project '$Name' created successfully."
 }
