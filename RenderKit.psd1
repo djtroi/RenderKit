@@ -11,8 +11,7 @@
     FunctionsToExport = @(
         'Add-FolderToTemplate'
         'Add-RenderKitDeviceWhitelistEntry'
-        'Add-RenderKitMappingtoTemplate'
-        'Add-RenderKitTypeToMappingToTemplate'
+        'Add-RenderKitMappingToTemplate'
         'Add-RenderKitTypeToMapping'
         'Backup-Project'
         'Get-RenderKitDeviceWhitelist'
@@ -48,3 +47,4 @@
         } # End of PSData hashtable
 
         } # End of PrivateData hashtable
+    }
