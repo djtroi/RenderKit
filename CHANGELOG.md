@@ -1,3 +1,10 @@
+# 0.3.4 - 2026-04-10
+## Patch
+
+## Changed
+
+- Refactored the .psm1 file for robust dot sourcing
+
 # 0.3.3 - 2026-04-04
 ## Patch
 
