@@ -1,5 +1,6 @@
-#todo buggy
-<#
+Register-RenderKitFunction "Add-FolderToTemplate"
+function Add-FolderToTemplate {
+    <#
 .SYNOPSIS
 Adds a folder path to an existing RenderKit template.
 
@@ -36,8 +37,6 @@ Add-RenderKitMappingToTemplate
 .LINK
 https://github.com/djtroi/RenderKit
 #>
-Register-RenderKitFunction "Add-FolderToTemplate"
-function Add-FolderToTemplate {
     param(
     [Parameter(Mandatory, Position = 0)]
     [string]$TemplateName,

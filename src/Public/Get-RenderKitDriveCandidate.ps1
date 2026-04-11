@@ -1,4 +1,6 @@
-<#
+Register-RenderKitFunction "Get-RenderKitDriveCandidate"
+function Get-RenderKitDriveCandidate {
+    <#
 .SYNOPSIS
 Lists ranked drive candidates for import.
 
@@ -42,8 +44,6 @@ Get-RenderKitDeviceWhitelist
 .LINK
 https://github.com/djtroi/RenderKit
 #>
-Register-RenderKitFunction "Get-RenderKitDriveCandidate"
-function Get-RenderKitDriveCandidate {
     [CmdletBinding()]
     [OutputType([System.Object[]])]
     param(

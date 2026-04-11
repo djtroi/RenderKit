@@ -1,4 +1,6 @@
-<#
+Register-RenderKitFunction "Show-RenderKitDriveCadidateTable"
+function Show-RenderKitDriveCandidateTable {
+    <#
 .SYNOPSIS
 Displays drive candidates as a table.
 
@@ -21,8 +23,6 @@ None. Writes a formatted table to host output.
 .LINK
 Get-RenderKitDriveCandidate
 #>
-Register-RenderKitFunction "Show-RenderKitDriveCadidateTable"
-function Show-RenderKitDriveCandidateTable {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]

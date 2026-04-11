@@ -1,4 +1,6 @@
-<#
+Register-RenderKitFunction "Add-RenderKitDeviceWhitelistEntry"
+function Add-RenderKitDeviceWhitelistEntry {
+    <#
 .SYNOPSIS
 Adds device whitelist entries for import source detection.
 
@@ -49,8 +51,6 @@ Get-RenderKitDriveCandidate
 .LINK
 https://github.com/djtroi/RenderKit
 #>
-Register-RenderKitFunction "Add-RenderKitDeviceWhitelistEntry"
-function Add-RenderKitDeviceWhitelistEntry {
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [string[]]$VolumeName,

@@ -21,6 +21,7 @@ function ConvertTo-RenderKitStringLiteral {
 
 function ConvertTo-RenderKitArrayLiteral {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param(
         [AllowEmptyCollection()]
         [string[]]$Value
@@ -39,6 +40,7 @@ function ConvertTo-RenderKitArrayLiteral {
 
 function ConvertTo-RenderKitXmlLiteral {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param(
         [AllowEmptyString()]
         [string]$Value
@@ -48,7 +50,10 @@ function ConvertTo-RenderKitXmlLiteral {
 }
 
 function Get-RenderKitSourceFiles {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '',
+     Justification = 'Function never gets only one file, so Get-RenderKitSourceFiles is actually correct')]
     [CmdletBinding()]
+    [OutputType([System.Object[]])]
     param(
         [Parameter(Mandatory)]
         [string]$Path
@@ -62,6 +67,8 @@ function Get-RenderKitSourceFiles {
 }
 
 function New-RenderKitDirectory {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+     Justification = '"This is not a public Function, that should be tested with -Whatif')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -76,6 +83,8 @@ function New-RenderKitDirectory {
 }
 
 function New-RenderKitBundledModule {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+     Justification = '"This is not a public Function, that should be tested with -Whatif')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -137,6 +146,8 @@ function New-RenderKitBundledModule {
 }
 
 function New-RenderKitNuspec {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+     Justification = '"This is not a public Function, that should be tested with -Whatif')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -238,7 +249,7 @@ if (-not $SkipPackage) {
     try {
         $packOutput = & 'C:\Program Files\dotnet\dotnet.exe' pack $csprojPath ("/p:NuspecFile={0}" -f (Join-Path -Path $stageRoot -ChildPath 'RenderKit.nuspec')) '--output' $packageRoot '--configuration' 'Release' 2>&1
         foreach ($line in $packOutput) {
-            Write-Host $line
+            Write-Output $line
         }
 
         if ($LASTEXITCODE -ne 0) {

@@ -1,4 +1,6 @@
-<#
+Register-RenderKitFunction "Import-Media"
+function Import-Media {
+    <#
 .SYNOPSIS
 Scans, filters, classifies, and optionally transfers media into a RenderKit project.
 
@@ -107,8 +109,6 @@ Get-Help Import-Media -Detailed
 .LINK
 https://github.com/djtroi/RenderKit
 #>
-Register-RenderKitFunction "Import-Media"
-function Import-Media {
      [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '',
      Justification = '"Media" is already singular (Latin plural of medium, but treated as uncountable in English).')]
     [CmdletBinding(SupportsShouldProcess)]

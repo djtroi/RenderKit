@@ -1,4 +1,6 @@
-<#
+Register-RenderKitFunction "Backup-Project"
+function Backup-Project{
+    <#
 .SYNOPSIS
 Cleans and archives a RenderKit project.
 
@@ -62,8 +64,6 @@ New-Project
 .LINK
 https://github.com/djtroi/RenderKit
 #>
-Register-RenderKitFunction "Backup-Project"
-function Backup-Project{
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory, Position = 0)]

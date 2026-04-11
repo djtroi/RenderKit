@@ -1,4 +1,6 @@
-<#
+Register-RenderKitFunction "Set-ProjectRoot"
+function Set-ProjectRoot{
+    <#
 .SYNOPSIS
 Sets the default RenderKit project root path.
 
@@ -31,8 +33,6 @@ Backup-Project
 .LINK
 https://github.com/djtroi/RenderKit
 #>
-Register-RenderKitFunction "Set-ProjectRoot"
-function Set-ProjectRoot{
     [CmdletBinding(SupportsShouldProcess)]
     param (
         [Parameter(Mandatory)]
