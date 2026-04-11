@@ -1,4 +1,6 @@
-<#
+Register-RenderKitFunction "Get-RenderKitDeviceWhitelist"
+function Get-RenderKitDeviceWhitelist {
+    <#
 .SYNOPSIS
 Returns the configured device whitelist.
 
@@ -25,7 +27,6 @@ Get-RenderKitDriveCandidate
 .LINK
 https://github.com/djtroi/RenderKit
 #>
-function Get-RenderKitDeviceWhitelist {
     [CmdletBinding()]
     param()
 

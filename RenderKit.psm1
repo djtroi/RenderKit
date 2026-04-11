@@ -1,69 +1,68 @@
-# Module Version
-    # Paths
-    $srcPath     = Join-Path $PSScriptRoot 'src'
-    $publicPath  = Join-Path $srcPath 'Public'
-    $privatePath = Join-Path $srcPath 'Private'
-    $classesPath = Join-Path $srcPath 'Classes'
+$script:RenderKitModuleRoot = $PSScriptRoot
+$script:RenderKitModuleVersion = '0.0.0'
+$script:RenderKitPublicFunctions = @(
+    'Add-FolderToTemplate'
+    'Add-RenderKitDeviceWhitelistEntry'
+    'Add-RenderKitMappingToTemplate'
+    'Add-RenderKitTypeToMapping'
+    'Backup-Project'
+    'Get-RenderKitDeviceWhitelist'
+    'Get-RenderKitDriveCandidate'
+    'Import-Media'
+    'New-Project'
+    'New-RenderKitMapping'
+    'New-RenderKitTemplate'
+    'Select-RenderKitDriveCandidate'
+    'Set-ProjectRoot'
+)
+$script:RenderKitPublicAliases = @(
+    'projectroot'
+    'setroot'
+)
 
-    #define module paths
-    $script:ManifestPath = Join-Path $PSScriptRoot 'RenderKit.psd1'
-    $script:RenderKitModuleRoot = $PSScriptRoot
+$moduleInfo = $ExecutionContext.SessionState.Module
+if ($moduleInfo -and $moduleInfo.Version) {
+    $script:RenderKitModuleVersion = $moduleInfo.Version.ToString()
+}
 
-    #Version
-    if (Test-Path $script:ManifestPath) {
-        $manifest = Import-PowerShellDataFile -Path $script:ManifestPath
-        $script:RenderKitModuleVersion = $manifest.ModuleVersion
+function Register-RenderKitFunction {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name
+    )
+
+    # Compatibility shim for existing source files. The public surface is
+    # defined centrally in the manifest and exported explicitly below.
+    if ($script:RenderKitPublicFunctions -notcontains $Name) {
+        return
     }
-    else {
-        $script:RenderKitModuleVersion = '0.0.0-unknown'
-    }
+}
 
-    # Bootstrap Logging
-    $script:RenderKitLoggingInitialized = $false
-    $script:RenderKitBootstrapLog = New-Object System.Collections.Generic.List[string]
-    $script:RenderKitDebugMode = $false
+function Get-RenderKitSourceFiles {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
 
-    #Snaphot
-    $before = (Get-Command -CommandType Function).Name
-
-    #PRIVATE
-    if (Test-Path $privatePath) {
-        Get-ChildItem $privatePath -Recurse -Filter *.ps1 | ForEach-Object { . $_.FullName }
-    }
-
-    #CLASSES
-    if (Test-Path $classesPath) {
-        Get-ChildItem $classesPath -Recurse -Filter *.ps1 | ForEach-Object { . $_.FullName }
-    }
-
-    #PUBLIC
-    $PublicFunctions = @()
-
-    if (Test-Path $publicPath) {
-        Get-ChildItem $publicPath -Recurse -Filter *.ps1 | ForEach-Object { . $_.FullName }
-
-        foreach ($file in $files) {
-            $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null)
-            $funcs = $ast.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst]}, $true)
-
-            foreach ($f in $funcs) {
-                $PublicFunctions += $f.Name
-            }
-
-            . $file.FullName
-        }
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return
     }
 
-    $after = (Get-Command -CommandType Function).Name
+    Get-ChildItem -LiteralPath $Path -Recurse -File -Filter '*.ps1' |
+        Sort-Object -Property FullName
+}
 
-    #Snapshot after 
-    $after = (Get-Command -CommandType Function).Name
-    $PublicFunctions = $after | Where-Object { $_ -notin $before }
-
-    #EXPORT
-    if ($PublicFunctions.Count -gt 0) {
-        Export-ModuleMember -Function $PublicFunctions
+$srcRoot = Join-Path -Path $PSScriptRoot -ChildPath 'src'
+foreach ($relativePath in 'Classes', 'Private', 'Public') {
+    $folderPath = Join-Path -Path $srcRoot -ChildPath $relativePath
+    foreach ($sourceFile in Get-RenderKitSourceFiles -Path $folderPath) {
+        . $sourceFile.FullName
     }
+}
 
-    
+Set-Alias -Name 'projectroot' -Value 'Set-ProjectRoot' -Scope Script
+Set-Alias -Name 'setroot' -Value 'Set-ProjectRoot' -Scope Script
 
+Export-ModuleMember -Function $script:RenderKitPublicFunctions -Alias $script:RenderKitPublicAliases

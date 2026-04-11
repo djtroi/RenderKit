@@ -1,4 +1,6 @@
-<#
+Register-RenderKitFunction "New-RenderKitTemplate"
+function New-RenderKitTemplate {
+    <#
 .SYNOPSIS
 Creates a new user template file.
 
@@ -31,7 +33,6 @@ Add-RenderKitMappingToTemplate
 .LINK
 https://github.com/djtroi/RenderKit
 #>
-function New-RenderKitTemplate {
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory)]

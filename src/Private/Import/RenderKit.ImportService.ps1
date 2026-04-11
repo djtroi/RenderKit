@@ -1682,11 +1682,7 @@ function Read-RenderKitImportMappingFile {
 
     $fileName = Resolve-RenderKitMappingFileName -MappingId $normalizedMappingId
     if (-not [string]::IsNullOrWhiteSpace($fileName)) {
-        if (-not $script:RenderKitModuleRoot) {
-            $script:RenderKitModuleRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-        }
-
-        $systemMappingPath = Join-Path (Join-Path $script:RenderKitModuleRoot "Resources/Mappings") $fileName
+        $systemMappingPath = Get-RenderKitSystemMappingPath -MappingId $normalizedMappingId
         if (-not $candidatePaths.Contains($systemMappingPath)) {
             $candidatePaths.Add($systemMappingPath)
         }
@@ -2249,16 +2245,174 @@ function Get-RenderKitImportFileHashValue {
         [Parameter(Mandatory)]
         [string]$Path,
         [ValidateSet("SHA256", "SHA1", "MD5")]
-        [string]$Algorithm = "SHA256"
+        [string]$Algorithm = "SHA256",
+        [scriptblock]$ProgressCallback
     )
 
+    $bufferSizeBytes = 4MB
+    $buffer = New-Object byte[] $bufferSizeBytes
+    $inputStream = $null
+    $hashAlgorithm = $null
+    $cryptoStream = $null
+    $processedBytes = [int64]0
+    $totalBytes = [int64]0
+    $lastProgressAt = [datetime]::MinValue
+
     try {
-        return [string](Get-FileHash -Path $Path -Algorithm $Algorithm -ErrorAction Stop).Hash
+        switch ($Algorithm) {
+            "SHA256" { $hashAlgorithm = [System.Security.Cryptography.SHA256]::Create() }
+            "SHA1" { $hashAlgorithm = [System.Security.Cryptography.SHA1]::Create() }
+            "MD5" { $hashAlgorithm = [System.Security.Cryptography.MD5]::Create() }
+        }
+
+        $inputStream = New-Object System.IO.FileStream(
+            $Path,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::Read,
+            $bufferSizeBytes,
+            [System.IO.FileOptions]::SequentialScan
+        )
+
+        $totalBytes = [int64]$inputStream.Length
+        $cryptoStream = New-Object System.Security.Cryptography.CryptoStream(
+            [System.IO.Stream]::Null,
+            $hashAlgorithm,
+            [System.Security.Cryptography.CryptoStreamMode]::Write
+        )
+
+        if ($ProgressCallback) {
+            & $ProgressCallback $processedBytes $totalBytes
+        }
+
+        while (($readCount = $inputStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+            $cryptoStream.Write($buffer, 0, $readCount)
+            $processedBytes += $readCount
+
+            $now = Get-Date
+            if (
+                $ProgressCallback -and (
+                    $processedBytes -ge $totalBytes -or
+                    $lastProgressAt -eq [datetime]::MinValue -or
+                    ($now - $lastProgressAt).TotalMilliseconds -ge 150
+                )
+            ) {
+                & $ProgressCallback $processedBytes $totalBytes
+                $lastProgressAt = $now
+            }
+        }
+
+        $cryptoStream.FlushFinalBlock()
+        return ([System.BitConverter]::ToString($hashAlgorithm.Hash)).Replace("-", "")
     }
     catch {
         Write-RenderKitLog -Level Error -Message "Could not calculate $Algorithm hash for '$Path': $($_.Exception.Message)"
         throw
     }
+    finally {
+        if ($cryptoStream) {
+            $cryptoStream.Dispose()
+        }
+
+        if ($hashAlgorithm) {
+            $hashAlgorithm.Dispose()
+        }
+
+        if ($inputStream) {
+            $inputStream.Dispose()
+        }
+    }
+}
+
+function Copy-RenderKitImportFileToPath {
+    [CmdletBinding()]
+    [OutputType([System.Int64])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$SourcePath,
+        [Parameter(Mandatory)]
+        [string]$DestinationPath,
+        [scriptblock]$ProgressCallback
+    )
+
+    $bufferSizeBytes = 4MB
+    $buffer = New-Object byte[] $bufferSizeBytes
+    $sourceItem = Get-Item -LiteralPath $SourcePath -ErrorAction Stop
+    $sourceStream = $null
+    $destinationStream = $null
+    $copiedBytes = [int64]0
+    $totalBytes = [int64]$sourceItem.Length
+    $lastProgressAt = [datetime]::MinValue
+
+    try {
+        $sourceStream = New-Object System.IO.FileStream(
+            $sourceItem.FullName,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::Read,
+            $bufferSizeBytes,
+            [System.IO.FileOptions]::SequentialScan
+        )
+
+        $destinationStream = New-Object System.IO.FileStream(
+            $DestinationPath,
+            [System.IO.FileMode]::Create,
+            [System.IO.FileAccess]::Write,
+            [System.IO.FileShare]::None,
+            $bufferSizeBytes,
+            [System.IO.FileOptions]::SequentialScan
+        )
+
+        if ($ProgressCallback) {
+            & $ProgressCallback $copiedBytes $totalBytes
+        }
+
+        while (($readCount = $sourceStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+            $destinationStream.Write($buffer, 0, $readCount)
+            $copiedBytes += $readCount
+
+            $now = Get-Date
+            if (
+                $ProgressCallback -and (
+                    $copiedBytes -ge $totalBytes -or
+                    $lastProgressAt -eq [datetime]::MinValue -or
+                    ($now - $lastProgressAt).TotalMilliseconds -ge 150
+                )
+            ) {
+                & $ProgressCallback $copiedBytes $totalBytes
+                $lastProgressAt = $now
+            }
+        }
+
+        $destinationStream.Flush()
+    }
+    catch {
+        if (Test-Path -LiteralPath $DestinationPath -PathType Leaf) {
+            Remove-Item -LiteralPath $DestinationPath -Force -ErrorAction SilentlyContinue
+        }
+
+        throw
+    }
+    finally {
+        if ($destinationStream) {
+            $destinationStream.Dispose()
+        }
+
+        if ($sourceStream) {
+            $sourceStream.Dispose()
+        }
+    }
+
+    try {
+        [System.IO.File]::SetCreationTimeUtc($DestinationPath, $sourceItem.CreationTimeUtc)
+        [System.IO.File]::SetLastWriteTimeUtc($DestinationPath, $sourceItem.LastWriteTimeUtc)
+        [System.IO.File]::SetLastAccessTimeUtc($DestinationPath, $sourceItem.LastAccessTimeUtc)
+    }
+    catch {
+        Write-RenderKitLog -Level Warning -Message "Could not preserve timestamps for '$DestinationPath': $($_.Exception.Message)"
+    }
+
+    return $copiedBytes
 }
 
 function Update-RenderKitImportTransferProgress {
@@ -2274,30 +2428,53 @@ function Update-RenderKitImportTransferProgress {
         [int64]$ProcessedBytes,
         [Parameter(Mandatory)]
         [int64]$TotalBytes,
-        [string]$CurrentOperation
+        [string]$CurrentOperation,
+        [int64]$ProgressBytesCompleted = -1,
+        [int64]$ProgressBytesTotal = -1,
+        [string]$Stage,
+        [int64]$CurrentFileProcessedBytes = -1,
+        [int64]$CurrentFileTotalBytes = -1
     )
+
+    if ($ProgressBytesCompleted -lt 0) {
+        $ProgressBytesCompleted = $ProcessedBytes
+    }
+
+    if ($ProgressBytesTotal -lt 0) {
+        $ProgressBytesTotal = $TotalBytes
+    }
 
     $elapsedSeconds = ((Get-Date) - $StartedAt).TotalSeconds
     if ($elapsedSeconds -lt 0.001) {
         $elapsedSeconds = 0.001
     }
 
-    $speedMBps = ([double]$ProcessedBytes / 1MB) / $elapsedSeconds
+    $speedMBps = ([double]$ProgressBytesCompleted / 1MB) / $elapsedSeconds
 
     $percent = 0
-    if ($TotalBytes -gt 0) {
-        $percent = [int][Math]::Min(100, [Math]::Floor(([double]$ProcessedBytes * 100.0) / [double]$TotalBytes))
+    if ($ProgressBytesTotal -gt 0) {
+        $percent = [int][Math]::Min(100, [Math]::Floor(([double]$ProgressBytesCompleted * 100.0) / [double]$ProgressBytesTotal))
     }
     elseif ($TotalCount -gt 0) {
         $percent = [int][Math]::Min(100, [Math]::Floor(([double]$CompletedCount * 100.0) / [double]$TotalCount))
     }
 
-    $status = "{0}/{1} files | {2} / {3} | {4:N2} MB/s" -f `
-        $CompletedCount, `
-        $TotalCount, `
+    $statusSegments = New-Object System.Collections.Generic.List[string]
+    $statusSegments.Add(("{0}/{1} files" -f $CompletedCount, $TotalCount))
+    $statusSegments.Add(("imported {0} / {1}" -f `
         (ConvertTo-RenderKitHumanSize -Bytes $ProcessedBytes), `
-        (ConvertTo-RenderKitHumanSize -Bytes $TotalBytes), `
-        $speedMBps
+        (ConvertTo-RenderKitHumanSize -Bytes $TotalBytes)))
+
+    if ($CurrentFileTotalBytes -ge 0 -and -not [string]::IsNullOrWhiteSpace($Stage)) {
+        $currentFileStatus = "{0} {1} / {2}" -f `
+            $Stage, `
+            (ConvertTo-RenderKitHumanSize -Bytes ([Math]::Max([int64]0, $CurrentFileProcessedBytes))), `
+            (ConvertTo-RenderKitHumanSize -Bytes $CurrentFileTotalBytes)
+        $statusSegments.Add($currentFileStatus)
+    }
+
+    $statusSegments.Add(("{0:N2} MB/s" -f $speedMBps))
+    $status = [string]::Join(" | ", $statusSegments.ToArray())
 
     Write-Progress `
         -Activity "Phase 4 - Transaction-Safe Transfer" `
@@ -2353,6 +2530,8 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
 
     $startTime = Get-Date
     $processedBytes = [int64]0
+    $progressTotalBytes = if ($Simulate) { [int64]$plannedBytes } else { [int64]($plannedBytes * 3) }
+    $completedProgressBytes = [int64]0
     $importedCount = 0
     $simulatedCount = 0
     $failedCount = 0
@@ -2386,6 +2565,7 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
             $errorMessage = $null
             $status = "Pending"
             $bytes = [int64]$file.Length
+            $progressBytesForCurrentFile = if ($Simulate) { $bytes } else { [int64]($bytes * 3) }
 
             try {
                 if ([string]::IsNullOrWhiteSpace($destinationDirectory)) {
@@ -2408,22 +2588,87 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
                         -TotalCount $transferCandidates.Count `
                         -ProcessedBytes $processedBytes `
                         -TotalBytes $plannedBytes `
+                        -ProgressBytesCompleted ($completedProgressBytes + $progressBytesForCurrentFile) `
+                        -ProgressBytesTotal $progressTotalBytes `
+                        -Stage "simulate" `
+                        -CurrentFileProcessedBytes $bytes `
+                        -CurrentFileTotalBytes $bytes `
                         -CurrentOperation ("SIMULATE: {0} -> {1}" -f $file.Name, $destinationRelativePath)
                 }
                 else {
                     $stagingPath = Join-Path $tempRunRoot ("{0:D6}_{1}" -f ($i + 1), $file.Name)
 
-                    Copy-Item -LiteralPath $sourcePath -Destination $stagingPath -Force -ErrorAction Stop
-                    $sourceHash = Get-RenderKitImportFileHashValue -Path $sourcePath -Algorithm $HashAlgorithm
-                    $stagingHash = Get-RenderKitImportFileHashValue -Path $stagingPath -Algorithm $HashAlgorithm
+                    if (-not (Test-Path -Path $destinationDirectory -PathType Container)) {
+                        New-Item -ItemType Directory -Path $destinationDirectory -Force | Out-Null
+                    }
+
+                    $copyProgressCallback = {
+                        param([int64]$currentBytes, [int64]$currentTotalBytes)
+
+                        Update-RenderKitImportTransferProgress `
+                            -StartedAt $startTime `
+                            -CompletedCount $completedCount `
+                            -TotalCount $transferCandidates.Count `
+                            -ProcessedBytes $processedBytes `
+                            -TotalBytes $plannedBytes `
+                            -ProgressBytesCompleted ($completedProgressBytes + $currentBytes) `
+                            -ProgressBytesTotal $progressTotalBytes `
+                            -Stage "copy" `
+                            -CurrentFileProcessedBytes $currentBytes `
+                            -CurrentFileTotalBytes $currentTotalBytes `
+                            -CurrentOperation ("COPY: {0} -> {1}" -f $file.Name, $destinationRelativePath)
+                    }
+
+                    $sourceHashProgressCallback = {
+                        param([int64]$currentBytes, [int64]$currentTotalBytes)
+
+                        Update-RenderKitImportTransferProgress `
+                            -StartedAt $startTime `
+                            -CompletedCount $completedCount `
+                            -TotalCount $transferCandidates.Count `
+                            -ProcessedBytes $processedBytes `
+                            -TotalBytes $plannedBytes `
+                            -ProgressBytesCompleted ($completedProgressBytes + $bytes + $currentBytes) `
+                            -ProgressBytesTotal $progressTotalBytes `
+                            -Stage "hash source" `
+                            -CurrentFileProcessedBytes $currentBytes `
+                            -CurrentFileTotalBytes $currentTotalBytes `
+                            -CurrentOperation ("VERIFY SOURCE: {0}" -f $file.Name)
+                    }
+
+                    $stagingHashProgressCallback = {
+                        param([int64]$currentBytes, [int64]$currentTotalBytes)
+
+                        Update-RenderKitImportTransferProgress `
+                            -StartedAt $startTime `
+                            -CompletedCount $completedCount `
+                            -TotalCount $transferCandidates.Count `
+                            -ProcessedBytes $processedBytes `
+                            -TotalBytes $plannedBytes `
+                            -ProgressBytesCompleted ($completedProgressBytes + (2 * $bytes) + $currentBytes) `
+                            -ProgressBytesTotal $progressTotalBytes `
+                            -Stage "hash staging" `
+                            -CurrentFileProcessedBytes $currentBytes `
+                            -CurrentFileTotalBytes $currentTotalBytes `
+                            -CurrentOperation ("VERIFY STAGING: {0}" -f $file.Name)
+                    }
+
+                    Copy-RenderKitImportFileToPath `
+                        -SourcePath $sourcePath `
+                        -DestinationPath $stagingPath `
+                        -ProgressCallback $copyProgressCallback | Out-Null
+                    $sourceHash = Get-RenderKitImportFileHashValue `
+                        -Path $sourcePath `
+                        -Algorithm $HashAlgorithm `
+                        -ProgressCallback $sourceHashProgressCallback
+                    $stagingHash = Get-RenderKitImportFileHashValue `
+                        -Path $stagingPath `
+                        -Algorithm $HashAlgorithm `
+                        -ProgressCallback $stagingHashProgressCallback
 
                     if ($sourceHash -ne $stagingHash) {
                         Write-RenderKitLog -Level Error -Message "Hash mismatch for '$sourcePath'. Source '$sourceHash', staging '$stagingHash'."
                         throw "Hash mismatch for '$sourcePath'. Source '$sourceHash', staging '$stagingHash'."
-                    }
-
-                    if (-not (Test-Path -Path $destinationDirectory -PathType Container)) {
-                        New-Item -ItemType Directory -Path $destinationDirectory -Force | Out-Null
                     }
 
                     Move-Item -LiteralPath $stagingPath -Destination $finalDestinationPath -ErrorAction Stop
@@ -2438,6 +2683,11 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
                         -TotalCount $transferCandidates.Count `
                         -ProcessedBytes $processedBytes `
                         -TotalBytes $plannedBytes `
+                        -ProgressBytesCompleted ($completedProgressBytes + $progressBytesForCurrentFile) `
+                        -ProgressBytesTotal $progressTotalBytes `
+                        -Stage "done" `
+                        -CurrentFileProcessedBytes $bytes `
+                        -CurrentFileTotalBytes $bytes `
                         -CurrentOperation ("TRANSFER: {0} -> {1}" -f $file.Name, $destinationRelativePath)
                 }
             }
@@ -2457,9 +2707,15 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
                     -TotalCount $transferCandidates.Count `
                     -ProcessedBytes $processedBytes `
                     -TotalBytes $plannedBytes `
+                    -ProgressBytesCompleted ($completedProgressBytes + $progressBytesForCurrentFile) `
+                    -ProgressBytesTotal $progressTotalBytes `
+                    -Stage "failed" `
+                    -CurrentFileProcessedBytes ([int64]0) `
+                    -CurrentFileTotalBytes $bytes `
                     -CurrentOperation ("FAILED: {0}" -f $file.Name)
             }
             finally {
+                $completedProgressBytes += $progressBytesForCurrentFile
                 $completedCount++
                 $fileEnd = Get-Date
                 $fileDurationSeconds = ($fileEnd - $fileStart).TotalSeconds

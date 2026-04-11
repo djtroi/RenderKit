@@ -1,4 +1,6 @@
-<#
+Register-RenderKitFunction "Add-RenderKitTypeToMapping"
+function Add-RenderKitTypeToMapping {
+    <#
 .SYNOPSIS
 Adds a media type definition to a mapping.
 
@@ -38,7 +40,6 @@ Add-RenderKitMappingToTemplate
 .LINK
 https://github.com/djtroi/RenderKit
 #>
-function Add-RenderKitTypeToMapping {
     param(
         [string]$MappingId,
         [string]$TypeName,

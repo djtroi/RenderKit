@@ -1,4 +1,6 @@
-<#
+Register-RenderKitFunction "New-Project"
+function New-Project {
+    <#
 .SYNOPSIS
 Creates a new project from a template.
 
@@ -43,7 +45,6 @@ Get-Help Get-ProjectTemplate
 .LINK
 https://github.com/djtroi/RenderKit
 #>
-function New-Project {
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory, Position = 0)]

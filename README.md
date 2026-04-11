@@ -8,7 +8,12 @@
 **RenderKit** is a PowerShell module for structured video-production workflows.
 It helps you create standardized projects, manage templates/mappings, import media with filter and transfer workflows, and archive projects safely.
 
-## What's new in 0.3.0
+## What's new in 0.3.5
+- Deterministic module exports and loading for cleaner imports across Windows PowerShell and PowerShell 7
+- Staged release packaging for PowerShell Gallery with lean artifacts and a generated publish bundle
+- Maintainer scripts for building and publishing `0.3.5` without dragging `.git`, workflows, or tests into the package
+
+## Core Features
 ### 1) End-to-end media import workflow (`Import-Media`)
 You can now run a full scan → filter → selection → classification → transfer pipeline in one command.
 # Interactive wizard
@@ -68,10 +73,27 @@ Add-RenderKitDeviceWhitelistEntry -FromMountedVolumes
 Install-Module -Name RenderKit
 ```
 
+### Installation with PSResourceGet
+```powershell
+Install-PSResource -Name RenderKit -Repository PSGallery
+```
+
 ### Minimal setup
 ```powershell
 Set-ProjectRoot -Path "D:\Editing_Projects"
 New-Project -Name "WeddingFilm" -Template "youtube"
+```
+
+## Maintainer Release Workflow
+
+Build a clean release artifact:
+```powershell
+pwsh ./build/Build-RenderKitPackage.ps1
+```
+
+Publish the generated package to PowerShell Gallery:
+```powershell
+pwsh ./build/Publish-RenderKit.ps1 -Repository PSGallery -ApiKey '<APIKEY>'
 ```
 
 ---

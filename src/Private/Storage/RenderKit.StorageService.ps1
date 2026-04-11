@@ -32,20 +32,52 @@ function Get-RenderKitUserMappingsRoot {
     return $path
 }
 
-function Get-RenderKitSystemTemplatesRoot {
-    if (-not $script:RenderKitModuleRoot) {
-        $script:RenderKitModuleRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+function Get-RenderKitModuleResourceRoot {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RelativePath
+    )
+
+    $candidateBasePaths = New-Object System.Collections.Generic.List[string]
+    if (-not [string]::IsNullOrWhiteSpace([string]$script:RenderKitModuleRoot)) {
+        $candidateBasePaths.Add([string]$script:RenderKitModuleRoot)
     }
 
-    return Join-Path $script:RenderKitModuleRoot "Resources/Templates"
+    $fallbackBasePath = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+    if (-not $candidateBasePaths.Contains($fallbackBasePath)) {
+        $candidateBasePaths.Add($fallbackBasePath)
+    }
+
+    foreach ($basePath in $candidateBasePaths) {
+        $resourceCandidates = @(
+            (Join-Path $basePath $RelativePath),
+            (Join-Path (Join-Path $basePath "src") $RelativePath)
+        )
+
+        foreach ($candidatePath in $resourceCandidates) {
+            if (Test-Path -LiteralPath $candidatePath -PathType Container) {
+                return $candidatePath
+            }
+        }
+    }
+
+    $primaryBasePath = $candidateBasePaths[0]
+    $srcBasePath = Join-Path $primaryBasePath "src"
+    if (Test-Path -LiteralPath $srcBasePath -PathType Container) {
+        return Join-Path $srcBasePath $RelativePath
+    }
+
+    return Join-Path $primaryBasePath $RelativePath
+}
+
+function Get-RenderKitSystemTemplatesRoot {
+    return Get-RenderKitModuleResourceRoot -RelativePath "Resources/Templates"
 }
 
 function Get-RenderKitSystemMappingsRoot {
-    if (-not $script:RenderKitModuleRoot) {
-        $script:RenderKitModuleRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-    }
-
-    return Join-Path $script:RenderKitModuleRoot "Resources/Mappings"
+    return Get-RenderKitModuleResourceRoot -RelativePath "Resources/Mappings"
 }
 
 function Resolve-RenderKitTemplateFileName {

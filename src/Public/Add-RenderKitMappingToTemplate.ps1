@@ -1,4 +1,6 @@
-<#
+Register-RenderKitFunction "Add-RenderKitMappingToTemplate"
+function Add-RenderKitMappingToTemplate {
+    <#
 .SYNOPSIS
 Adds a mapping reference to a template.
 
@@ -34,7 +36,6 @@ New-RenderKitMapping
 .LINK
 https://github.com/djtroi/RenderKit
 #>
-function Add-RenderKitMappingToTemplate {
     param(
         [string]$TemplateName,
         [string]$MappingId

@@ -1,4 +1,6 @@
-<#
+Register-RenderKitFunction "Show-RenderKitDriveCadidateTable"
+function Show-RenderKitDriveCandidateTable {
+    <#
 .SYNOPSIS
 Displays drive candidates as a table.
 
@@ -21,7 +23,6 @@ None. Writes a formatted table to host output.
 .LINK
 Get-RenderKitDriveCandidate
 #>
-function Show-RenderKitDriveCandidateTable {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -49,7 +50,7 @@ function Show-RenderKitDriveCandidateTable {
 
     $displayRows | Format-Table -AutoSize | Out-Host
 }
-
+Register-RenderKitFunction "Read-RenderKitDriveCandidateIndex"
 function Read-RenderKitDriveCandidateIndex {
     <#
     .SYNOPSIS
@@ -107,7 +108,7 @@ function Read-RenderKitDriveCandidateIndex {
         return [int]$selectedIndex
     }
 }
-
+Register-RenderKitFunction "Select-RenderKitDriveCandidate"
 function Select-RenderKitDriveCandidate {
     <#
     .SYNOPSIS
