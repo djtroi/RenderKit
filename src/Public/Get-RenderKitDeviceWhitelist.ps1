@@ -25,6 +25,7 @@ Get-RenderKitDriveCandidate
 .LINK
 https://github.com/djtroi/RenderKit
 #>
+Register-RenderKitFunction "Get-RenderKitDeviceWhitelist"
 function Get-RenderKitDeviceWhitelist {
     [CmdletBinding()]
     param()

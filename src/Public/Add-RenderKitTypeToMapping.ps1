@@ -38,6 +38,7 @@ Add-RenderKitMappingToTemplate
 .LINK
 https://github.com/djtroi/RenderKit
 #>
+Register-RenderKitFunction "Add-RenderKitTypeToMapping"
 function Add-RenderKitTypeToMapping {
     param(
         [string]$MappingId,

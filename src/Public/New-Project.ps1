@@ -43,6 +43,7 @@ Get-Help Get-ProjectTemplate
 .LINK
 https://github.com/djtroi/RenderKit
 #>
+Register-RenderKitFunction "New-Project"
 function New-Project {
     [CmdletBinding(SupportsShouldProcess)]
     param(

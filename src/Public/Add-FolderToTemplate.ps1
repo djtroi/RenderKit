@@ -36,6 +36,7 @@ Add-RenderKitMappingToTemplate
 .LINK
 https://github.com/djtroi/RenderKit
 #>
+Register-RenderKitFunction "Add-FolderToTemplate"
 function Add-FolderToTemplate {
     param(
     [Parameter(Mandatory, Position = 0)]

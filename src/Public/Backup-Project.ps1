@@ -62,6 +62,7 @@ New-Project
 .LINK
 https://github.com/djtroi/RenderKit
 #>
+Register-RenderKitFunction "Backup-Project"
 function Backup-Project{
     [CmdletBinding(SupportsShouldProcess)]
     param(

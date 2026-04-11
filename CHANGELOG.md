@@ -1,3 +1,18 @@
+# 0.3.5 - 2026-04-10
+## Patch
+
+## Added
+
+- Added `build/Build-RenderKitPackage.ps1` to stage a lean release artifact and generate a publishable `.nupkg`
+- Added `build/Publish-RenderKit.ps1` to publish the staged package through `PSResourceGet`
+- Added release output ignores for generated `artifacts/`
+
+## Changed
+
+- Switched the release packaging flow to a staged build so gallery packages no longer include repo-only content such as `.git`, workflows, or test files
+- Bundled the published module into a single release `RenderKit.psm1` while keeping the source-split development layout
+- Prepared gallery metadata and release notes for version `0.3.5`
+
 # 0.3.4 - 2026-04-10
 ## Patch
 

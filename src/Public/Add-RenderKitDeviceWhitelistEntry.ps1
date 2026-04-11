@@ -49,6 +49,7 @@ Get-RenderKitDriveCandidate
 .LINK
 https://github.com/djtroi/RenderKit
 #>
+Register-RenderKitFunction "Add-RenderKitDeviceWhitelistEntry"
 function Add-RenderKitDeviceWhitelistEntry {
     [CmdletBinding(SupportsShouldProcess)]
     param(

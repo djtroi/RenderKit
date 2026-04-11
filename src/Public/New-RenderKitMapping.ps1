@@ -31,6 +31,7 @@ Add-RenderKitMappingToTemplate
 .LINK
 https://github.com/djtroi/RenderKit
 #>
+Register-RenderKitFunction "New-RenderKitMapping"
 function New-RenderKitMapping {
     [CmdletBinding(SupportsShouldProcess)]
     param(
