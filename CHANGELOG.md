@@ -13,6 +13,14 @@
 - Bundled the published module into a single release `RenderKit.psm1` while keeping the source-split development layout
 - Prepared gallery metadata and release notes for version `0.3.5`
 
+## Fixed
+
+ - Fixed a PSGallery packaging issue where system templates located under `src\Resources\Templates` were not found at runtime because the code only searched `Resources\Templates`. The Lookup is now robust and supports both layouts, including system mappings. 
+ Relevant Files: `RenderKit.StorageService.ps1`, `RenderKit.ImportService.ps1`
+ - Fixed a freezing / unresponsive Powershell window when transferring large files during Import-Media.
+ Replaced `Copy-Item` with stream-based copying and continous progress updates (copy, source hash, staging hash), improving responsiveness and visibility during long operations.
+ Relevant file: `RenderKit.ImportService.ps1`
+
 # 0.3.4 - 2026-04-10
 ## Patch
 
