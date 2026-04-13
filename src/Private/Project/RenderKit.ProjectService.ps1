@@ -153,6 +153,8 @@ function New-RenderKitProjectMetadata {
         "",
         Justification = "Function only creates an in-memory object and does not modify state"
     )]
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '',
+     Justification = 'Data counts a a singular noun')]
     param(
         [Parameter(Mandatory)]
         [string]$ProjectName,

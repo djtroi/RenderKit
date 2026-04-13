@@ -46,6 +46,7 @@ https://github.com/djtroi/RenderKit
 
     if (Test-Path $templatePath) {
         Write-RenderKitLog -Level Error -Message "Template $Name already exists."
+        return
     }
 
     if (!(Test-Path $templateFolder)){

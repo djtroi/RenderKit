@@ -2,7 +2,9 @@ function Test-BackupLock {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [string]$ProjectRoot
+        [string]$ProjectRoot,
+        [Parameter()]
+        [TimeSpan]$StaleThreshold = (New-TimeSpan -Hourse 24)
     )
 
     $lockPath = Get-BackupLockPath -ProjectRoot $ProjectRoot
@@ -37,13 +39,31 @@ function Test-BackupLock {
     $isLocalMachine = [string]::IsNullOrWhiteSpace($lockMachine) -or
         $lockMachine.Equals($env:COMPUTERNAME, [System.StringComparison]::OrdinalIgnoreCase)
 
-    if ($isLocalMachine -and $lock.processId -and -not (Get-Process -Id $lock.processId -ErrorAction SilentlyContinue)) {
+        $isStale = $false
+
+    if ($isLocalMachine) {
+        if ($lock.processId -and -not (Get-Process -Id $lock.processId -ErrorAction SilentlyContinue)) {
+            $isStale = $true
+        }
+    }
+    else {
+        $lockAge = (Get-Date) - (Get-Item $lockPath).LastWriteTime
+            if ($lockAge -gt $StaleThreshold) {
+                $isStale = $true
+                Write-RenderKitLog -Level Warning -Message "Lock originates from machine '$lockMachine' and is $([int]$lockAge.TotalHours)h old. Treating as stale."
+            } 
+            else {
+                Write-RenderKitLog -Level Warning -Message "Lock originates from machine '$lockMachine'. Cannot verify remote process. Lock age: $([int]$lockAge.TotalHours).h (threshold: $([int]$StaleThreshold.TotalHours)h)."
+            }
+    }
+
+    if ($isStale) {
         return [PSCustomObject]@{
-            Exists   = $true
-            IsLocked = $false
-            IsStale  = $true
-            LockPath = $lockPath
-            Lock     = $lock
+            Exists      = $true
+            IsLocked    = $false
+            IsStale     = $true
+            LockPath    = $lockPath
+            Lock        = $lock
         }
     }
 

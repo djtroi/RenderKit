@@ -1,4 +1,9 @@
 function New-RenderKitImportCriterion {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSUseShouldProcessForStateChangingFunctions",
+        "",
+        Justification = "Function only creates an in-memory object and does not modify state"
+    )]
     [CmdletBinding()]
     param(
         [string[]]$FolderFilter,
