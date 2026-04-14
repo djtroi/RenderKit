@@ -1051,6 +1051,11 @@ function Read-RenderKitImportUnassignedHandlingInteractive {
 }
 
 function Start-RenderKitImportInteractiveSetup {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSUseShouldProcessForStateChangingFunctions",
+        "",
+        Justification = "Function only creates an in-memory object and does not modify state"
+    )]
     [CmdletBinding()]
     param(
         [string]$ProjectRoot,
@@ -1495,6 +1500,8 @@ function Resolve-RenderKitImportProjectRoot {
 }
 
 function Read-RenderKitImportProjectMetadata {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '',
+     Justification = 'Data counts a a singular noun')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -1710,6 +1717,10 @@ function Read-RenderKitImportMappingFile {
 }
 
 function New-RenderKitImportExtensionLookup {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSUseShouldProcessForStateChangingFunctions",
+        "",
+        Justification = "internal function. The public function already has a DryRun feature")]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -2216,6 +2227,10 @@ function Resolve-RenderKitImportUniqueFilePath {
 }
 
 function New-RenderKitImportTransferRunContext {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSUseShouldProcessForStateChangingFunctions",
+        "",
+        Justification = "internal function. The public function already has a DryRun feature")]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -2421,6 +2436,10 @@ function Copy-RenderKitImportFileToPath {
 }
 
 function Update-RenderKitImportTransferProgress {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSUseShouldProcessForStateChangingFunctions",
+        "",
+        Justification = "internal function. The public function already has a DryRun feature")]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -2850,6 +2869,10 @@ function Get-RenderKitImportTransferredBytesByStatus {
 }
 
 function New-RenderKitImportFinalReport {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSUseShouldProcessForStateChangingFunctions",
+        "",
+        Justification = "internal function. The public function already has a DryRun feature")]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]

@@ -24,6 +24,19 @@
 - Fixes #451 - PSScriptAnalyzer Warning
 - Fixes #450 - PSScriptAnalyzer Warning
 - Fixes #448 - PSScriptAnalyzer Warning
+- Fixes #469 - PSScriptAnalyzer Warning
+- Fixes #256 - PSScriptAnalyzer Warning
+- Fixes #252 - PSScriptAnalyzer Warning
+- Fixes #251 - PSScriptAnalyzer Warning
+- Fixes #247 - PSScriptAnalyzer Warning
+- Fixes #237 - PSScriptAnalyzer Warning
+- Fixes #233 - PSScriptAnalyzer Warning
+- Fixes #231 - PSScriptAnalyzer Warning
+- Fixes #224 - PSScriptAnalyzer Warning
+- Fixes #223 - PSScriptAnalyzer Warning
+- Fixes #197 - PSScriptAnalyzer Warning
+- Fixes #124 - PSScriptAnalyzer Warning
+- Fixes #112 - PSScriptAnalyzer Warning
 
 
 

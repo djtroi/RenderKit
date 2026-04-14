@@ -1,4 +1,8 @@
 function New-BackupManifest {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSUseShouldProcessForStateChangingFunctions",
+        "",
+        Justification = "internal function. The public function already has a DryRun feature")]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
