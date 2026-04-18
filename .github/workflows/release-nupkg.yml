@@ -1,4 +1,4 @@
-﻿name: Build & Release RenderKit
+name: Build & Release RenderKit
 
 on:
   push:
@@ -18,13 +18,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
       - name: Build ausführen
         id: build
         shell: pwsh
         run: |
-          $result = & ./build/Build-Module.ps1 -RepositoryRoot $env:GITHUB_WORKSPACE
+          $result = & ./build/Build-RenderKitPackage.ps1 -RepositoryRoot $env:GITHUB_WORKSPACE
 
-          "VERSION=$($result.Version)"       >> $env:GITHUB_OUTPUT
+          "VERSION=$($result.Version)"        >> $env:GITHUB_OUTPUT
           "NUPKG_PATH=$($result.PackagePath)" >> $env:GITHUB_OUTPUT
           "NUPKG_NAME=$(Split-Path $result.PackagePath -Leaf)" >> $env:GITHUB_OUTPUT
 
@@ -77,6 +82,5 @@ jobs:
           $nupkg = "${{ steps.build.outputs.NUPKG_PATH }}"
           $name  = "${{ steps.build.outputs.NUPKG_NAME }}"
 
-          # Altes Asset entfernen, neues hochladen
           gh release delete-asset $tag $name --yes 2>$null
           gh release upload $tag $nupkg --clobber
