@@ -61,7 +61,7 @@ jobs:
       - name: Publish package to PowerShell Gallery
         if: ${{ inputs.publish_to_psgallery == true }}
         env:
-          NuGetAPIKey: ${{ secrets.NUGETAPIKEY }}
+          NUGETAPIKEY: ${{ secrets.NUGETAPIKEY }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:NUGETAPIKEY)) {
               throw 'Missing repository secret NUGETAPIKEY.'
