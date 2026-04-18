@@ -51,7 +51,7 @@ function Test-BackupLock {
             if ($lockAge -gt $StaleThreshold) {
                 $isStale = $true
                 Write-RenderKitLog -Level Warning -Message "Lock originates from machine '$lockMachine' and is $([int]$lockAge.TotalHours)h old. Treating as stale."
-            } 
+            }
             else {
                 Write-RenderKitLog -Level Warning -Message "Lock originates from machine '$lockMachine'. Cannot verify remote process. Lock age: $([int]$lockAge.TotalHours).h (threshold: $([int]$StaleThreshold.TotalHours)h)."
             }
