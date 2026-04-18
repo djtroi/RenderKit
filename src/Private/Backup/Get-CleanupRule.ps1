@@ -3,14 +3,14 @@ function Get-CleanupRule{
     [OutputType([System.Collections.Hashtable])]
     param(
         [Alias("Software")]
-        [string[]]$Profile
+        [string[]]$Preset
     )
 
-    Write-RenderKitLog -Level Debug -Message "Get-CleanupRules started: ProfileCount=$(@($Profile).Count)."
+    Write-RenderKitLog -Level Debug -Message "Get-CleanupRules started: ProfileCount=$(@($Preset).Count)."
 
     $profiles = Get-BackupCleanupProfile
     $requestedProfiles = @(
-        $Profile |
+        $Preset |
             Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
             ForEach-Object { $_.Trim() } |
             Sort-Object -Unique
@@ -35,12 +35,12 @@ function Get-CleanupRule{
     $extensions = New-Object System.Collections.Generic.List[string]
 
     foreach ($profileName in $requestedProfiles){
-        $profile = $profiles[$profileName]
-        if (-not $profile) {
+        $preset = $profiles[$profileName]
+        if (-not $preset) {
             continue
         }
 
-        foreach ($folder in @($profile.Folders)) {
+        foreach ($folder in @($preset.Folders)) {
             if ([string]::IsNullOrWhiteSpace($folder)) {
                 continue
             }
@@ -48,7 +48,7 @@ function Get-CleanupRule{
             $folders.Add($folder.Trim())
         }
 
-        foreach ($extension in @($profile.Extensions)) {
+        foreach ($extension in @($preset.Extensions)) {
             if ([string]::IsNullOrWhiteSpace($extension)) {
                 continue
             }

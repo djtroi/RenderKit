@@ -40,6 +40,8 @@ function Register-RenderKitFunction {
 }
 
 function Get-RenderKitSourceFiles {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '',
+     Justification = 'Files is the logically right term for this function')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]

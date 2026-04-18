@@ -35,6 +35,10 @@ function Resolve-ProjectPath {
 }
 
 function New-RenderKitProjectFromTemplate {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSUseShouldProcessForStateChangingFunctions",
+        "",
+        Justification = "internal function. The public function already has a DryRun feature")]
     param(
         [Parameter(Mandatory)]
         [string]$ProjectName,
@@ -65,6 +69,10 @@ function New-RenderKitProjectFromTemplate {
 }
 
 function New-ProjectFolderRecursive {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSUseShouldProcessForStateChangingFunctions",
+        "",
+        Justification = "internal function. The public function already has a DryRun feature")]
     param(
         [Parameter(Mandatory)]
         [string]$BasePath,
@@ -153,6 +161,8 @@ function New-RenderKitProjectMetadata {
         "",
         Justification = "Function only creates an in-memory object and does not modify state"
     )]
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '',
+     Justification = 'Data counts a a singular noun')]
     param(
         [Parameter(Mandatory)]
         [string]$ProjectName,
@@ -187,6 +197,8 @@ function New-RenderKitProjectMetadata {
 }
 
 function Write-RenderKitProjectMetadata{
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '',
+     Justification = 'Data counts here as singular noun')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]

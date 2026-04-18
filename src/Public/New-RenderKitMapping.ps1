@@ -47,6 +47,7 @@ https://github.com/djtroi/RenderKit
     if (Test-Path $mappingPath) {
         if($PSCmdlet.ShouldProcess($Id, "Create a new mapping Folder")){
         Write-RenderKitLog -Level Error -Message "Mapping '$Id' already exists."
+        throw
     }
 }
     if (!(Test-Path $mappingFolder)){
@@ -54,6 +55,7 @@ https://github.com/djtroi/RenderKit
             New-Item -ItemType Directory -Path $mappingFolder -ErrorAction Stop | Out-Null
         }
         Write-RenderKitLog -Level Error -Message "No mapping folder found... creating one."
+        return
     }
     $mapping = [RenderKitMapping]::new($Id)
     if($PSCmdlet.ShouldProcess($mappingPath, "Create a new mapping File")){

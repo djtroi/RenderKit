@@ -29,7 +29,7 @@ function Invoke-RenderKitLogRetention {
             }
             catch{
                 Write-RenderKitLog -Level Error -Message "Date Parse error"
-                throw 
+                throw
             }
         }
     }

@@ -70,7 +70,7 @@ https://github.com/djtroi/RenderKit
         [string]$ProjectName,
         [string]$Path,
         [Alias("Software")]
-        [string[]]$Profile = @("General"),
+        [string[]]$Preset = @("General"),
         [string]$DestinationRoot,
         [switch]$KeepEmptyFolders,
         [switch]$KeepSourceProject,
@@ -79,7 +79,7 @@ https://github.com/djtroi/RenderKit
     Write-RenderKitLog -Level Info -Message "Starting backup for project '$ProjectName'."
     Write-RenderKitLog -Level Debug -Message (
         "Parameters: Path='{0}' Profile='{1}' DestinationRoot='{2}' KeepEmptyFolders='{3}' KeepSourceProject='{4}' DryRun='{5}'." -f
-        $Path, ($Profile -join ","), $DestinationRoot, $KeepEmptyFolders, $KeepSourceProject, $DryRun
+        $Path, ($Preset -join ","), $DestinationRoot, $KeepEmptyFolders, $KeepSourceProject, $DryRun
     )
 
     $config = Get-RenderKitConfig
@@ -96,7 +96,7 @@ https://github.com/djtroi/RenderKit
     $project = Get-RenderKitProject -ProjectName $ProjectName -Path $Path
     $projectRoot = [string]$project.RootPath
 
-    $rules = Get-CleanupRule -Profile $Profile
+    $rules = Get-CleanupRule -Profile $Preset
     $startedAt = Get-Date
     $archiveDescriptor = Resolve-BackupArchivePath `
         -Project $project `
@@ -242,49 +242,22 @@ https://github.com/djtroi/RenderKit
             Get-BackupProjectStatistic -ProjectPath $projectRoot
         }
 
-        if (-not $DryRun -and -not $KeepSourceProject) {
-            Write-RenderKitLog -Level Info -Message "Removing source project folder '$projectRoot'."
+        $willRemoveSource = (-not $DryRun -and -not $KeepSourceProject)
 
-            if ($lockHandle) {
-                [void](Unlock-BackupLock -ProjectRoot $projectRoot -OwnerToken $lockHandle.OwnerToken)
-                $lockHandle = $null
-            }
-
-            if (Test-Path -Path $projectRoot -PathType Container) {
-                Remove-Item -Path $projectRoot -Recurse -Force -ErrorAction Stop
-            }
-
-            $sourceRemoved = -not (Test-Path -Path $projectRoot -PathType Container)
-            if (-not $sourceRemoved) {
-                Write-RenderKitLog -Level Error -Message "Source project folder '$projectRoot' could not be removed."
-                throw "Source project folder '$projectRoot' could not be removed."
-            }
-
-            # Reset file logging context because source .renderkit was deleted.
-            $script:RenderKitLoggingInitialized = $false
-            $script:RenderKitLogFile = $null
-            $script:RenderKitDebugLogFile = $null
-
-            Write-Information "Source project folder removed: '$projectRoot'." -InformationAction Continue
-        }
-        elseif (-not $DryRun -and $KeepSourceProject) {
-            Write-RenderKitLog -Level Info -Message "Keeping source project folder: '$projectRoot'."
-        }
-
-        $archiveInfo.sourceRemoved = [bool]$sourceRemoved
+        $archiveInfo.sourceRemoved = $false
         $archiveInfo.logInjection = @{
-            addedCount = [int]$archiveLogInjection.AddedCount
+            addedCount   = [int]$archiveLogInjection.AddedCount
             addedEntries = @($archiveLogInjection.AddedEntries)
         }
         $archiveInfo.contentIntegrity = @{
-            checked = [bool](-not $DryRun)
-            isMatch = if ($integrityCheck) { [bool]$integrityCheck.IsMatch } else { $null }
-            algorithm = if ($integrityCheck) { [string]$integrityCheck.Algorithm } else { $null }
-            sourceFileCount = if ($integrityCheck) { [int]$integrityCheck.SourceFileCount } else { $null }
-            archiveFileCount = if ($integrityCheck) { [int]$integrityCheck.ArchiveFileCount } else { $null }
+            checked              = [bool](-not $DryRun)
+            isMatch              = if ($integrityCheck) { [bool]$integrityCheck.IsMatch } else { $null }
+            algorithm            = if ($integrityCheck) { [string]$integrityCheck.Algorithm } else { $null }
+            sourceFileCount      = if ($integrityCheck) { [int]$integrityCheck.SourceFileCount } else { $null }
+            archiveFileCount     = if ($integrityCheck) { [int]$integrityCheck.ArchiveFileCount } else { $null }
             missingInArchiveCount = if ($integrityCheck) { [int]$integrityCheck.MissingInArchiveCount } else { $null }
-            extraInArchiveCount = if ($integrityCheck) { [int]$integrityCheck.ExtraInArchiveCount } else { $null }
-            hashMismatchCount = if ($integrityCheck) { [int]$integrityCheck.HashMismatchCount } else { $null }
+            extraInArchiveCount  = if ($integrityCheck) { [int]$integrityCheck.ExtraInArchiveCount } else { $null }
+            hashMismatchCount    = if ($integrityCheck) { [int]$integrityCheck.HashMismatchCount } else { $null }
         }
 
         $endedAt = Get-Date
@@ -321,20 +294,21 @@ https://github.com/djtroi/RenderKit
                 }
             }
             source          = @{
-                path             = $projectRoot
-                removed          = [bool]$sourceRemoved
-                existsAfterRun   = [bool](Test-Path -Path $projectRoot -PathType Container)
+                path              = $projectRoot
+                removed           = $false
+                removalScheduled  = $willRemoveSource
+                existsAfterRun   = $true
             }
             archiveIntegrity = if ($integrityCheck) {
                 @{
-                    checked = $true
-                    isMatch = [bool]$integrityCheck.IsMatch
-                    algorithm = [string]$integrityCheck.Algorithm
-                    sourceFileCount = [int]$integrityCheck.SourceFileCount
-                    archiveFileCount = [int]$integrityCheck.ArchiveFileCount
+                    checked              = $true
+                    isMatch              = [bool]$integrityCheck.IsMatch
+                    algorithm            = [string]$integrityCheck.Algorithm
+                    sourceFileCount      = [int]$integrityCheck.SourceFileCount
+                    archiveFileCount     = [int]$integrityCheck.ArchiveFileCount
                     missingInArchiveCount = [int]$integrityCheck.MissingInArchiveCount
-                    extraInArchiveCount = [int]$integrityCheck.ExtraInArchiveCount
-                    hashMismatchCount = [int]$integrityCheck.HashMismatchCount
+                    extraInArchiveCount  = [int]$integrityCheck.ExtraInArchiveCount
+                    hashMismatchCount    = [int]$integrityCheck.HashMismatchCount
                 }
             }
             else {
@@ -368,11 +342,11 @@ https://github.com/djtroi/RenderKit
         $manifest = New-BackupManifest `
             -Project $project `
             -Options @{
-                profiles         = @($rules.Profiles)
-                keepEmptyFolders = [bool]$KeepEmptyFolders
-                keepSourceProject = [bool]$KeepSourceProject
-                dryRun           = [bool]$DryRun
-                destinationRoot  = [string]$archiveDescriptor.DestinationRoot
+                profiles            = @($rules.Profiles)
+                keepEmptyFolders    = [bool]$KeepEmptyFolders
+                keepSourceProject   = [bool]$KeepSourceProject
+                dryRun              = [bool]$DryRun
+                destinationRoot     = [string]$archiveDescriptor.DestinationRoot
                 removeSourceProject = [bool](-not $KeepSourceProject)
             } `
             -Statistics $statistics `
@@ -423,6 +397,35 @@ https://github.com/djtroi/RenderKit
             Write-RenderKitLog -Level Info -Message "DryRun mode: manifest was generated in-memory but not written to disk."
         }
 
+        if ($willRemoveSource) {
+            Write-RenderKitLog -Level Info -Message "Removing source project folder '$projectRoot'."
+
+            if ($lockHandle) {
+                [void](Unlock-BackupLock -ProjectRoot $projectRoot -OwnerToken $lockHandle.OwnerToken)
+                $lockHandle = $null
+            }
+
+            if (Test-Path -Path $projectRoot -PathType Container) {
+                Remove-Item -Path $projectRoot -Recurse -Force -ErrorAction Stop
+            }
+
+            $sourceRemoved = -not (Test-Path -Path $projectRoot -PathType Container)
+            if (-not $sourceRemoved) {
+                Write-RenderKitLog -Level Error -Message "Source project folder '$projectRoot' could not be removed."
+                throw "Source project folder '$projectRoot' could not be removed."
+            }
+
+            $script:RenderKitLoggingInitialized = $false
+            $script:RenderKitLogFile = $null
+            $script:RenderKitDebugLogFile = $null
+
+            $archiveInfo.sourceRemoved = $true
+            Write-Information "Source project folder removed: '$projectRoot'." -InformationAction Continue
+        }
+        elseif (-not $DryRun -and $KeepSourceProject) {
+            Write-RenderKitLog -Level Info -Message "Keeping source project folder: '$projectRoot'."
+        }
+
         if (-not $sourceRemoved) {
             Write-RenderKitLog -Level Info -Message "Backup process completed successfully."
         }
@@ -431,21 +434,21 @@ https://github.com/djtroi/RenderKit
         }
 
         return [PSCustomObject]@{
-            ProjectName    = $project.Name
-            ProjectId      = $project.Id
-            RootPath       = $projectRoot
-            BackupPath     = if ($DryRun) { $null } else { $archiveDescriptor.ArchivePath }
-            DestinationRoot = $archiveDescriptor.DestinationRoot
-            Profiles       = @($rules.Profiles)
-            SourceRemoved  = [bool]$sourceRemoved
-            KeepSourceProject = [bool]$KeepSourceProject
-            DryRun         = [bool]$DryRun
-            ManifestPath   = $manifestPath
+            ProjectName              = $project.Name
+            ProjectId                = $project.Id
+            RootPath                 = $projectRoot
+            BackupPath               = if ($DryRun) { $null } else { $archiveDescriptor.ArchivePath }
+            DestinationRoot          = $archiveDescriptor.DestinationRoot
+            Profiles                 = @($rules.Profiles)
+            SourceRemoved            = [bool]$sourceRemoved
+            KeepSourceProject        = [bool]$KeepSourceProject
+            DryRun                   = [bool]$DryRun
+            ManifestPath             = $manifestPath
             ManifestArchiveEntryPath = $manifestArchiveEntryPath
-            Manifest       = $manifest
-            Statistics     = $statistics
-            Archive        = $archiveInfo
-            CleanupSummary = $cleanupSummary
+            Manifest                 = $manifest
+            Statistics               = $statistics
+            Archive                  = $archiveInfo
+            CleanupSummary           = $cleanupSummary
         }
     }
     catch {

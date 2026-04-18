@@ -1,10 +1,42 @@
 function Get-RenderKitRoot {
-    $root = Join-Path $env:APPDATA "RenderKit"
 
-    if (!(Test-Path $root)) {
-        New-Item -ItemType Directory -Path $root | Out-Null
-        New-Item -ItemType Directory -Path (Join-Path $root "mappings") | Out-Null
-        New-Item -ItemType Directory -Path (Join-Path $root "templates") | Out-Null
+    if ($PSVersionTable.PSEdition -eq "Desktop") {
+        #Powershell 5.1 doesn't support the $Is variables
+        $onWindows  = $true
+        $onLinux    = $false
+        $onMacOS    = $false
+    }
+    else {
+        #PowerShell 6+ default variables
+        $onWindows  = $IsWindows
+        $onLinux    = $IsLinux
+        $onMacOS    = $IsMacOS
+    }
+
+    if ($onWindows) {
+        $base = $env:APPDATA
+    }
+    elseif ($onMacOS) {
+        $base = Join-Path $HOME ".config"
+    }
+    elseif ($onLinux) {
+        $base = $env:XDG_CONFIG_HOME
+            if(!($base)) {
+                $base = Join-Path $HOME ".config"
+            } 
+    }
+    $root = Join-Path $base "RenderKit"
+
+    $folders = @(
+        $root
+        Join-Path $root "mappings"
+        Join-Path $root "templates"
+    )
+
+    foreach ($folder in $folders) {
+        if (!(Test-Path $folder)) {
+            NEw-Item -ItemType Directory -Path $folder -Force | Out-Null
+        }
     }
 
     return $root
