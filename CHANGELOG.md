@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.3.7 - 2026-04-21
+
+### Patch
+
+--- 
+
+### Added
+
+- Added a reusable interactive import menu service in `RenderKit.ImportInteractiveMenuService.ps1` with keyboard navigation, paging, multi-select support, hotkeys, and context-aware menu screens
+
+### Changed
+
+- Changed `Import-Media` wizard mode to a menu-driven setup flow for project selection, source browsing, direct subfolder filtering, file selection, confirmation, transfer mode, and unassigned-file handling
+- Changed `Select-RenderKitDriveCandidate` to use the same interactive menu service for a more consistent source-selection workflow
+
+### Fixed
+
+- Fixed wizard configuration binding so classification now reads `wizardConfig.Classify` correctly
+- Fixed wizard transfer prompting so the transfer mode menu only appears when transfer was enabled during setup
+
+
+
 ## 0.3.6 - 2026-04-xx
 
 ### Patch

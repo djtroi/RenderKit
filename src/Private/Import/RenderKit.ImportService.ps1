@@ -332,27 +332,11 @@ function Read-RenderKitImportYesNo {
         [bool]$Default = $true
     )
 
-    $suffix = if ($Default) { "[Y/n]" } else { "[y/N]" }
-
-    while ($true) {
-        $inputValue = Read-Host "$Prompt $suffix"
-        if ([string]::IsNullOrWhiteSpace($inputValue)) {
-            return $Default
-        }
-
-        switch ($inputValue.Trim().ToUpperInvariant()) {
-            "Y" { return $true }
-            "YES" { return $true }
-            "J" { return $true }
-            "JA" { return $true }
-            "N" { return $false }
-            "NO" { return $false }
-            "NEIN" { return $false }
-            default {
-                Write-Warning "Please answer with Y or N."
-            }
-        }
-    }
+    return Read-RenderKitImportBooleanMenu `
+        -Title "Confirmation" `
+        -Prompt $Prompt `
+        -Default $Default `
+        -Breadcrumb @("Import Media", "Prompt")
 }
 
 function Show-RenderKitImportWizardStatus {
@@ -390,28 +374,7 @@ function Read-RenderKitImportSelectionReviewAction {
     [OutputType([System.String])]
     param()
 
-    while ($true) {
-        $choice = Read-Host "Selection check: [Y] Continue, [E] Edit selection, [C] Cancel import (default Y)"
-        if ([string]::IsNullOrWhiteSpace($choice)) {
-            return "Continue"
-        }
-
-        switch ($choice.Trim().ToUpperInvariant()) {
-            "Y" { return "Continue" }
-            "YES" { return "Continue" }
-            "J" { return "Continue" }
-            "JA" { return "Continue" }
-            "E" { return "Edit" }
-            "EDIT" { return "Edit" }
-            "C" { return "Cancel" }
-            "CANCEL" { return "Cancel" }
-            "N" { return "Cancel" }
-            "NO" { return "Cancel" }
-            default {
-                Write-Warning "Unknown option '$choice'."
-            }
-        }
-    }
+    return Read-RenderKitImportSelectionReviewActionMenu
 }
 
 function Read-RenderKitImportTransferModeInteractive {
@@ -419,27 +382,7 @@ function Read-RenderKitImportTransferModeInteractive {
     [OutputType([System.String])]
     param()
 
-    while ($true) {
-        $choice = Read-Host "Transfer mode: [R]eal transfer, [S]imulate transfer, [N]o transfer (default R)"
-        if ([string]::IsNullOrWhiteSpace($choice)) {
-            return "Real"
-        }
-
-        switch ($choice.Trim().ToUpperInvariant()) {
-            "R" { return "Real" }
-            "REAL" { return "Real" }
-            "S" { return "Simulate" }
-            "SIMULATE" { return "Simulate" }
-            "W" { return "Simulate" }
-            "WHATIF" { return "Simulate" }
-            "N" { return "None" }
-            "NO" { return "None" }
-            "NONE" { return "None" }
-            default {
-                Write-Warning "Unknown option '$choice'."
-            }
-        }
-    }
+    return Read-RenderKitImportTransferModeMenu
 }
 
 function Get-RenderKitImportProjectCandidate {
@@ -567,47 +510,7 @@ function Read-RenderKitImportProjectRootInteractive {
         return Resolve-RenderKitImportProjectRoot -ProjectRoot $ProjectRoot
     }
 
-    $projects = @(Get-RenderKitImportProjectCandidate)
-    if ($projects.Count -gt 0) {
-        Show-RenderKitImportProjectTable -Projects $projects
-    }
-
-    while ($true) {
-        if ($projects.Count -gt 0) {
-            $inputValue = Read-Host "Destination project: index, absolute path, or Enter for index 0 (Q to cancel)"
-        }
-        else {
-            $inputValue = Read-Host "Destination project root path (Q to cancel)"
-        }
-
-        if ([string]::IsNullOrWhiteSpace($inputValue)) {
-            if ($projects.Count -gt 0) {
-                return $projects[0].ProjectRoot
-            }
-            continue
-        }
-
-        if ($inputValue.Trim().ToUpperInvariant() -eq "Q") {
-            return $null
-        }
-
-        $index = -1
-        if ($projects.Count -gt 0 -and [int]::TryParse($inputValue, [ref]$index)) {
-            if ($index -ge 0 -and $index -lt $projects.Count) {
-                return $projects[$index].ProjectRoot
-            }
-
-            Write-Warning "Index '$index' is out of range."
-            continue
-        }
-
-        try {
-            return Resolve-RenderKitImportProjectRoot -ProjectRoot $inputValue
-        }
-        catch {
-            Write-Warning $_.Exception.Message
-        }
-    }
+    return Select-RenderKitImportProjectRootMenu
 }
 
 function Get-RenderKitImportChildDirectory {
@@ -819,206 +722,9 @@ function Read-RenderKitImportSourcePathInteractive {
         [switch]$IncludeUnsupportedFileSystem
     )
 
-    $effectiveIncludeFixed = if ($PSBoundParameters.ContainsKey("IncludeFixed")) {
-        [bool]$IncludeFixed
-    }
-    else {
-        Read-RenderKitImportYesNo -Prompt "Include fixed drives in source search?" -Default $true
-    }
-
-    $effectiveIncludeUnsupported = if ($PSBoundParameters.ContainsKey("IncludeUnsupportedFileSystem")) {
-        [bool]$IncludeUnsupportedFileSystem
-    }
-    else {
-        Read-RenderKitImportYesNo -Prompt "Include unsupported file systems?" -Default $false
-    }
-
-    $selectedDrive = Select-RenderKitDriveCandidate `
-        -IncludeFixed:$effectiveIncludeFixed `
-        -IncludeUnsupportedFileSystem:$effectiveIncludeUnsupported
-
-    if ($selectedDrive) {
-        $driveRoot = ConvertTo-RenderKitImportDrivePath -DriveLetter $selectedDrive.DriveLetter
-        $browseRoot = $driveRoot
-        $treeMaxDepth = 2
-        $treeMaxEntries = 250
-
-        while ($true) {
-            $tree = Get-RenderKitImportDirectoryTreeEntry `
-                -RootPath $browseRoot `
-                -MaxDepth $treeMaxDepth `
-                -MaxEntries $treeMaxEntries
-
-            Show-RenderKitImportDirectoryTreeEntry `
-                -RootPath $browseRoot `
-                -Entries $tree.Entries `
-                -IsTruncated:[bool]$tree.IsTruncated `
-                -MaxDepth $treeMaxDepth `
-                -MaxEntries $treeMaxEntries
-
-            $isAtDriveRoot = [string]::Equals(
-                [string]$browseRoot.TrimEnd('\'),
-                [string]$driveRoot.TrimEnd('\'),
-                [System.StringComparison]::OrdinalIgnoreCase
-            )
-
-            $subPathPrompt = if ($isAtDriveRoot) {
-                "Source subfolder on '$($selectedDrive.DriveLetter)' by index/path (Enter = drive root, Q = manual path)"
-            }
-            else {
-                "Source subfolder in '$browseRoot' by index/path (Enter = use this folder, U = up, Q = manual path)"
-            }
-
-            $subPath = Read-Host $subPathPrompt
-            if ([string]::IsNullOrWhiteSpace($subPath)) {
-                return [PSCustomObject]@{
-                    SourcePath                   = $browseRoot
-                    FolderFilter                 = @()
-                    IncludeFixed                 = $effectiveIncludeFixed
-                    IncludeUnsupportedFileSystem = $effectiveIncludeUnsupported
-                    SelectedDrive                = $selectedDrive
-                }
-            }
-
-            $normalizedInput = $subPath.Trim()
-            if ($normalizedInput.ToUpperInvariant() -eq "Q") {
-                break
-            }
-
-            if ($normalizedInput.ToUpperInvariant() -eq "U") {
-                if ($isAtDriveRoot) {
-                    Write-Warning "Already at drive root '$driveRoot'."
-                    continue
-                }
-
-                $parentPath = Split-Path -Path $browseRoot -Parent
-                if ([string]::IsNullOrWhiteSpace($parentPath)) {
-                    $browseRoot = $driveRoot
-                }
-                else {
-                    $browseRoot = $parentPath
-                }
-
-                continue
-            }
-
-            $selectedTreeEntry = $null
-            $selectedIndex = -1
-            if ([int]::TryParse($normalizedInput, [ref]$selectedIndex)) {
-                if ($selectedIndex -lt 0 -or $selectedIndex -ge $tree.Entries.Count) {
-                    Write-Warning "Index '$selectedIndex' is out of range. Allowed: 0-$($tree.Entries.Count - 1)."
-                    continue
-                }
-
-                $selectedTreeEntry = $tree.Entries[$selectedIndex]
-                $selectedPath = [string]$selectedTreeEntry.FullPath
-                $continueBrowse = $false
-
-                while ($true) {
-                    $subfolderMode = Read-RenderKitImportSubfolderSelectionMode -SelectedPath $selectedPath
-                    switch ($subfolderMode) {
-                        "Browse" {
-                            $browseRoot = $selectedPath
-                            $continueBrowse = $true
-                            break
-                        }
-                        "All" {
-                            return [PSCustomObject]@{
-                                SourcePath                   = $selectedPath
-                                FolderFilter                 = @()
-                                IncludeFixed                 = $effectiveIncludeFixed
-                                IncludeUnsupportedFileSystem = $effectiveIncludeUnsupported
-                                SelectedDrive                = $selectedDrive
-                            }
-                        }
-                        "IndexList" {
-                            $selectedFolderFilter = Read-RenderKitImportSubfolderIndexList -ParentPath $selectedPath
-                            if ($null -eq $selectedFolderFilter -or $selectedFolderFilter.Count -eq 0) {
-                                Write-Warning "No subfolder index selection entered."
-                                continue
-                            }
-
-                            return [PSCustomObject]@{
-                                SourcePath                   = $selectedPath
-                                FolderFilter                 = @($selectedFolderFilter)
-                                IncludeFixed                 = $effectiveIncludeFixed
-                                IncludeUnsupportedFileSystem = $effectiveIncludeUnsupported
-                                SelectedDrive                = $selectedDrive
-                            }
-                        }
-                    }
-
-                    if ($continueBrowse) {
-                        break
-                    }
-                }
-
-                if ($continueBrowse) {
-                    continue
-                }
-            }
-
-            $candidatePath = if ([IO.Path]::IsPathRooted($subPath)) {
-                $subPath
-            }
-            else {
-                Join-Path $browseRoot $subPath
-            }
-
-            try {
-                $resolvedPath = (Resolve-Path -Path $candidatePath -ErrorAction Stop).ProviderPath
-            }
-            catch {
-                Write-Warning "Source path '$candidatePath' was not found."
-                Write-RenderKitLog -Level Warning -Message "Source path '$candidatePath' was not found."
-                continue
-            }
-
-            if (-not (Test-Path -Path $resolvedPath -PathType Container)) {
-                Write-Warning "Source path '$resolvedPath' is not a directory."
-                Write-RenderKitLog -Level Warning -Message "Source path '$resolvedPath' is not a directory."
-                continue
-            }
-
-            return [PSCustomObject]@{
-                SourcePath                   = $resolvedPath
-                FolderFilter                 = @()
-                IncludeFixed                 = $effectiveIncludeFixed
-                IncludeUnsupportedFileSystem = $effectiveIncludeUnsupported
-                SelectedDrive                = $selectedDrive
-            }
-        }
-    }
-
-    while ($true) {
-        $manualPath = Read-Host "Absolute source folder path (Enter to cancel)"
-        if ([string]::IsNullOrWhiteSpace($manualPath)) {
-            return $null
-        }
-
-        try {
-            $resolvedPath = (Resolve-Path -Path $manualPath -ErrorAction Stop).ProviderPath
-        }
-        catch {
-            Write-Warning "Source path '$manualPath' was not found."
-            Write-RenderKitLog -Level Warning -Message "Source path '$manualPath' was not found."
-            continue
-        }
-
-        if (-not (Test-Path -Path $resolvedPath -PathType Container)) {
-            Write-Warning "Source path '$resolvedPath' is not a directory."
-            Write-RenderKitLog -Level Warning -Message "Source path '$resolvedPath' is not a directory."
-            continue
-        }
-
-        return [PSCustomObject]@{
-            SourcePath                   = $resolvedPath
-            FolderFilter                 = @()
-            IncludeFixed                 = $effectiveIncludeFixed
-            IncludeUnsupportedFileSystem = $effectiveIncludeUnsupported
-            SelectedDrive                = $null
-        }
-    }
+    return Select-RenderKitImportSourcePathMenu `
+        -IncludeFixed:$IncludeFixed `
+        -IncludeUnsupportedFileSystem:$IncludeUnsupportedFileSystem
 }
 
 function Read-RenderKitImportUnassignedHandlingInteractive {
@@ -1029,25 +735,15 @@ function Read-RenderKitImportUnassignedHandlingInteractive {
         [string]$Default = "Prompt"
     )
 
-    while ($true) {
-        $choice = Read-Host "Unassigned files: [P]rompt, [T]O SORT, [S]kip (default $Default)"
-        if ([string]::IsNullOrWhiteSpace($choice)) {
-            return $Default
-        }
+    $selection = Select-RenderKitImportUnassignedHandlingMenu `
+        -Default $Default `
+        -AllowBack
 
-        switch ($choice.Trim().ToUpperInvariant()) {
-            "P" { return "Prompt" }
-            "PROMPT" { return "Prompt" }
-            "T" { return "ToSort" }
-            "TO" { return "ToSort" }
-            "TOSORT" { return "ToSort" }
-            "S" { return "Skip" }
-            "SKIP" { return "Skip" }
-            default {
-                Write-Warning "Unknown option '$choice'."
-            }
-        }
+    if ([string]::IsNullOrWhiteSpace($selection)) {
+        return $Default
     }
+
+    return $selection
 }
 
 function Start-RenderKitImportInteractiveSetup {
@@ -1065,84 +761,11 @@ function Start-RenderKitImportInteractiveSetup {
         [string]$UnassignedHandling = "Prompt"
     )
 
-    Write-Information "Starting interactive import wizard..." -InformationAction Continue
-    Write-Information "Step 1/3 - Select destination project" -InformationAction Continue
-
-    $resolvedProjectRoot = Read-RenderKitImportProjectRootInteractive -ProjectRoot $ProjectRoot
-    if ([string]::IsNullOrWhiteSpace($resolvedProjectRoot)) {
-        Write-Information "Import wizard cancelled (no project selected)." -InformationAction Continue
-        return $null
-    }
-
-    Show-RenderKitImportWizardStatus `
-        -Title "Current context" `
-        -Data ([ordered]@{
-            Step      = "1/3"
-            Project   = $resolvedProjectRoot
-        })
-
-    Write-Information "Step 2/3 - Select source" -InformationAction Continue
-
-    $sourcePromptParameters = @{}
-    if ($PSBoundParameters.ContainsKey("IncludeFixed")) {
-        $sourcePromptParameters.IncludeFixed = [bool]$IncludeFixed
-    }
-    if ($PSBoundParameters.ContainsKey("IncludeUnsupportedFileSystem")) {
-        $sourcePromptParameters.IncludeUnsupportedFileSystem = [bool]$IncludeUnsupportedFileSystem
-    }
-
-    $sourceSelection = Read-RenderKitImportSourcePathInteractive @sourcePromptParameters
-    if (-not $sourceSelection) {
-        Write-Information "Import wizard cancelled (no source selected)." -InformationAction Continue
-        return $null
-    }
-
-    Show-RenderKitImportWizardStatus `
-        -Title "Current context" `
-        -Data ([ordered]@{
-            Step                         = "2/3"
-            Project                      = $resolvedProjectRoot
-            SourcePath                   = [string]$sourceSelection.SourcePath
-            SourceFolderFilter           = if ($sourceSelection.FolderFilter.Count -gt 0) { $sourceSelection.FolderFilter -join ", " } else { "<none>" }
-            IncludeFixed                 = [bool]$sourceSelection.IncludeFixed
-            IncludeUnsupportedFileSystem = [bool]$sourceSelection.IncludeUnsupportedFileSystem
-        })
-
-    Write-Information "Step 3/3 - Configure scan and selection behavior" -InformationAction Continue
-
-    $interactiveFilter = Read-RenderKitImportYesNo -Prompt "Add optional filters (folder/date/wildcard)?" -Default $false
-    $autoSelectAll = Read-RenderKitImportYesNo -Prompt "Auto-select all matched files?" -Default $false
-    $autoConfirm = Read-RenderKitImportYesNo -Prompt "Auto-confirm import after selection?" -Default $false
-    $resolvedUnassignedHandling = Read-RenderKitImportUnassignedHandlingInteractive -Default $UnassignedHandling
-
-    Show-RenderKitImportWizardStatus `
-        -Title "Wizard summary before scan" `
-        -Data ([ordered]@{
-            Step                         = "3/3"
-            Project                      = $resolvedProjectRoot
-            SourcePath                   = [string]$sourceSelection.SourcePath
-            SourceFolderFilter           = if ($sourceSelection.FolderFilter.Count -gt 0) { $sourceSelection.FolderFilter -join ", " } else { "<none>" }
-            InteractiveFilter            = [bool]$interactiveFilter
-            AutoSelectAll                = [bool]$autoSelectAll
-            AutoConfirm                  = [bool]$autoConfirm
-            UnassignedHandling           = $resolvedUnassignedHandling
-            TransferMode                 = "Will be asked at the end"
-        })
-
-    return [PSCustomObject]@{
-        ScanAndFilter               = $true
-        SourcePath                  = [string]$sourceSelection.SourcePath
-        FolderFilter                = @($sourceSelection.FolderFilter)
-        IncludeFixed                = [bool]$sourceSelection.IncludeFixed
-        IncludeUnsupportedFileSystem = [bool]$sourceSelection.IncludeUnsupportedFileSystem
-        InteractiveFilter           = [bool]$interactiveFilter
-        AutoSelectAll               = [bool]$autoSelectAll
-        AutoConfirm                 = [bool]$autoConfirm
-        ProjectRoot                 = $resolvedProjectRoot
-        Classify                    = $true
-        Transfer                    = $true
-        UnassignedHandling          = $resolvedUnassignedHandling
-    }
+    return Start-RenderKitImportInteractiveSetupMenu `
+        -ProjectRoot $ProjectRoot `
+        -IncludeFixed:$IncludeFixed `
+        -IncludeUnsupportedFileSystem:$IncludeUnsupportedFileSystem `
+        -UnassignedHandling $UnassignedHandling
 }
 
 function Read-RenderKitImportDate {
@@ -1172,28 +795,7 @@ function Read-RenderKitImportAdditionalCriterion {
     [CmdletBinding()]
     param()
 
-    $folderInput = Read-Host "Additional folder filter(s), comma separated (Enter to skip)"
-    $fromDate = Read-RenderKitImportDate -Prompt "Additional from date (Enter to skip, example 2026-02-20 14:30)"
-    $toDate = Read-RenderKitImportDate -Prompt "Additional to date (Enter to skip, example 2026-02-24 20:00)"
-    $wildcardInput = Read-Host "Additional wildcard filter(s), comma separated (example *.mov,*.wav; Enter to skip)"
-
-    $folderFilter = ConvertFrom-RenderKitImportListInput -InputText $folderInput
-    $wildcard = ConvertFrom-RenderKitImportListInput -InputText $wildcardInput
-
-    if (
-        $folderFilter.Count -eq 0 -and
-        $wildcard.Count -eq 0 -and
-        $null -eq $fromDate -and
-        $null -eq $toDate
-    ) {
-        return $null
-    }
-
-    return New-RenderKitImportCriterion `
-        -FolderFilter $folderFilter `
-        -FromDate $fromDate `
-        -ToDate $toDate `
-        -Wildcard $wildcard
+    return Read-RenderKitImportAdditionalCriterionMenu
 }
 
 function Get-RenderKitImportTotalByte {
@@ -1352,50 +954,9 @@ function Select-RenderKitImportFileSubset {
         [switch]$AutoSelectAll
     )
 
-    if (-not $Files -or $Files.Count -eq 0) {
-        return @()
-    }
-
-    if ($AutoSelectAll) {
-        return $Files
-    }
-
-    while ($true) {
-        $mode = Read-Host "Select files to import: [A]ll, [I]ndex list, [N]one (default A)"
-        if ([string]::IsNullOrWhiteSpace($mode)) {
-            return $Files
-        }
-
-        switch ($mode.Trim().ToUpperInvariant()) {
-            "A" { return $Files }
-            "ALL" { return $Files }
-            "J" { return $Files }
-            "JA" { return $Files }
-            "N" { return @() }
-            "NO" { return @() }
-            "I" {
-                $indexInput = Read-Host "Enter indexes or ranges (example: 0,3,5-8)"
-                if ([string]::IsNullOrWhiteSpace($indexInput)) {
-                    Write-Warning "No index selection entered."
-                    continue
-                }
-
-                $indexes = ConvertTo-RenderKitImportIndexSelection `
-                    -InputText $indexInput `
-                    -MaxIndex ($Files.Count - 1)
-
-                $selected = New-Object System.Collections.Generic.List[object]
-                foreach ($index in $indexes) {
-                    $selected.Add($Files[$index])
-                }
-
-                return $selected.ToArray()
-            }
-            default {
-                Write-RenderKitLog -Level Warning -Message "Invalid selection mode '$mode'."
-            }
-        }
-    }
+    return Select-RenderKitImportFileSubsetMenu `
+        -Files $Files `
+        -AutoSelectAll:$AutoSelectAll
 }
 
 function Confirm-RenderKitImportSelection {
@@ -1409,23 +970,10 @@ function Confirm-RenderKitImportSelection {
         [switch]$AutoConfirm
     )
 
-    if ($AutoConfirm) {
-        return $true
-    }
-
-    $sizeGB = [Math]::Round(([double]$TotalBytes / 1GB), 3)
-    $answer = Read-Host "Confirm import of $FileCount file(s), total $sizeGB GB? [Y/N]"
-    if ([string]::IsNullOrWhiteSpace($answer)) {
-        return $false
-    }
-
-    switch ($answer.Trim().ToUpperInvariant()) {
-        "Y" { return $true }
-        "YES" { return $true }
-        "J" { return $true }
-        "JA" { return $true }
-        default { return $false }
-    }
+    return Confirm-RenderKitImportSelectionMenu `
+        -FileCount $FileCount `
+        -TotalBytes $TotalBytes `
+        -AutoConfirm:$AutoConfirm
 }
 
 function ConvertTo-RenderKitImportNormalizedExtension {
@@ -1837,52 +1385,11 @@ function Read-RenderKitImportUnassignedAction {
         [string]$HandlingMode = "Prompt"
     )
 
-    if ($HandlingMode -eq "ToSort") {
-        return [PSCustomObject]@{ Mode = "ToSort" }
-    }
-
-    if ($HandlingMode -eq "Skip") {
-        return [PSCustomObject]@{ Mode = "Skip" }
-    }
-
-    while ($true) {
-        $choice = Read-Host "Extension '$ExtensionLabel' ($FileCount file(s)): [I]ndex folder, [T]O SORT, [S]kip (default T)"
-        if ([string]::IsNullOrWhiteSpace($choice)) {
-            return [PSCustomObject]@{ Mode = "ToSort" }
-        }
-
-        switch ($choice.Trim().ToUpperInvariant()) {
-            "I" {
-                if (-not $DestinationFolders -or $DestinationFolders.Count -eq 0) {
-                    Write-RenderKitLog -Level Warning -Message "No destination folders available. Choose TO SORT or Skip."
-                    continue
-                }
-
-                $indexText = Read-Host "Destination folder index (0-$($DestinationFolders.Count - 1))"
-                $index = -1
-                if (-not [int]::TryParse($indexText, [ref]$index)) {
-                    Write-RenderKitLog -Level Warning -Message "Invalid destination index '$indexText'."
-                    continue
-                }
-
-                if ($index -lt 0 -or $index -ge $DestinationFolders.Count) {
-                    Write-RenderKitLog -Level Warning -Message "Destination index '$index' out of range."
-                    continue
-                }
-
-                return [PSCustomObject]@{
-                    Mode                = "Assign"
-                    RelativeDestination = $DestinationFolders[$index]
-                }
-            }
-            "T" { return [PSCustomObject]@{ Mode = "ToSort" } }
-            "TO" { return [PSCustomObject]@{ Mode = "ToSort" } }
-            "S" { return [PSCustomObject]@{ Mode = "Skip" } }
-            default {
-                Write-RenderKitLog -Level Warning -Message "Invalid choice '$choice'."
-            }
-        }
-    }
+    return Read-RenderKitImportUnassignedActionMenu `
+        -ExtensionLabel $ExtensionLabel `
+        -FileCount $FileCount `
+        -DestinationFolders $DestinationFolders `
+        -HandlingMode $HandlingMode
 }
 
 function Resolve-RenderKitImportUnassignedFile {
