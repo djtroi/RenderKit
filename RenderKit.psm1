@@ -10,6 +10,7 @@ $script:RenderKitPublicFunctions = @(
     'Get-RenderKitDriveCandidate'
     'Import-Media'
     'New-Project'
+    'Remove-Project'
     'New-RenderKitMapping'
     'New-RenderKitTemplate'
     'Select-RenderKitDriveCandidate'

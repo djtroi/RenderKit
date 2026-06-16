@@ -151,7 +151,7 @@ function Get-RenderKitProjectMetadataPath{
         [string]$ProjectRoot
     )
 
-    return Join-Path $ProjectRoot ".renderkit\project.json"
+    return Join-Path -Path (Join-Path -Path $ProjectRoot -ChildPath ".renderkit") -ChildPath "project.json"
 }
 
 
@@ -217,4 +217,24 @@ function Write-RenderKitProjectMetadata{
     $Metadata |
     ConvertTo-Json -Depth 6 |
     Set-Content -Path $jsonPath -Encoding UTF8
+}
+
+function Remove-RenderKitProjectDirectory {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSUseShouldProcessForStateChangingFunctions",
+        "",
+        Justification = "internal function. The public function already has a DryRun feature and ShouldProcess support"
+    )]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProjectRoot
+    )
+
+    if (-not (Test-Path -LiteralPath $ProjectRoot -PathType Container)) {
+        Write-RenderKitLog -Level Error -Message "Project folder not found: $ProjectRoot"
+        throw "Project folder not found: $ProjectRoot"
+    }
+
+    Remove-Item -LiteralPath $ProjectRoot -Recurse -Force -ErrorAction Stop
 }
