@@ -25,7 +25,7 @@ function Get-RenderKitProject{
         $candidate = Join-Path $root $ProjectName
         if (!(Test-Path $candidate)) { continue }
         try {
-            $metaPath = Join-Path $candidate "\.renderkit\project.json"
+            $metaPath = Get-RenderKitProjectMetadataPath -ProjectRoot $candidate
             $meta = Get-Content $metaPath -Raw | ConvertFrom-Json
         }
 
