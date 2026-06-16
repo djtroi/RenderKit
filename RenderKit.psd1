@@ -23,6 +23,7 @@
         'New-RenderKitTemplate'
         'Select-RenderKitDriveCandidate'
         'Set-ProjectRoot'
+        'Remove-Project'
     )
     CmdletsToExport = @()
     AliasesToExport = @(
