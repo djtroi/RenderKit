@@ -1,5 +1,5 @@
 {
-  "Version": "1.0",
+  "Version": "1.1",
   "Name": "default",
   "Description": "Default Project Template",
   "Mappings": [
@@ -9,6 +9,119 @@
     "project",
     "archive",
     "document"
+  ],
+  "Deliverables": [
+    {
+      "Id": "exports",
+      "Name": "Exports",
+      "SourceFolders": [
+        "05_Exports"
+      ],
+      "Recursive": true,
+      "MappingIds": [
+        "video",
+        "audio",
+        "image",
+        "document"
+      ],
+      "IncludeExtensions": [
+        ".mp4",
+        ".mov",
+        ".m4v",
+        ".mkv",
+        ".webm",
+        ".mp3",
+        ".wav",
+        ".m4a",
+        ".aac",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp",
+        ".pdf",
+        ".txt"
+      ],
+      "ExcludePatterns": [
+        "*_draft*",
+        "*_proxy*",
+        "*.tmp"
+      ],
+      "DefaultPackage": true
+    },
+    {
+      "Id": "review",
+      "Name": "Review",
+      "SourceFolders": [
+        "06_Review"
+      ],
+      "Recursive": true,
+      "MappingIds": [
+        "video",
+        "audio",
+        "image",
+        "document"
+      ],
+      "IncludeExtensions": [
+        ".mp4",
+        ".mov",
+        ".m4v",
+        ".mkv",
+        ".webm",
+        ".mp3",
+        ".wav",
+        ".m4a",
+        ".aac",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp",
+        ".pdf",
+        ".txt"
+      ],
+      "ExcludePatterns": [
+        "*_draft*",
+        "*_proxy*",
+        "*.tmp"
+      ],
+      "DefaultPackage": false
+    },
+    {
+      "Id": "publish",
+      "Name": "Publish",
+      "SourceFolders": [
+        "07_Publish"
+      ],
+      "Recursive": true,
+      "MappingIds": [
+        "video",
+        "audio",
+        "image",
+        "document"
+      ],
+      "IncludeExtensions": [
+        ".mp4",
+        ".mov",
+        ".m4v",
+        ".mkv",
+        ".webm",
+        ".mp3",
+        ".wav",
+        ".m4a",
+        ".aac",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp",
+        ".pdf",
+        ".txt"
+      ],
+      "ExcludePatterns": [
+        "*_draft*",
+        "*_proxy*",
+        "*.tmp"
+      ],
+      "DefaultPackage": false
+    }
   ],
   "Folders": [
     {

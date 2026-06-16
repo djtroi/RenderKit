@@ -1,5 +1,5 @@
 {
-  "Version": "1.0",
+  "Version": "1.1",
   "Name": "minimal",
   "Description": "Minimal Project Template",
   "Mappings": [
@@ -8,6 +8,45 @@
     "image",
     "project",
     "document"
+  ],
+   "Deliverables": [
+    {
+      "Id": "exports",
+      "Name": "Exports",
+      "SourceFolders": [
+        "02_Exports"
+      ],
+      "Recursive": true,
+      "MappingIds": [
+        "video",
+        "audio",
+        "image",
+        "document"
+      ],
+      "IncludeExtensions": [
+        ".mp4",
+        ".mov",
+        ".m4v",
+        ".mkv",
+        ".webm",
+        ".mp3",
+        ".wav",
+        ".m4a",
+        ".aac",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp",
+        ".pdf",
+        ".txt"
+      ],
+      "ExcludePatterns": [
+        "*_draft*",
+        "*_proxy*",
+        "*.tmp"
+      ],
+      "DefaultPackage": true
+    }
   ],
   "Folders": [
     {

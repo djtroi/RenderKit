@@ -1,5 +1,5 @@
 {
-  "Version": "1.0",
+  "Version": "1.1",
   "Name": "youtube",
   "Description": "YouTube Project Template",
   "Mappings": [
@@ -9,6 +9,45 @@
     "project",
     "archive",
     "document"
+  ],
+  "Deliverables": [
+    {
+      "Id": "exports",
+      "Name": "Exports",
+      "SourceFolders": [
+        "06_Exports"
+      ],
+      "Recursive": true,
+      "MappingIds": [
+        "video",
+        "audio",
+        "image",
+        "document"
+      ],
+      "IncludeExtensions": [
+        ".mp4",
+        ".mov",
+        ".m4v",
+        ".mkv",
+        ".webm",
+        ".mp3",
+        ".wav",
+        ".m4a",
+        ".aac",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp",
+        ".pdf",
+        ".txt"
+      ],
+      "ExcludePatterns": [
+        "*_draft*",
+        "*_proxy*",
+        "*.tmp"
+      ],
+      "DefaultPackage": true
+    }
   ],
   "Folders": [
     {

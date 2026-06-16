@@ -1,25 +1,30 @@
 class RenderKitMapping{
+    [string]$Version
     [string]$Id
     [System.Collections.Generic.List[RenderKitType]]$Types
 
     RenderKitMapping([string]$id) {
+        $this.Version = "1.1"
         $this.Id    =   $id
         $this.Types =   [System.Collections.Generic.List[RenderKitType]]::new()
     }
 
     [void]AddType([RenderKitType]$type) {
-        this.Types.Add($type)
+        $this.Types.Add($type)
     }
 }
 
 class RenderKitTemplate {
+    [string]$Version
     [string]$Name
     [string[]]$Mappings
+    [System.Collections.Generic.List[object]]$Deliverables
     [System.Collections.Generic.List[RenderKitFolder]]$Folders
 
     RenderKitTemplate([string]$name) {
         $this.Name      =   $name
         $this.Mappings  =   @()
+        $this.Deliverables = [System.Collections.Generic.List[object]]::new()
         $this.Folders   =   [System.Collections.Generic.List[RenderKitFolder]]::new()
     }
 
