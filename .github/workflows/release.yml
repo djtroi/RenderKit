@@ -173,10 +173,22 @@ jobs:
           name: RenderKit-${{ needs.build.outputs.version }}-nupkg
           path: ./artifacts
 
-      - name: Ensure PSResourceGet is available
+      - name: Ensure PSResourceGet and PSGallery are available
         run: |
           Import-Module Microsoft.PowerShell.PSResourceGet -Force
-          Get-Command Publish-PSResource -ErrorAction Stop | Out-Null
+
+          # Repository-Store-Verzeichnis anlegen, falls nicht vorhanden
+          $storePath = Join-Path $env:LOCALAPPDATA 'PSResourceGet'
+          if (-not (Test-Path $storePath)) {
+              New-Item -Path $storePath -ItemType Directory -Force | Out-Null
+          }
+
+          # PSGallery registrieren (idempotent)
+          if (-not (Get-PSResourceRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
+              Register-PSResourceRepository -PSGallery -Trusted
+          }
+
+          Get-PSResourceRepository -Name PSGallery
 
       - name: Publish to PSGallery
         env:
