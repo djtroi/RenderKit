@@ -307,8 +307,8 @@ function Write-RenderKitInteractiveMenuScreen {
     }
 
     Clear-Host
-    Write-Output -Message "" -Level "Out"
-    Write-Output-Message ("  " + (Format-RenderKitInteractiveMenuLine -Text $Title -Width $contentWidth))
+    Write-Output " " 
+    Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $Title -Width $contentWidth))
 
     if (-not [string]::IsNullOrWhiteSpace($Subtitle)) {
         Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $Subtitle -Width $contentWidth))
