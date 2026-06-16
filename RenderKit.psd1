@@ -25,6 +25,8 @@
         'Set-ProjectRoot'
         'Rename-Project'
         'Remove-Project'
+        'Import-Project'
+        'Export-Project'
         'Clone-Project'
     )
     CmdletsToExport = @()
