@@ -10,6 +10,7 @@
     PowerShellVersion = '5.1'
     CompatiblePSEditions = @('Desktop', 'Core')
     FunctionsToExport = @(
+        'Add-RenderKitDeliverableToTemplate'
         'Add-FolderToTemplate'
         'Add-RenderKitDeviceWhitelistEntry'
         'Add-RenderKitMappingToTemplate'
@@ -28,6 +29,7 @@
         'Import-Project'
         'Export-Project'
         'Clone-Project'
+        'Send-Project'
     )
     CmdletsToExport = @()
     AliasesToExport = @(

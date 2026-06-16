@@ -1,7 +1,7 @@
 $script:RenderKitModuleRoot = $PSScriptRoot
 $script:RenderKitModuleVersion = '0.0.0'
 $script:RenderKitPublicFunctions = @(
-    'Add-FolderToTemplate'
+    'Add-RenderKitDeliverableToTemplate'
     'Add-RenderKitDeviceWhitelistEntry'
     'Add-RenderKitMappingToTemplate'
     'Add-RenderKitTypeToMapping'
@@ -19,6 +19,7 @@ $script:RenderKitPublicFunctions = @(
     'Import-Project'
     'Export-Project'
     'Clone-Project'
+    'Send-Project'
 )
 $script:RenderKitPublicAliases = @(
     'projectroot'
