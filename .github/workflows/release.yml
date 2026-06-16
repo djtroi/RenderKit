@@ -31,7 +31,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up .NET SDK
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@main
         with:
           dotnet-version: '8.0.x'
 
@@ -53,7 +53,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload staged module artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@main
         with:
           name: RenderKit-${{ steps.build.outputs.VERSION }}-stage
           path: ${{ steps.build.outputs.STAGE_PATH }}
@@ -70,7 +70,7 @@ jobs:
 
     steps:
       - name: Download .nupkg artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@main
         with:
           name: RenderKit-${{ needs.build.outputs.version }}-nupkg
           path: ./artifacts
@@ -137,7 +137,7 @@ jobs:
 
     steps:
       - name: Download .nupkg artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@main
         with:
           name: RenderKit-${{ needs.build.outputs.version }}-nupkg
           path: ./artifacts
@@ -162,13 +162,13 @@ jobs:
 
     steps:
       - name: Download staged module
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@main
         with:
           name: RenderKit-${{ needs.build.outputs.version }}-stage
           path: ./stage
 
       - name: Download .nupkg
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@main
         with:
           name: RenderKit-${{ needs.build.outputs.version }}-nupkg
           path: ./artifacts
