@@ -25,6 +25,7 @@
         'Set-ProjectRoot'
         'Rename-Project'
         'Remove-Project'
+        'Clone-Project'
     )
     CmdletsToExport = @()
     AliasesToExport = @(
