@@ -1,0 +1,194 @@
+﻿name: Release RenderKit
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    name: Build Package
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: pwsh
+
+    outputs:
+      version: ${{ steps.build.outputs.VERSION }}
+      nupkg_path: ${{ steps.build.outputs.NUPKG_PATH }}
+      nupkg_name: ${{ steps.build.outputs.NUPKG_NAME }}
+      stage_path: ${{ steps.build.outputs.STAGE_PATH }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Execute Build
+        id: build
+        run: |
+          $result = & ./build/Build-RenderKitPackage.ps1 -RepositoryRoot $env:GITHUB_WORKSPACE
+
+          "VERSION=$($result.Version)"                          >> $env:GITHUB_OUTPUT
+          "NUPKG_PATH=$($result.PackagePath)"                   >> $env:GITHUB_OUTPUT
+          "NUPKG_NAME=$(Split-Path $result.PackagePath -Leaf)"  >> $env:GITHUB_OUTPUT
+          "STAGE_PATH=$($result.StagePath)"                     >> $env:GITHUB_OUTPUT
+
+      - name: Upload .nupkg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RenderKit-${{ steps.build.outputs.VERSION }}-nupkg
+          path: ${{ steps.build.outputs.NUPKG_PATH }}
+          if-no-files-found: error
+
+      - name: Upload staged module artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RenderKit-${{ steps.build.outputs.VERSION }}-stage
+          path: ${{ steps.build.outputs.STAGE_PATH }}
+          if-no-files-found: error
+
+  github-release:
+    name: GitHub Release
+    needs: build
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Download .nupkg artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: RenderKit-${{ needs.build.outputs.version }}-nupkg
+          path: ./artifacts
+
+      - name: Check if release exists
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "v${{ needs.build.outputs.version }}"
+          gh release view $tag --repo ${{ github.repository }} 2>&1 | Out-Null
+          if ($LASTEXITCODE -eq 0) {
+            "EXISTS=true" >> $env:GITHUB_OUTPUT
+          } else {
+            "EXISTS=false" >> $env:GITHUB_OUTPUT
+          }
+          exit 0
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.EXISTS == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag    = "v${{ needs.build.outputs.version }}"
+          $nupkg  = "./artifacts/${{ needs.build.outputs.nupkg_name }}"
+          $commit = "${{ github.sha }}"
+          $short  = $commit.Substring(0, 7)
+          $date   = Get-Date -Format 'yyyy-MM-dd HH:mm'
+
+          $notes = @"
+          ## RenderKit $tag
+
+          - **Commit:** ``$short``
+          - **Date:** $date
+          - **Branch:** main
+          "@
+
+          gh release create $tag $nupkg `
+            --repo ${{ github.repository }} `
+            --target $commit `
+            --title "RenderKit $tag" `
+            --notes $notes
+
+      - name: Update existing release
+        if: steps.check.outputs.EXISTS == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag   = "v${{ needs.build.outputs.version }}"
+          $nupkg = "./artifacts/${{ needs.build.outputs.nupkg_name }}"
+          $name  = "${{ needs.build.outputs.nupkg_name }}"
+
+          gh release delete-asset $tag $name --yes --repo ${{ github.repository }} 2>$null
+          gh release upload $tag $nupkg --clobber --repo ${{ github.repository }}
+
+  github-packages:
+    name: Publish to GitHub Packages
+    needs: build
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Download .nupkg artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: RenderKit-${{ needs.build.outputs.version }}-nupkg
+          path: ./artifacts
+
+      - name: Push to GitHub Packages
+        run: |
+          $nupkg = "./artifacts/${{ needs.build.outputs.nupkg_name }}"
+
+          dotnet nuget push $nupkg `
+            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" `
+            --api-key ${{ secrets.GITHUB_TOKEN }} `
+            --skip-duplicate
+
+  psgallery:
+    name: Publish to PowerShell Gallery
+    needs: [build, github-release]
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Download staged module
+        uses: actions/download-artifact@v4
+        with:
+          name: RenderKit-${{ needs.build.outputs.version }}-stage
+          path: ./stage
+
+      - name: Download .nupkg
+        uses: actions/download-artifact@v4
+        with:
+          name: RenderKit-${{ needs.build.outputs.version }}-nupkg
+          path: ./artifacts
+
+      - name: Ensure PSResourceGet is available
+        run: |
+          Import-Module Microsoft.PowerShell.PSResourceGet -Force
+          Get-Command Publish-PSResource -ErrorAction Stop | Out-Null
+
+      - name: Publish to PSGallery
+        env:
+          NUGETAPIKEY: ${{ secrets.NUGETAPIKEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:NUGETAPIKEY)) {
+              throw 'Missing repository secret NUGETAPIKEY.'
+          }
+
+          $nupkg = "./artifacts/${{ needs.build.outputs.nupkg_name }}"
+
+          Publish-PSResource `
+            -NupkgPath $nupkg `
+            -Repository PSGallery `
+            -ApiKey $env:NUGETAPIKEY

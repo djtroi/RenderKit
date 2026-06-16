@@ -160,7 +160,7 @@ https://github.com/djtroi/RenderKit
         $AutoSelectAll = [bool]$wizardConfig.AutoSelectAll
         $AutoConfirm = [bool]$wizardConfig.AutoConfirm
         $ProjectRoot = [string]$wizardConfig.ProjectRoot
-        $Classify = [bool]$wizardConfig.Class
+        $Classify = [bool]$wizardConfig.Classify
         $Transfer = [bool]$wizardConfig.Transfer
         $UnassignedHandling = [string]$wizardConfig.UnassignedHandling
     }
@@ -352,7 +352,7 @@ https://github.com/djtroi/RenderKit
         $classifiedFiles = @($classificationResult.Files)
     }
 
-    if ($isWizardMode -and $confirmed -and $selectedFiles.Count -gt 0) {
+    if ($isWizardMode -and $Transfer -and $confirmed -and $selectedFiles.Count -gt 0) {
         $transferMode = Read-RenderKitImportTransferModeInteractive
         switch ($transferMode) {
             "Real" {
