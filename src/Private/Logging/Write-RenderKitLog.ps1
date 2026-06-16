@@ -33,6 +33,7 @@ else {
 
 if (!( $NoConsole )){
     switch ($Level) {
+        "Out"       { Write-Output $Message }
         "Info"      { Write-Information $Message -InformationAction Continue }
         "Warning"   { Write-Warning $Message }
         "Error"     { Write-Error $Message }

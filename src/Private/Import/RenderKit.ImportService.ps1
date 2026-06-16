@@ -761,11 +761,20 @@ function Start-RenderKitImportInteractiveSetup {
         [string]$UnassignedHandling = "Prompt"
     )
 
-    return Start-RenderKitImportInteractiveSetupMenu `
-        -ProjectRoot $ProjectRoot `
-        -IncludeFixed:$IncludeFixed `
-        -IncludeUnsupportedFileSystem:$IncludeUnsupportedFileSystem `
-        -UnassignedHandling $UnassignedHandling
+    $setupParameters = @{
+        ProjectRoot = $ProjectRoot
+        UnassignedHandling = $UnassignedHandling
+    }
+
+    if ($PSBoundParameters.ContainsKey('IncludeFixed')) {
+        $setupParameters.IncludeFixed = $IncludeFixed
+    }
+
+    if ($PSBoundParameters.ContainsKey('IncludeUnsupportedFileSystem')) {
+        $setupParameters.IncludeUnsupportedFileSystem = $IncludeUnsupportedFileSystem
+    }
+
+    return Start-RenderKitImportInteractiveSetupMenu @setupParameters
 }
 
 function Read-RenderKitImportDate {

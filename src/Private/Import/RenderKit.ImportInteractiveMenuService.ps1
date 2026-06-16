@@ -307,45 +307,45 @@ function Write-RenderKitInteractiveMenuScreen {
     }
 
     Clear-Host
-    Write-Host ""
-    Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $Title -Width $contentWidth))
+    Write-Output -Message "" -Level "Out"
+    Write-Output-Message ("  " + (Format-RenderKitInteractiveMenuLine -Text $Title -Width $contentWidth))
 
     if (-not [string]::IsNullOrWhiteSpace($Subtitle)) {
-        Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $Subtitle -Width $contentWidth))
+        Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $Subtitle -Width $contentWidth))
     }
 
     if ($Breadcrumb -and $Breadcrumb.Count -gt 0) {
         $breadcrumbText = "Path: {0}" -f ($Breadcrumb -join " > ")
-        Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $breadcrumbText -Width $contentWidth))
+        Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $breadcrumbText -Width $contentWidth))
     }
 
     if ($statusLines.Count -gt 0) {
-        Write-Host ""
-        Write-Host "  Context"
+        Write-Output ""
+        Write-Output "  Context"
         foreach ($line in $statusLines) {
-            Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
+            Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
         }
     }
 
     if ($infoLines.Count -gt 0) {
-        Write-Host ""
-        Write-Host "  Notes"
+        Write-Output ""
+        Write-Output "  Notes"
         foreach ($line in $infoLines) {
-            Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
+            Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
         }
     }
 
-    Write-Host ""
+    Write-Output ""
     $actionHeader = if ($pageCount -gt 1) {
         "Actions (page {0}/{1})" -f ($pageIndex + 1), $pageCount
     }
     else {
         "Actions"
     }
-    Write-Host ("  " + $actionHeader)
+    Write-Output ("  " + $actionHeader)
 
     if ($Options.Count -eq 0) {
-        Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text "No actions available." -Width $contentWidth)) -ForegroundColor DarkGray
+        Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text "No actions available." -Width $contentWidth)) -ForegroundColor DarkGray
     }
     else {
         for ($i = $startIndex; $i -le $endIndex; $i++) {
@@ -371,26 +371,26 @@ function Write-RenderKitInteractiveMenuScreen {
             $formattedLine = "  " + (Format-RenderKitInteractiveMenuLine -Text $lineText -Width $contentWidth)
 
             if ($i -eq $SelectedIndex) {
-                Write-Host $formattedLine -ForegroundColor Black -BackgroundColor Gray
+                Write-Output $formattedLine -ForegroundColor Black -BackgroundColor Gray
             }
             elseif (-not [bool]$option.IsEnabled) {
-                Write-Host $formattedLine -ForegroundColor DarkGray
+                Write-Output $formattedLine -ForegroundColor DarkGray
             }
             else {
-                Write-Host $formattedLine
+                Write-Output $formattedLine
             }
         }
     }
 
     if ($selectedDescriptionLines.Count -gt 0) {
-        Write-Host ""
-        Write-Host "  Details"
+        Write-Output ""
+        Write-Output "  Details"
         foreach ($line in $selectedDescriptionLines | Select-Object -First 4) {
-            Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
+            Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
         }
     }
 
-    Write-Host ""
+    Write-Output ""
     $controlSegments = @("[Up/Down] Move", "[Home/End] Jump", "[PageUp/PageDown] Page", "[Enter] Select")
     if ($MultiSelect) {
         $controlSegments += "[Space] Toggle"
@@ -405,11 +405,11 @@ function Write-RenderKitInteractiveMenuScreen {
         $controlSegments += "[Esc] Cancel"
     }
 
-    Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text ("Controls: " + ($controlSegments -join " | ")) -Width $contentWidth))
+    Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text ("Controls: " + ($controlSegments -join " | ")) -Width $contentWidth))
 
     if ($MultiSelect) {
         $selectedCount = @($Options | Where-Object { [bool]$_.Selected }).Count
-        Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text ("Selected items: {0}" -f $selectedCount) -Width $contentWidth))
+        Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text ("Selected items: {0}" -f $selectedCount) -Width $contentWidth))
     }
 
     return [PSCustomObject]@{
@@ -671,40 +671,40 @@ function Read-RenderKitInteractiveMenuTextInput {
     $contentWidth = [Math]::Max(20, $viewport.Width - 4)
 
     Clear-Host
-    Write-Host ""
-    Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $Title -Width $contentWidth))
+    Write-Output ""
+    Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $Title -Width $contentWidth))
 
     if (-not [string]::IsNullOrWhiteSpace($Subtitle)) {
-        Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $Subtitle -Width $contentWidth))
+        Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $Subtitle -Width $contentWidth))
     }
 
     if ($Breadcrumb -and $Breadcrumb.Count -gt 0) {
-        Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text ("Path: {0}" -f ($Breadcrumb -join " > ")) -Width $contentWidth))
+        Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text ("Path: {0}" -f ($Breadcrumb -join " > ")) -Width $contentWidth))
     }
 
     if ($Status) {
-        Write-Host ""
-        Write-Host "  Context"
+        Write-Output ""
+        Write-Output "  Context"
         foreach ($key in $Status.Keys) {
             $line = "{0}: {1}" -f $key, (ConvertTo-RenderKitInteractiveMenuText -Value $Status[$key])
-            Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
+            Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
         }
     }
 
-    Write-Host ""
-    Write-Host "  Notes"
+    Write-Output ""
+    Write-Output "  Notes"
     foreach ($line in @($Info) + @("Press Enter on empty input to go back.")) {
         if (-not [string]::IsNullOrWhiteSpace($line)) {
-            Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
+            Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
         }
     }
 
     if (-not [string]::IsNullOrWhiteSpace($CurrentValue)) {
-        Write-Host ""
-        Write-Host ("  Current: " + (Format-RenderKitInteractiveMenuLine -Text $CurrentValue -Width ([Math]::Max(10, $contentWidth - 9))))
+        Write-Output ""
+        Write-Output ("  Current: " + (Format-RenderKitInteractiveMenuLine -Text $CurrentValue -Width ([Math]::Max(10, $contentWidth - 9))))
     }
 
-    Write-Host ""
+    Write-Output ""
     $inputValue = Read-Host $Prompt
     if ([string]::IsNullOrWhiteSpace($inputValue)) {
         return [PSCustomObject]@{
@@ -2119,7 +2119,7 @@ function Read-RenderKitImportUnassignedActionMenu {
                     -Label $folder `
                     -Description ("Assign files with extension '{0}' to '{1}'." -f $ExtensionLabel, $folder) `
                     -Value $folder `
-                    -IsDefault:($i -eq 0)))
+                    -IsDefault:$false))
         }
     }
 
@@ -2127,7 +2127,8 @@ function Read-RenderKitImportUnassignedActionMenu {
             -Key "tosort" `
             -Label "Send to TO SORT" `
             -Description "Route the unassigned files to the TO SORT folder." `
-            -HotKey "T"))
+            -HotKey "T" `
+            -IsDefault:$true))
     $options.Add((New-RenderKitInteractiveMenuOption `
             -Key "skip" `
             -Label "Skip these files" `
