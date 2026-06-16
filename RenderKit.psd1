@@ -27,6 +27,7 @@
         'Remove-Project'
         'Import-Project'
         'Export-Project'
+        'Clone-Project'
     )
     CmdletsToExport = @()
     AliasesToExport = @(

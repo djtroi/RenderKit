@@ -312,3 +312,83 @@ function Update-RenderKitProjectName {
 
     return $metadata
 }
+
+function Copy-RenderKitProjectDirectory {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSUseShouldProcessForStateChangingFunctions",
+        "",
+        Justification = "internal function. The public function already has a DryRun feature and ShouldProcess support"
+    )]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProjectRoot,
+        [Parameter(Mandatory)]
+        [string]$CopyProjectRoot
+    )
+
+    if (-not (Test-Path -LiteralPath $ProjectRoot -PathType Container)) {
+        Write-RenderKitLog -Level Error -Message "Project folder not found: $ProjectRoot"
+        throw "Project folder not found: $ProjectRoot"
+    }
+
+    if (Test-Path -LiteralPath $CopyProjectRoot) {
+        Write-RenderKitLog -Level Error -Message "Copy project path already exists: $CopyProjectRoot"
+        throw "Copy project path already exists: $CopyProjectRoot"
+    }
+
+    Copy-Item -LiteralPath $ProjectRoot -Destination $CopyProjectRoot -Recurse -Force -ErrorAction Stop
+}
+
+function Set-RenderKitProjectCopyMetadata {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSUseShouldProcessForStateChangingFunctions",
+        "",
+        Justification = "internal function. The public function already has a DryRun feature and ShouldProcess support"
+    )]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProjectRoot,
+        [Parameter(Mandatory)]
+        [string]$ProjectName,
+        [Parameter(Mandatory)]
+        [string]$ProjectId,
+        [Parameter(Mandatory)]
+        [string]$SourceProjectId
+    )
+
+    $metadataPath = Get-RenderKitProjectMetadataPath -ProjectRoot $ProjectRoot
+    if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
+        Write-RenderKitLog -Level Error -Message "Project metadata not found: $metadataPath"
+        throw "Project metadata not found: $metadataPath"
+    }
+
+    try {
+        $metadata = Get-Content -LiteralPath $metadataPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+    }
+    catch {
+        Write-RenderKitLog -Level Error -Message "Invalid project metadata JSON in '$metadataPath'."
+        throw "Invalid project metadata JSON in $metadataPath"
+    }
+
+    if (-not $metadata.project -or -not $metadata.project.id -or $metadata.tool -ne "RenderKit") {
+        Write-RenderKitLog -Level Error -Message "Invalid RenderKit project metadata schema in '$metadataPath'."
+        throw "Invalid RenderKit project metadata schema"
+    }
+
+    if ([string]$metadata.project.id -ne $SourceProjectId) {
+        Write-RenderKitLog -Level Error -Message "Copied project metadata id does not match source project id in '$metadataPath'."
+        throw "Copied project metadata id does not match source project id in $metadataPath"
+    }
+
+    $metadata.project.id = $ProjectId
+    $metadata.project.name = $ProjectName
+    $metadata.project.createdAt = (Get-Date).ToString("o")
+    $metadata.project.createdBy = $env:USERNAME
+    $metadata.project.toolVersion = $script:RenderKitModuleVersion
+
+    $metadata | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $metadataPath -Encoding UTF8
+
+    return $metadata
+}

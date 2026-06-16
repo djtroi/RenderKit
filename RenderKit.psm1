@@ -18,6 +18,7 @@ $script:RenderKitPublicFunctions = @(
     'Remove-Project'
     'Import-Project'
     'Export-Project'
+    'Clone-Project'
 )
 $script:RenderKitPublicAliases = @(
     'projectroot'
