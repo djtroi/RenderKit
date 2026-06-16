@@ -151,7 +151,7 @@ function Get-RenderKitProjectMetadataPath{
         [string]$ProjectRoot
     )
 
-    return Join-Path $ProjectRoot ".renderkit\project.json"
+    return Join-Path -Path (Join-Path -Path $ProjectRoot -ChildPath ".renderkit") -ChildPath "project.json"
 }
 
 
@@ -217,4 +217,98 @@ function Write-RenderKitProjectMetadata{
     $Metadata |
     ConvertTo-Json -Depth 6 |
     Set-Content -Path $jsonPath -Encoding UTF8
+}
+
+function Remove-RenderKitProjectDirectory {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSUseShouldProcessForStateChangingFunctions",
+        "",
+        Justification = "internal function. The public function already has a DryRun feature and ShouldProcess support"
+    )]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProjectRoot
+    )
+
+    if (-not (Test-Path -LiteralPath $ProjectRoot -PathType Container)) {
+        Write-RenderKitLog -Level Error -Message "Project folder not found: $ProjectRoot"
+        throw "Project folder not found: $ProjectRoot"
+    }
+
+    Remove-Item -LiteralPath $ProjectRoot -Recurse -Force -ErrorAction Stop
+}
+
+function Rename-RenderKitProjectDirectory {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSUseShouldProcessForStateChangingFunctions",
+        "",
+        Justification = "internal function. The public function already has a DryRun feature and ShouldProcess support"
+    )]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProjectRoot,
+        [Parameter(Mandatory)]
+        [string]$NewProjectRoot
+    )
+
+    if (-not (Test-Path -LiteralPath $ProjectRoot -PathType Container)) {
+        Write-RenderKitLog -Level Error -Message "Project folder not found: $ProjectRoot"
+        throw "Project folder not found: $ProjectRoot"
+    }
+
+    if (Test-Path -LiteralPath $NewProjectRoot) {
+        Write-RenderKitLog -Level Error -Message "Target project path already exists: $NewProjectRoot"
+        throw "Target project path already exists: $NewProjectRoot"
+    }
+
+    $newName = Split-Path -Path $NewProjectRoot -Leaf
+    Rename-Item -LiteralPath $ProjectRoot -NewName $newName -ErrorAction Stop
+}
+
+function Update-RenderKitProjectName {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSUseShouldProcessForStateChangingFunctions",
+        "",
+        Justification = "internal function. The public function already has a DryRun feature and ShouldProcess support"
+    )]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProjectRoot,
+        [Parameter(Mandatory)]
+        [string]$NewProjectName,
+        [Parameter(Mandatory)]
+        [string]$ExpectedProjectId
+    )
+
+    $metadataPath = Get-RenderKitProjectMetadataPath -ProjectRoot $ProjectRoot
+    if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
+        Write-RenderKitLog -Level Error -Message "Project metadata not found: $metadataPath"
+        throw "Project metadata not found: $metadataPath"
+    }
+
+    try {
+        $metadata = Get-Content -LiteralPath $metadataPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+    }
+    catch {
+        Write-RenderKitLog -Level Error -Message "Invalid project metadata JSON in '$metadataPath'."
+        throw "Invalid project metadata JSON in $metadataPath"
+    }
+
+    if (-not $metadata.project -or -not $metadata.project.id -or $metadata.tool -ne "RenderKit") {
+        Write-RenderKitLog -Level Error -Message "Invalid RenderKit project metadata schema in '$metadataPath'."
+        throw "Invalid RenderKit project metadata schema"
+    }
+
+    if ([string]$metadata.project.id -ne $ExpectedProjectId) {
+        Write-RenderKitLog -Level Error -Message "Project metadata id mismatch in '$metadataPath'."
+        throw "Project metadata id mismatch in $metadataPath"
+    }
+
+    $metadata.project.name = $NewProjectName
+    $metadata | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $metadataPath -Encoding UTF8
+
+    return $metadata
 }

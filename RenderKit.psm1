@@ -14,6 +14,7 @@ $script:RenderKitPublicFunctions = @(
     'New-RenderKitTemplate'
     'Select-RenderKitDriveCandidate'
     'Set-ProjectRoot'
+    'Rename-Project'
 )
 $script:RenderKitPublicAliases = @(
     'projectroot'
