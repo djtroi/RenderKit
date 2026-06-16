@@ -26,7 +26,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@main
         with:
           fetch-depth: 0
 
@@ -46,7 +46,7 @@ jobs:
           "STAGE_PATH=$($result.StagePath)"                     >> $env:GITHUB_OUTPUT
 
       - name: Upload .nupkg artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@main
         with:
           name: RenderKit-${{ steps.build.outputs.VERSION }}-nupkg
           path: ${{ steps.build.outputs.NUPKG_PATH }}
