@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.9 - 2026-06-18
+
+### Patch 
+
+---
+
+
+### Changed
+- Documented PSResourceGet as the recommended installer and PowerShellGet as a compatibility-tested legacy path without treating a package-manager upgrade as a fix for server hash mismatches.
+- Clarified that Windows PowerShell 5.1 remains a supported RenderKit runtime and that package hash or archive failures occur before the module runtime is loaded.
+- Expanded installation troubleshooting with a Windows PowerShell 5.1 package-manager bootstrap and separate guidance for Gallery hash mismatches and their secondary Central Directory extraction errors.
+- Changed PSGallery publishing to use `Publish-PSResource -Path` on the validated staged module so the official publisher creates the Gallery package instead of uploading the separately generated `dotnet pack` artifact.
+
+### Fixed
+- Fixed release builds after removal of the optional RenderKit logo asset by omitting icon metadata and package files when the image is not present.
+- Improved `dotnet pack` failure reporting by preserving the native exit code, printing normal-verbosity output, including the generated nuspec in the exception, and uploading staging diagnostics from CI.
+
 ## 0.3.8 - 2026-06-16
 
 ### Patch 
