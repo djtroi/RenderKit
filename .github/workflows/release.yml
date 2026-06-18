@@ -57,9 +57,8 @@ jobs:
         with:
           name: RenderKit-${{ steps.build.outputs.VERSION }}-stage
           path: ${{ steps.build.outputs.STAGE_PATH }}
-          if-no-files-found: error
-
-          package-compatibility:
+          if-no-files-found: error       
+  package-compatibility:
       name: Validate supported installers
       needs: build
       runs-on: windows-latest
