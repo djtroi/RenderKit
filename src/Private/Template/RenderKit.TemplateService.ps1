@@ -9,7 +9,7 @@ function Get-RenderKitTemplate {
     if ($Source -in @("all", "system")) {
         $systemRoot = Get-RenderKitSystemTemplatesRoot
         if (Test-Path $systemRoot) {
-            $templates += Get-ChildItem $systemRoot -Filter "*.json" | ForEach-Object {
+            $templates = Get-ChildItem $systemRoot -Filter "*.json" | ForEach-Object {
                 [PSCustomObject]@{
                     Name   = $_.BaseName
                     Path   = $_.FullName
@@ -22,7 +22,7 @@ function Get-RenderKitTemplate {
     if ($Source -in @("all", "user")) {
         $userRoot = Get-RenderKitUserTemplatesRoot
         if (Test-Path $userRoot) {
-            $templates += Get-ChildItem $userRoot -Filter "*.json" | ForEach-Object {
+            $templates = Get-ChildItem $userRoot -Filter "*.json" | ForEach-Object {
                 [PSCustomObject]@{
                     Name   = $_.BaseName
                     Path   = $_.FullName
@@ -107,6 +107,7 @@ function Write-RenderKitTemplateFile {
         [string]$Path
     )
 
+    Confirm-Template -Template $Template -RequireWritable | Out-Null
     Write-RenderKitJsonFileAtomic `
         -Value $Template `
         -Path $Path `
@@ -123,7 +124,7 @@ function Get-ProjectTemplate {
     $resolved = Resolve-ProjectTemplate -TemplateName $TemplateName
 
     $json = Read-RenderKitTemplateFile -Path $resolved.Path
-    Confirm-Template -Template $json
+    Confirm-Template -Template $json | Out-Null
 
     return [PSCustomObject]@{
         Name         = $resolved.Name
@@ -138,28 +139,44 @@ function Get-ProjectTemplate {
 function Confirm-Template {
     param(
         [Parameter(Mandatory)]
-        $Template
+        $Template,
+        [switch]$RequireWritable
     )
 
-    if (!($Template.Version)) {
-        Write-RenderKitLog -Level Error -Message "Template is missing 'Version' property"
+    if (-not ($Template.PSObject.Properties.Name -contains 'Version') -or
+        [string]::IsNullOrWhiteSpace([string]$Template.Version)) {
+        throw "Template is missing 'Version' property."
+     }
+ 
+    if (-not ($Template.PSObject.Properties.Name -contains 'Name') -or
+        [string]::IsNullOrWhiteSpace([string]$Template.Name)) {
+        throw "Template is missing 'Name' property."
+     }
+    if (-not ($Template.PSObject.Properties.Name -contains 'Folders') -or
+        $null -eq $Template.Folders) {
+        throw "Template is missing 'Folders' property."
+     }
+ 
+    $compatibility = Test-RenderKitArtifactCompatibility `
+        -ArtifactType Template `
+        -Version ([string]$Template.Version)
+    if (-not $compatibility.CanRead -or
+        ($RequireWritable -and -not $compatibility.CanWrite)) {
+        throw "Template version '$($Template.Version)' is not supported for this operation (status: $($compatibility.Status))."
     }
+    if ($compatibility.Status -eq 'UpgradeAvailable') {
+        Write-RenderKitLog -Level Warning -Message (
+            "Template version '$($Template.Version)' is supported but version " +
+            "'$($compatibility.CurrentVersion)' is current."
+        )
+     }
+ 
+     foreach ($folder in $Template.Folders){
+         Test-FolderNode $folder
+     }
 
-    if (!($Template.Name)) {
-        Write-RenderKitLog -Level Error -Message "Template is missing 'Name' property."
-    }
-    if (!($Template.Folders)) {
-        Write-RenderKitLog -Level Error -Message "Template is Missing 'Folders' property."
-    }
-
-    if ($Template.Version -notin @("1.0", "1.1")) { #TODO Implement Logic, that reads from .psd1 the actual schema version
-        Write-RenderKitLog -Level Warning -Message "Unsupported Template Version '$($Template.Version)'."
-    }
-
-    foreach ($folder in $Template.Folders){
-        Test-FolderNode $folder
-    }
-}
+    return $compatibility
+ } 
 
 function Test-FolderNode {
     param(
