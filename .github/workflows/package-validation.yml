@@ -18,10 +18,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@main
 
       - name: Set up .NET SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@main
         with:
           dotnet-version: '8.0.x'
 
@@ -34,7 +34,7 @@ jobs:
 
       - name: Upload build diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@main
         with:
           name: RenderKit-build-diagnostics
           path: |
@@ -56,10 +56,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@main
 
       - name: Download package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@main
         with:
           name: RenderKit-validation-package
           path: artifacts/packages
@@ -86,10 +86,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@main
 
       - name: Download package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@main
         with:
           name: RenderKit-validation-package
           path: artifacts/packages
