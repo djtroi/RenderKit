@@ -49,7 +49,7 @@
             ProjectUri = 'https://github.com/djtroi/RenderKit'
 
             # A URL to an icon representing this module.
-            IconUri = 'https://raw.githubusercontent.com/djtroi/RenderKit/main/src/assets/RenderKit_Logo.png'
+            #IconUri = 'https://raw.githubusercontent.com/djtroi/RenderKit/main/src/assets/RenderKit_Logo.png'
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
