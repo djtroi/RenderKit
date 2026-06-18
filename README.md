@@ -1,62 +1,196 @@
 # RenderKit
-![Static Badge](https://img.shields.io/badge/Version-Alpha-blue)
-![GitHub Release](https://img.shields.io/github/v/release/djtroi/RenderKit)
-[![PSScriptAnalyzer](https://github.com/djtroi/RenderKit/actions/workflows/powershell_PSScriptAnalyzer.yml/badge.svg)](https://github.com/djtroi/RenderKit/actions/workflows/powershell_PSScriptAnalyzer.yml)
+![GitHub Release](https://img.shields.io/github/v/release/djtroi/RenderKit?label=release)
+![PowerShell Gallery Version](https://img.shields.io/powershellgallery/v/RenderKit?label=PowerShell%20Gallery)
 ![PowerShell Gallery Downloads](https://img.shields.io/powershellgallery/dt/RenderKit)
+[![PSScriptAnalyzer](https://github.com/djtroi/RenderKit/actions/workflows/powershell_PSScriptAnalyzer.yml/badge.svg)](https://github.com/djtroi/RenderKit/actions/workflows/powershell_PSScriptAnalyzer.yml)
 
+**RenderKit** is a PowerShell toolkit for repeatable media-production project workflows: create project structures, manage templates and mappings, import camera media, verify transfers, and archive finished work with confidence.
 
+## Table of Contents
 
-## Overview
-**RenderKit** is a PowerShell module for structured video-production workflows.
-It helps you create standardized projects, manage templates/mappings, import media with filter and transfer workflows, and archive projects safely.
+- [What is RenderKit?](#what-is-renderkit)
+- [Quickstart](#quickstart)
+- [Why RenderKit Exists](#why-renderkit-exists)
+- [Core Features](#core-features)
+- [Architecture](#architecture)
+- [Public Functions](#public-functions)
+- [Maintainer Release Workflow](#maintainer-release-workflow)
+- [Roadmap](#roadmap)
 
-## What's new in 0.3.5
-- Deterministic module exports and loading for cleaner imports across Windows PowerShell and PowerShell 7
-- Staged release packaging for PowerShell Gallery with lean artifacts and a generated publish bundle
-- Maintainer scripts for building and publishing `0.3.5` without dragging `.git`, workflows, or tests into the package
+## What is RenderKit?
 
-## Core Features
-### 1) End-to-end media import workflow (`Import-Media`)
-You can now run a full scan → filter → selection → classification → transfer pipeline in one command.
-# Interactive wizard
+RenderKit helps editors and media teams standardize the repetitive parts of a production pipeline. Instead of manually creating folders, remembering naming conventions, sorting camera files, and building backup archives by hand, RenderKit gives you composable commands for the full lifecycle of a project.
+
+Use it to:
+
+- define reusable project templates and media mappings;
+- create consistent editing project folders;
+- detect media drives and pick source folders interactively;
+- scan, filter, classify, and transfer media into the right destinations;
+- back up projects with manifests, integrity checks, and archive workflows.
+
+## Quickstart
+
+### 1. Install RenderKit
+```powershell
+Install-Module -Name RenderKit -Scope CurrentUser
+```
+
+Or with PSResourceGet:
+```powershell
+Install-Module -Name RenderKit -Scope CurrentUser
+```
+
+### 2. Create your project root
+
+```powershell
+Set-ProjectRoot -Path "D:\Editing_Projects"
+```
+
+### 3. Create a project from a template
+
+```powershell
+New-Project -Name "ClientA_2026" -Template "youtube"
+```
+
+### 4. Import media interactively
+
+```powershell
 Import-Media
-# Parameter-driven scan and filter
-Import-Media -ScanAndFilter -SourcePath "E:\DCIM" -FolderFilter "100EOSR" -Wildcard "*.mp4","*.mov"
-# Scan + classify + transfer (with integrity hash)
-Import-Media -ScanAndFilter -SourcePath "E:\DCIM" -Classify -Transfer -ProjectRoot "D:\Projects\ClientA_2026" -TemplateName "default" -TransferHashAlgorithm SHA256
+```
 
-### 2) Production-ready backup pipeline (`Backup-Project`)
-Backups now include cleanup profiles, archive creation, integrity verification, log injection, and manifest handling.
-# Standard backup
-Backup-Project -ProjectName "ClientA_2026"
-# Backup preview without writing changes
-Backup-Project -ProjectName "ClientA_2026" -Profile DaVinci -DryRun
-# Backup and keep source project
-Backup-Project -ProjectName "ClientA_2026" -DestinationRoot "E:\Backups" -KeepSourceProject
+### 5. Import media with parameters
 
-### 3) Drive detection + whitelist workflow
-Source selection and whitelisting are integrated for faster import setup.
-# Detect candidate drives
+```powershell
+Import-Media `
+  -ScanAndFilter `
+  -SourcePath "E:\DCIM" `
+  -FolderFilter "100EOSR" `
+  -Wildcard "*.mp4","*.mov" `
+  -Classify `
+  -Transfer `
+  -ProjectRoot "D:\Editing_Projects\ClientA_2026" `
+  -TemplateName "default" `
+  -TransferHashAlgorithm SHA256
+```
+
+### Tutorial placeholders
+
+GIF walkthroughs are planned for future README updates:
+
+| Tutorial | Preview |
+| --- | --- |
+| Install and first project | _GIF coming soon: `docs/assets/tutorial-install.gif`_ |
+| Interactive media import | _GIF coming soon: `docs/assets/tutorial-import.gif`_ |
+| Backup and archive workflow | _GIF coming soon: `docs/assets/tutorial-backup.gif`_ |
+
+> [!WARNING]
+> RenderKit can copy, archive, and optionally remove project data depending on the command and parameters you choose. Test new workflows with `-DryRun` where available and verify your destination paths before running production operations.
+
+## Why RenderKit Exists
+
+Video projects tend to fail in quiet, boring ways: inconsistent folder names, forgotten camera cards, copied files without hashes, missing delivery folders, and archives that cannot be audited later. RenderKit exists to make those operational details explicit, repeatable, and scriptable.
+
+The goal is not to replace your editor, NLE, DAM, or backup strategy. RenderKit focuses on the glue around them: the project scaffolding, import discipline, transfer safety, and metadata that make handoffs and long-term storage easier.
+### Interactive import workflow
+
+Run a scan → filter → selection → classification → transfer pipeline from one command:
+_GIF coming soon
+```powershell
+Import-Media
+```
+### Drive detection and whitelisting
+```powershell
 Get-RenderKitDriveCandidate
-# Interactively select a source drive
+
 Select-RenderKitDriveCandidate -IncludeFixed
-# Add known media devices to whitelist
+
+t
 Add-RenderKitDeviceWhitelistEntry -FromMountedVolumes
+```
 
----
 
+### Production-ready backup pipeline
+
+```powershell
+Backup-Project -ProjectName "ClientA_2026"
+Backup-Project -ProjectName "ClientA_2026" -Profile DaVinci -DryRun
+Backup-Project -ProjectName "ClientA_2026" -DestinationRoot "E:\Backups" -KeepSourceProject
+```
+
+### Template and mapping management
+
+```powershell
+New-RenderKitTemplate -Name "client-delivery"
+Add-FolderToTemplate -TemplateName "client-delivery" -FolderName "01_Footage"
+New-RenderKitMapping -Name "camera-media"
+Add-RenderKitTypeToMapping -MappingName "camera-media" -Extension ".mp4" -TargetFolder "01_Footage"
+Add-RenderKitMappingToTemplate -TemplateName "client-delivery" -MappingName "camera-media"
+```
+
+## Architecture
+
+RenderKit uses a command-oriented workflow that combines persistent project settings, reusable templates, source discovery, media classification, transfer verification, and backup reporting:
+
+```text
+        ┌──────────────────────┐
+        │   Project Settings   │
+        │   (root + metadata)  │
+        └──────────┬───────────┘
+                   │
+                   ▼
+        ┌──────────────────────┐
+        │      Templates       │
+        │ (folders + mappings) │
+        └──────────┬───────────┘
+                   │
+                   ▼
+        ┌──────────────────────┐
+        │   Source Discovery   │
+        │ (drives + folders)   │
+        └──────────┬───────────┘
+                   │
+                   ▼
+        ┌──────────┴───────────┐
+        │          │           │
+        ▼          ▼           ▼
+  ┌───────────┐ ┌───────────┐ ┌───────────┐
+  │ Scan &    │ │ Classify  │ │ Transfer  │
+  │ Filter    │ │ Media     │ │ + Hash    │
+  └─────┬─────┘ └─────┬─────┘ └─────┬─────┘
+        │             │             │
+        └──────┬──────┴─────────────┘
+               │
+               ▼
+        ┌──────────────────────┐
+        │  Backup & Reporting  │
+        └──────────────────────┘
+```
 ## Public Functions
 
-### Project & template setup
+
+### Project lifecycle
+
 - `Set-ProjectRoot`
 - `New-Project`
+- `Rename-Project`
+- `Remove-Project`
+- `Import-Project`
+- `Export-Project`
+- `Clone-Project`
+- `Send-Project`
+
+### Template and mapping setup
+
 - `New-RenderKitTemplate`
 - `Add-FolderToTemplate`
+- `Add-RenderKitDeliverableToTemplate`
 - `New-RenderKitMapping`
 - `Add-RenderKitTypeToMapping`
 - `Add-RenderKitMappingToTemplate`
 
-### Import & source detection
+### Import and source detection
+
 - `Import-Media`
 - `Get-RenderKitDriveCandidate`
 - `Select-RenderKitDriveCandidate`
@@ -66,44 +200,16 @@ Add-RenderKitDeviceWhitelistEntry -FromMountedVolumes
 ### Backup
 - `Backup-Project`
 
----
-
-## Basic Usage
-
-### Installation
-```powershell
-Install-Module -Name RenderKit
-```
-
-### Installation with PSResourceGet
-```powershell
-Install-PSResource -Name RenderKit -Repository PSGallery
-```
-
-### Minimal setup
-```powershell
-Set-ProjectRoot -Path "D:\Editing_Projects"
-New-Project -Name "WeddingFilm" -Template "youtube"
-```
-
 ## Maintainer Release Workflow
 
 Build a clean release artifact:
+
 ```powershell
 pwsh ./build/Build-RenderKitPackage.ps1
 ```
 
 Publish the generated package to PowerShell Gallery:
+
 ```powershell
 pwsh ./build/Publish-RenderKit.ps1 -Repository PSGallery -ApiKey '<APIKEY>'
 ```
-
----
-## Roadmap
-
-- Add markdown template support
-- Add template management and validation functions
-- Add delivery/export profile workflow
-- Add project statistics/reporting
-- Add multi-project management
-- Explore cloud integration and optional GUI/Web frontend

@@ -1,6 +1,6 @@
 @{
     RootModule = 'RenderKit.psm1'
-    ModuleVersion = '0.3.7' # Major.Minor.Patch
+    ModuleVersion = '0.3.8' # Major.Minor.Patch
     Author = 'Norbert Marton'
     Description = 'PowerShell tools for structured video editing project workflows.'
     GUID = '32e3f476-8e44-4511-82c7-952748e6463b'
@@ -52,7 +52,17 @@
             IconUri = 'https://raw.githubusercontent.com/djtroi/RenderKit/main/src/assets/RenderKit_Logo.png'
 
             # ReleaseNotes of this module
-            ReleaseNotes = 'Prepared version 0.3.7 with a reusable interactive import menu service, menu-driven Import-Media setup, and improved source selection UX.'
+            ReleaseNotes = @'
+Version 0.3.8 introduces new features like:
+- Copy-Project
+- Remove-Project
+- Send-Project
+- Rename-Project
+- Add-RenderKitDeliverableToTemplate
+
+You are now able to set in your templates a folder that is a render export destination.
+With Send-Project you can package that folder for sending it to your clients.
+'@
         } # End of PSData hashtable
 
     } # End of PrivateData hashtable
