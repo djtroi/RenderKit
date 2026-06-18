@@ -1,0 +1,1296 @@
+ (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
+diff --git a/.github/workflows/cross-platform-storage.yml b/.github/workflows/cross-platform-storage.yml
+new file mode 100644
+index 0000000000000000000000000000000000000000..5fc856f889139fbce2ca4d7d953f7b977c201bbf
+--- /dev/null
++++ b/.github/workflows/cross-platform-storage.yml
+@@ -0,0 +1,69 @@
++name: Cross-Platform Storage
++
++on:
++  push:
++    branches: '*'
++  pull_request:
++    branches: '*'
++
++permissions:
++  contents: read
++
++jobs:
++  storage-tests:
++    name: Storage / ${{ matrix.os }}
++    runs-on: ${{ matrix.os }}
++    strategy:
++      fail-fast: false
++      matrix:
++        os:
++          - windows-latest
++          - ubuntu-latest
++          - macos-latest
++
++    steps:
++      - name: Checkout
++        uses: actions/checkout@v6
++
++      - name: Install Pester
++        shell: pwsh
++        run: |
++          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
++          Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force
++
++      - name: Run storage tests
++        shell: pwsh
++        run: |
++          Import-Module Pester -MinimumVersion 5.5.0
++          $result = Invoke-Pester `
++            -Path ./Tests/Storage/RenderKit.StorageService.Tests.ps1 `
++            -PassThru
++          if ($result.FailedCount -gt 0) {
++              throw "$($result.FailedCount) storage test(s) failed."
++          }
++
++  windows-powershell-5:
++    name: Storage / Windows PowerShell 5.1
++    runs-on: windows-latest
++
++    steps:
++      - name: Checkout
++        uses: actions/checkout@v6
++
++      - name: Install Pester
++        shell: powershell
++        run: |
++          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
++          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
++          Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force
++
++      - name: Run storage tests
++        shell: powershell
++        run: |
++          Import-Module Pester -MinimumVersion 5.5.0
++          $result = Invoke-Pester `
++            -Path ./Tests/Storage/RenderKit.StorageService.Tests.ps1 `
++            -PassThru
++          if ($result.FailedCount -gt 0) {
++              throw "$($result.FailedCount) storage test(s) failed."
++          }
+diff --git a/Tests/Import-Media-Drive-Detection-Engine.md b/Tests/Import-Media-Drive-Detection-Engine.md
+index 1d280dc35cc7f7fd95a8037e82ba5d676493a35f..478277137068625e478f85de4f6e1ab81be0e20b 100644
+--- a/Tests/Import-Media-Drive-Detection-Engine.md
++++ b/Tests/Import-Media-Drive-Detection-Engine.md
+@@ -2,51 +2,51 @@
+ 
+ ## Document Metadata
+ - Branch under test: `Import-Media-Drive-Detection-Engine`
+ - Feature scope:
+   - Drive detection (`Get-RenderKitDriveCandidate`, `Select-RenderKitDriveCandidate`)
+   - Interactive import wizard (`Import-Media` with no params)
+   - Scan/filter/select/classify/transfer flow
+   - Simulation-to-real transfer follow-up
+   - Revision log output format and readability
+ - Test type: Manual functional, negative, robustness, security, and regression
+ - Target OS: Windows 10/11
+ - Target shell: PowerShell 5.1+ and PowerShell 7+
+ 
+ ## General Test Rules
+ - [ ] Use a dedicated test machine or isolated test folders.
+ - [ ] Never test against real production footage.
+ - [ ] Record command, timestamp, result, and screenshot for each failed case.
+ - [ ] Always reset/clean test data after destructive transfer scenarios.
+ - [ ] Run both interactive and non-interactive test paths.
+ 
+ ## Test Environment Setup
+ 
+ ### Prerequisites
+ - [ ] RenderKit module code available locally.
+ - [ ] At least one valid RenderKit project exists.
+-- [ ] `%APPDATA%\RenderKit\Devices.json` is readable/writable.
++- [ ] The platform-specific RenderKit state `Devices.json` is readable/writable.
+ - [ ] One source location with mixed file types and nested folders exists.
+ - [ ] (Optional but recommended) One removable source and one fixed drive source.
+ 
+ ### Suggested Test Data (PowerShell)
+ Run once to create deterministic test data:
+ 
+ ```powershell
+ $root = "C:\RK_TestData"
+ $srcA = Join-Path $root "SourceA"
+ $srcB = Join-Path $root "SourceB_Ambiguous"
+ $projRoot = "C:\RK_Projects"
+ $projName = "RK_IMPORT_TEST_001"
+ 
+ New-Item -ItemType Directory -Path $srcA,$srcB,$projRoot -Force | Out-Null
+ New-Item -ItemType Directory -Path (Join-Path $srcA "DCIM\100TEST"),(Join-Path $srcA "AUDIO"),(Join-Path $srcA "DOCS") -Force | Out-Null
+ New-Item -ItemType Directory -Path (Join-Path $srcB "MIXED") -Force | Out-Null
+ 
+ "video-a" | Set-Content (Join-Path $srcA "DCIM\100TEST\clip001.mp4")
+ "video-b" | Set-Content (Join-Path $srcA "DCIM\100TEST\clip002.mov")
+ "audio-a" | Set-Content (Join-Path $srcA "AUDIO\take001.wav")
+ "audio-b" | Set-Content (Join-Path $srcA "AUDIO\take002.mp3")
+ "image-a" | Set-Content (Join-Path $srcA "DCIM\100TEST\frame001.jpg")
+ "doc-a"   | Set-Content (Join-Path $srcA "DOCS\notes.txt")
+ "archive" | Set-Content (Join-Path $srcA "DOCS\pack.zip")
+ "unknown" | Set-Content (Join-Path $srcA "DOCS\mystery.xyz")
+@@ -78,51 +78,51 @@ Import-Media
+ 
+ ---
+ 
+ ## Detailed Test Cases
+ 
+ ## A. Module Loading and Baseline Configuration
+ 
+ ### TC-A-001 Module import
+ - [ ] Objective: Ensure module loads cleanly.
+ - [ ] Steps:
+   1. Run:
+      ```powershell
+      Import-Module "k:\Programming\RenderKit\src\RenderKit.psd1" -Force -Verbose
+      ```
+   2. Check exported commands.
+ - [ ] Expected:
+   - No parse/runtime import errors.
+   - `Import-Media`, `Get-RenderKitDriveCandidate`, `Select-RenderKitDriveCandidate` available.
+ 
+ ### TC-A-002 Project root config available
+ - [ ] Steps:
+   1. Run:
+      ```powershell
+      Set-ProjectRoot -Path "C:\RK_Projects"
+      ```
+-  2. Verify `%APPDATA%\RenderKit\config.json`.
++  2. Verify `config.json` in the platform-specific RenderKit configuration directory.
+ - [ ] Expected:
+   - `DefaultProjectPath` exists and points to configured path.
+ 
+ ## B. Drive Detection Engine
+ 
+ ### TC-B-001 Candidate list default behavior
+ - [ ] Steps:
+   1. Run:
+      ```powershell
+      Get-RenderKitDriveCandidate
+      ```
+ - [ ] Expected:
+   - Returns candidates for removable + supported filesystems by default.
+   - No unhandled exception.
+ 
+ ### TC-B-002 No candidates fallback prompt
+ - [ ] Preconditions: environment where default query returns no candidates.
+ - [ ] Steps:
+   1. Run:
+      ```powershell
+      Get-RenderKitDriveCandidate
+      ```
+   2. At prompt `Include fixed drives? [Y/N]` answer `N`.
+ - [ ] Expected:
+   - Graceful exit.
+diff --git a/Tests/Storage/RenderKit.StorageService.Tests.ps1 b/Tests/Storage/RenderKit.StorageService.Tests.ps1
+new file mode 100644
+index 0000000000000000000000000000000000000000..ac58954d723e43a06db960af5b0bc150a9c76db2
+--- /dev/null
++++ b/Tests/Storage/RenderKit.StorageService.Tests.ps1
+@@ -0,0 +1,206 @@
++BeforeAll {
++    $repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
++    $storageServicePath = Join-Path $repositoryRoot `
++        'src/Private/Storage/RenderKit.StorageService.ps1'
++    . $storageServicePath
++}
++
++Describe 'RenderKit cross-platform storage service' {
++    BeforeEach {
++        $script:originalEnvironment = @{
++            RENDERKIT_HOME = $env:RENDERKIT_HOME
++            APPDATA = $env:APPDATA
++            LOCALAPPDATA = $env:LOCALAPPDATA
++            XDG_CONFIG_HOME = $env:XDG_CONFIG_HOME
++            XDG_STATE_HOME = $env:XDG_STATE_HOME
++            XDG_CACHE_HOME = $env:XDG_CACHE_HOME
++            XDG_DATA_HOME = $env:XDG_DATA_HOME
++        }
++
++        $script:testRoot = Join-Path $TestDrive 'renderkit-storage'
++        $env:RENDERKIT_HOME = $null
++        $env:APPDATA = $null
++        $env:LOCALAPPDATA = $null
++        $env:XDG_CONFIG_HOME = $null
++        $env:XDG_STATE_HOME = $null
++        $env:XDG_CACHE_HOME = $null
++        $env:XDG_DATA_HOME = $null
++
++        Mock Get-RenderKitUserHome {
++            return Join-Path $script:testRoot 'home'
++        }
++    }
++
++    AfterEach {
++        foreach ($name in $script:originalEnvironment.Keys) {
++            $value = $script:originalEnvironment[$name]
++            if ($null -eq $value) {
++                Remove-Item -Path "env:$name" -ErrorAction SilentlyContinue
++            }
++            else {
++                Set-Item -Path "env:$name" -Value $value
++            }
++        }
++    }
++
++    It 'isolates all semantic roots below RENDERKIT_HOME' {
++        $env:RENDERKIT_HOME = Join-Path $script:testRoot 'override'
++
++        $configuration = Get-RenderKitStorageRoot `
++            -Kind Configuration `
++            -Platform Linux
++        $state = Get-RenderKitStorageRoot -Kind State -Platform Windows
++        $cache = Get-RenderKitStorageRoot -Kind Cache -Platform macOS
++        $userData = Get-RenderKitStorageRoot -Kind UserData -Platform Linux
++
++        $configuration | Should -Be (
++            Join-Path $env:RENDERKIT_HOME 'config'
++        )
++        $state | Should -Be (Join-Path $env:RENDERKIT_HOME 'state')
++        $cache | Should -Be (Join-Path $env:RENDERKIT_HOME 'cache')
++        $userData | Should -Be (Join-Path $env:RENDERKIT_HOME 'data')
++    }
++
++    It 'creates a requested semantic root only when Ensure is used' {
++        $env:RENDERKIT_HOME = Join-Path $script:testRoot 'ensure'
++
++        $path = Get-RenderKitStorageRoot -Kind State -Platform Linux
++        Test-Path -LiteralPath $path | Should -BeFalse
++
++        $ensuredPath = Get-RenderKitStorageRoot `
++            -Kind State `
++            -Platform Linux `
++            -Ensure
++
++        $ensuredPath | Should -Be $path
++        Test-Path -LiteralPath $path -PathType Container |
++            Should -BeTrue
++    }
++
++    It 'does not create the configuration directory when only resolving its path' {
++        $env:RENDERKIT_HOME = Join-Path $script:testRoot 'config-path'
++
++        $path = Get-RenderKitConfigPath -SkipLegacyMigration
++
++        $path | Should -Be (
++            Join-Path $env:RENDERKIT_HOME 'config/config.json'
++        )
++        Test-Path -LiteralPath (Split-Path $path -Parent) |
++            Should -BeFalse
++    }
++
++    It 'uses XDG roots on Linux' {
++        $env:XDG_CONFIG_HOME = Join-Path $script:testRoot 'xdg-config'
++        $env:XDG_STATE_HOME = Join-Path $script:testRoot 'xdg-state'
++        $env:XDG_CACHE_HOME = Join-Path $script:testRoot 'xdg-cache'
++        $env:XDG_DATA_HOME = Join-Path $script:testRoot 'xdg-data'
++
++        Get-RenderKitStorageRoot -Kind Configuration -Platform Linux |
++            Should -Be (Join-Path $env:XDG_CONFIG_HOME 'renderkit')
++        Get-RenderKitStorageRoot -Kind State -Platform Linux |
++            Should -Be (Join-Path $env:XDG_STATE_HOME 'renderkit')
++        Get-RenderKitStorageRoot -Kind Cache -Platform Linux |
++            Should -Be (Join-Path $env:XDG_CACHE_HOME 'renderkit')
++        Get-RenderKitStorageRoot -Kind UserData -Platform Linux |
++            Should -Be (Join-Path $env:XDG_DATA_HOME 'renderkit')
++    }
++
++    It 'uses native macOS locations when XDG variables are absent' {
++        $home = Get-RenderKitUserHome
++        $applicationSupport = Join-Path $home `
++            'Library/Application Support/RenderKit'
++        $cache = Join-Path $home 'Library/Caches/RenderKit'
++
++        Get-RenderKitStorageRoot -Kind Configuration -Platform macOS |
++            Should -Be $applicationSupport
++        Get-RenderKitStorageRoot -Kind State -Platform macOS |
++            Should -Be $applicationSupport
++        Get-RenderKitStorageRoot -Kind UserData -Platform macOS |
++            Should -Be $applicationSupport
++        Get-RenderKitStorageRoot -Kind Cache -Platform macOS |
++            Should -Be $cache
++    }
++
++    It 'uses roaming and local application data on Windows' {
++        $env:APPDATA = Join-Path $script:testRoot 'roaming'
++        $env:LOCALAPPDATA = Join-Path $script:testRoot 'local'
++
++        Get-RenderKitStorageRoot -Kind Configuration -Platform Windows |
++            Should -Be (Join-Path $env:APPDATA 'RenderKit')
++        Get-RenderKitStorageRoot -Kind UserData -Platform Windows |
++            Should -Be (Join-Path $env:APPDATA 'RenderKit')
++        Get-RenderKitStorageRoot -Kind State -Platform Windows |
++            Should -Be (Join-Path $env:LOCALAPPDATA 'RenderKit')
++        Get-RenderKitStorageRoot -Kind Cache -Platform Windows |
++            Should -Be (
++                Join-Path $env:LOCALAPPDATA 'RenderKit/cache'
++            )
++    }
++
++    It 'copies a legacy file only when the destination does not exist' {
++        $legacyDirectory = Join-Path $script:testRoot 'legacy'
++        $destinationDirectory = Join-Path $script:testRoot 'destination'
++        New-Item -ItemType Directory -Path $legacyDirectory -Force |
++            Out-Null
++        New-Item -ItemType Directory -Path $destinationDirectory -Force |
++            Out-Null
++
++        $legacyPath = Join-Path $legacyDirectory 'config.json'
++        $destinationPath = Join-Path $destinationDirectory 'config.json'
++        Set-Content -LiteralPath $legacyPath -Value '{"source":"legacy"}'
++
++        Copy-RenderKitLegacyStorageItem `
++            -LegacyPath $legacyPath `
++            -DestinationPath $destinationPath
++        Get-Content -LiteralPath $destinationPath -Raw |
++            Should -Match 'legacy'
++
++        Set-Content -LiteralPath $destinationPath `
++            -Value '{"source":"current"}'
++        Copy-RenderKitLegacyStorageItem `
++            -LegacyPath $legacyPath `
++            -DestinationPath $destinationPath
++
++        Get-Content -LiteralPath $destinationPath -Raw |
++            Should -Match 'current'
++    }
++
++    It 'migrates the legacy device whitelist into state storage' {
++        $env:RENDERKIT_HOME = Join-Path $script:testRoot 'device-migration'
++        $script:legacyRoot = Join-Path $script:testRoot 'legacy-device'
++        New-Item -ItemType Directory -Path $script:legacyRoot -Force |
++            Out-Null
++        Set-Content `
++            -LiteralPath (Join-Path $script:legacyRoot 'Devices.json') `
++            -Value '{"Version":"1.0"}'
++        Mock Get-RenderKitLegacyRoot { return $script:legacyRoot }
++
++        $path = Get-RenderKitDevicesPath
++
++        $path | Should -Be (
++            Join-Path $env:RENDERKIT_HOME 'state/Devices.json'
++        )
++        Test-Path -LiteralPath $path -PathType Leaf | Should -BeTrue
++    }
++
++    It 'stores config, devices, templates, and mappings by semantic kind' {
++        $env:RENDERKIT_HOME = Join-Path $script:testRoot 'specific-paths'
++
++        Get-RenderKitConfigPath |
++            Should -Be (
++                Join-Path $env:RENDERKIT_HOME 'config/config.json'
++            )
++        Get-RenderKitDevicesPath |
++            Should -Be (
++                Join-Path $env:RENDERKIT_HOME 'state/Devices.json'
++            )
++        Get-RenderKitUserTemplatesRoot |
++            Should -Be (
++                Join-Path $env:RENDERKIT_HOME 'data/templates'
++            )
++        Get-RenderKitUserMappingsRoot |
++            Should -Be (
++                Join-Path $env:RENDERKIT_HOME 'data/mappings'
++            )
++    }
++}
+diff --git a/docs/Get-RenderKitDeviceWhitelist.md b/docs/Get-RenderKitDeviceWhitelist.md
+index adaae232478b8d7591d56bd0f0bf87779741b564..59a0fbb50b7a0290428261257c9cef8b60871354 100644
+--- a/docs/Get-RenderKitDeviceWhitelist.md
++++ b/docs/Get-RenderKitDeviceWhitelist.md
+@@ -10,37 +10,40 @@ Reads the stored volume names and serial numbers from the device whitelist.
+ Get-RenderKitDeviceWhitelist
+ ```
+ 
+ ## Prerequisites
+ 
+ - RenderKit is installed and imported in the current PowerShell session.
+ - All source and destination paths used by the command are accessible.
+ - The current user has sufficient permissions for write or delete operations.
+ 
+ ## Parameters
+ 
+ | Parameter | Type | Required | Default | Description |
+ | --- | --- | --- | --- | --- |
+ | – | – | – | – | The command has no parameters. |
+ 
+ ## Usage
+ 
+ ```powershell
+ Get-RenderKitDeviceWhitelist
+ ```
+ 
+ Before running the command, inspect its full help with `Get-Help Get-RenderKitDeviceWhitelist -Full`. For commands that support `ShouldProcess`, use `-WhatIf` before making production changes.
+ 
+ ## Output and side effects
+ 
+-The command may write status or result objects to the pipeline. Commands that perform writes can also change RenderKit configuration, templates, mappings, project files, or destination packages according to the selected parameters. Verify the operation using the returned paths and properties.
++The command returns normalized device-whitelist metadata. The whitelist is
++stored in the platform-specific RenderKit state directory. If no whitelist
++exists, the device service creates an empty one.
+ 
+ ## Notes and safety
+ 
+ > [!IMPORTANT]
+ > The command does not modify data and can be used to review the whitelist before drive detection.
+ 
+ ## Related documentation
+ 
+ - [Installation and updates](installation.md)
++- [Cross-Platform User Storage](storage.md)
+ - [Function overview](README.md)
+-- [Get-RenderKitDeviceWhitelist source code](../src/Public/Get-RenderKitDeviceWhitelist.ps1)
+\ No newline at end of file
++- [Get-RenderKitDeviceWhitelist source code](../src/Public/Get-RenderKitDeviceWhitelist.ps1)
+diff --git a/docs/README.md b/docs/README.md
+index 1b109286446450a32bb2b83f925f080d07fced6c..31b7ab69f57a07aa5a548a8ebb9c8c6ac3ca8571 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -1,51 +1,55 @@
+ # RenderKit Documentation
+ 
+ This documentation covers installation, updates, and the use of every implemented public RenderKit function. Each function has its own Markdown file with the same structure: summary, syntax, prerequisites, parameters, example, output, safety guidance, and related links.
+ 
+ ## Getting started
+ 
+ 1. [Install or update RenderKit](installation.md)
+ 2. Configure a project root: [`Set-ProjectRoot`](Set-ProjectRoot.md)
+ 3. Create a project: [`New-Project`](New-Project.md)
+ 4. Import media: [`Import-Media`](Import-Media.md)
+ 5. Back up or deliver a project: [`Backup-Project`](Backup-Project.md), [`Send-Project`](Send-Project.md)
+ 
++RenderKit user storage follows platform conventions. See
++[Cross-Platform User Storage](storage.md) for Windows, Linux, macOS, XDG, and
++portable/test override locations.
++
+ ## Project management
+ 
+ - [`Set-ProjectRoot`](Set-ProjectRoot.md) – Configure the default project root
+ - [`New-Project`](New-Project.md) – Create a project from a template
+ - [`Copy-Project`](Copy-Project.md) – Copy a project with a new identity
+ - [`Rename-Project`](Rename-Project.md) – Rename a project while preserving its ID
+ - [`Remove-Project`](Remove-Project.md) – Remove a project
+ - [`Export-Project`](Export-Project.md) – Create a project manifest or self-contained package
+ - [`Import-Project`](Import-Project.md) – Import a project manifest or package
+ - [`Send-Project`](Send-Project.md) – Package deliverables for handoff or review
+ - [`Backup-Project`](Backup-Project.md) – Clean, archive, and verify a project
+ 
+ > [!NOTE]
+ > The implementation provides `Copy-Project`, while the current manifest and module loader export `Clone-Project`. This existing mismatch can affect which command name is available in a published module.
+ 
+ ## Templates and mappings
+ 
+ - [`New-RenderKitTemplate`](New-RenderKitTemplate.md)
+ - [`Add-FolderToTemplate`](Add-FolderToTemplate.md)
+ - [`Add-RenderKitMappingToTemplate`](Add-RenderKitMappingToTemplate.md)
+ - [`Add-RenderKitDeliverableToTemplate`](Add-RenderKitDeliverableToTemplate.md)
+ - [`New-RenderKitMapping`](New-RenderKitMapping.md)
+ - [`Add-RenderKitTypeToMapping`](Add-RenderKitTypeToMapping.md)
+ 
+ ## Media import and drive detection
+ 
+ - [`Import-Media`](Import-Media.md)
+ - [`Get-RenderKitDriveCandidate`](Get-RenderKitDriveCandidate.md)
+ - [`Select-RenderKitDriveCandidate`](Select-RenderKitDriveCandidate.md)
+ - [`Get-RenderKitDeviceWhitelist`](Get-RenderKitDeviceWhitelist.md)
+ - [`Add-RenderKitDeviceWhitelistEntry`](Add-RenderKitDeviceWhitelistEntry.md)
+ 
+ ## PowerShell help
+ 
+ ```powershell
+ Get-Command -Module RenderKit
+ Get-Help <FunctionName> -Full
+ Get-Help <FunctionName> -Examples
+-```
+\ No newline at end of file
++```
+diff --git a/docs/Set-ProjectRoot.md b/docs/Set-ProjectRoot.md
+index fd019245ca45af9b42ac50a5c16b4510367bacd2..18a7bbe0f20d248bbde7881a8f5767bcdca244bf 100644
+--- a/docs/Set-ProjectRoot.md
++++ b/docs/Set-ProjectRoot.md
+@@ -10,37 +10,41 @@ Stores the default project root in the RenderKit configuration.
+ Set-ProjectRoot -Path <string>
+ ```
+ 
+ ## Prerequisites
+ 
+ - RenderKit is installed and imported in the current PowerShell session.
+ - All source and destination paths used by the command are accessible.
+ - The current user has sufficient permissions for write or delete operations.
+ 
+ ## Parameters
+ 
+ | Parameter | Type | Required | Default | Description |
+ | --- | --- | --- | --- | --- |
+ | `-Path` | `string` | Yes | – | Source path or package path, depending on the command. |
+ 
+ ## Usage
+ 
+ ```powershell
+ Set-ProjectRoot -Path "D:\Editing_Projects"
+ ```
+ 
+ Before running the command, inspect its full help with `Get-Help Set-ProjectRoot -Full`. For commands that support `ShouldProcess`, use `-WhatIf` before making production changes.
+ 
+ ## Output and side effects
+ 
+-The command may write status or result objects to the pipeline. Commands that perform writes can also change RenderKit configuration, templates, mappings, project files, or destination packages according to the selected parameters. Verify the operation using the returned paths and properties.
++The command writes the resolved absolute project root and stores it in the
++platform-specific RenderKit configuration directory. See
++[Cross-Platform User Storage](storage.md) for the location on each operating
++system.
+ 
+ ## Notes and safety
+ 
+ > [!IMPORTANT]
+ > The destination directory must already exist. The setting is used by subsequent commands when they do not receive an explicit path.
+ 
+ ## Related documentation
+ 
+ - [Installation and updates](installation.md)
++- [Cross-Platform User Storage](storage.md)
+ - [Function overview](README.md)
+-- [Set-ProjectRoot source code](../src/Public/Set-ProjectRoot.ps1)
+\ No newline at end of file
++- [Set-ProjectRoot source code](../src/Public/Set-ProjectRoot.ps1)
+diff --git a/docs/storage.md b/docs/storage.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..fb5db91b0f41c750fc38081a1481ba9376ea7217
+--- /dev/null
++++ b/docs/storage.md
+@@ -0,0 +1,80 @@
++# Cross-Platform User Storage
++
++RenderKit keeps user-owned files outside the installed module directory. The
++private storage service separates files by purpose so configuration, durable
++state, cache data, and user-created resources can evolve independently.
++
++## Storage kinds
++
++| Kind | Contents |
++| --- | --- |
++| Configuration | RenderKit settings such as the default project root |
++| State | Device whitelist and future registry, job, and outbox state |
++| Cache | Reconstructable cached data |
++| User data | User-created templates and mappings |
++
++## Default locations
++
++### Windows
++
++```text
++Configuration: %APPDATA%\RenderKit
++State:         %LOCALAPPDATA%\RenderKit
++Cache:         %LOCALAPPDATA%\RenderKit\cache
++User data:     %APPDATA%\RenderKit
++```
++
++### Linux
++
++RenderKit follows the XDG Base Directory environment variables when they are
++set and uses their standard home-directory fallbacks otherwise.
++
++```text
++Configuration: ${XDG_CONFIG_HOME:-$HOME/.config}/renderkit
++State:         ${XDG_STATE_HOME:-$HOME/.local/state}/renderkit
++Cache:         ${XDG_CACHE_HOME:-$HOME/.cache}/renderkit
++User data:     ${XDG_DATA_HOME:-$HOME/.local/share}/renderkit
++```
++
++### macOS
++
++Explicit XDG variables are respected. Without them, RenderKit uses native
++macOS application directories.
++
++```text
++Configuration: $HOME/Library/Application Support/RenderKit
++State:         $HOME/Library/Application Support/RenderKit
++Cache:         $HOME/Library/Caches/RenderKit
++User data:     $HOME/Library/Application Support/RenderKit
++```
++
++## Portable and test override
++
++Set `RENDERKIT_HOME` to isolate all RenderKit user storage below one directory:
++
++```text
++RENDERKIT_HOME/
++  config/
++  state/
++  cache/
++  data/
++```
++
++This override is intended for automated tests, CI, sandboxes, and explicitly
++portable installations. It takes precedence over native and XDG locations.
++
++## Legacy data
++
++RenderKit preserves existing user data when the semantic location changes.
++Legacy configuration, device whitelist, template, and mapping files are copied
++to their new location only when the destination does not already exist.
++Existing destination data is never overwritten by automatic migration.
++
++## Security
++
++- User storage does not require administrator or root privileges.
++- Paths are resolved by the storage service rather than assembled by public
++  commands.
++- The portable override is treated as an explicit user choice.
++- Credentials and secrets must not be stored in these general-purpose JSON
++  files.
+diff --git a/src/Private/Device/RenderKit.DeviceService.ps1 b/src/Private/Device/RenderKit.DeviceService.ps1
+index a64dae006370618bccadca90f57040e1b266b37b..4e18df7788c2cdc9bfd977230c8af029fcb5c8c2 100644
+--- a/src/Private/Device/RenderKit.DeviceService.ps1
++++ b/src/Private/Device/RenderKit.DeviceService.ps1
+@@ -1,29 +1,25 @@
+-function Get-RenderKitDevicesPath {
+-    return Join-Path (Get-RenderKitRoot) "Devices.json"
+-}
+-
+ function New-RenderKitDeviceRegistry {
+     return [PSCustomObject]@{
+         Version       = "1.0"
+         VolumeNames   = @()
+         SerialNumbers = @()
+     }
+ }
+ 
+ function Read-RenderKitDeviceRegistry {
+     $path = Get-RenderKitDevicesPath
+ 
+     if (!(Test-Path $path)) {
+         $emptyRegistry = New-RenderKitDeviceRegistry
+         Write-RenderKitDeviceRegistry -Registry $emptyRegistry | Out-Null
+         Write-RenderKitLog -Level Info -Message "Created empty device whitelist at '$path'."
+         return $emptyRegistry
+     }
+ 
+     try {
+         $registry = Get-Content -Path $path -Raw | ConvertFrom-Json -ErrorAction Stop
+     }
+     catch {
+         Write-RenderKitLog -Level Error -Message "Invalid JSON in device whitelist '$path'."
+         throw "Invalid JSON in device whitelist '$path'."
+     }
+diff --git a/src/Private/Global/Get-RenderKitConfig.ps1 b/src/Private/Global/Get-RenderKitConfig.ps1
+index f50b2110190a36ecb665760664b315ebda1cffaa..910abbd147bcbfa851d2b6aee1668be1a7504308 100644
+--- a/src/Private/Global/Get-RenderKitConfig.ps1
++++ b/src/Private/Global/Get-RenderKitConfig.ps1
+@@ -1,7 +1,9 @@
+ function Get-RenderKitConfig {
+-    $configPath = Join-Path $env:APPDATA "RenderKit\config.json"
+-    if (!(Test-Path $configPath)){
++    $configPath = Get-RenderKitConfigPath
++    if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
+         return @{}
+     }
+-    Get-Content $configPath -Raw | ConvertFrom-Json
+-}
+\ No newline at end of file
++
++    Get-Content -LiteralPath $configPath -Raw -ErrorAction Stop |
++        ConvertFrom-Json -ErrorAction Stop
++}
+diff --git a/src/Private/Storage/RenderKit.StorageService.ps1 b/src/Private/Storage/RenderKit.StorageService.ps1
+index 7f35555d82bd83fdb3d3664a27b2dd6d110b5631..163994b7204c42e5db5768b2f5f40211989da23f 100644
+--- a/src/Private/Storage/RenderKit.StorageService.ps1
++++ b/src/Private/Storage/RenderKit.StorageService.ps1
+@@ -1,91 +1,408 @@
+-function Get-RenderKitRoot {
++function Get-RenderKitPlatform {
++    [CmdletBinding()]
++    [OutputType([System.String])]
++    param(
++        [ValidateSet('Auto', 'Windows', 'Linux', 'macOS')]
++        [string]$Platform = 'Auto'
++    )
+ 
+-    if ($PSVersionTable.PSEdition -eq "Desktop") {
+-        #Powershell 5.1 doesn't support the $Is variables
+-        $onWindows  = $true
+-        $onLinux    = $false
+-        $onMacOS    = $false
++    if ($Platform -ne 'Auto') {
++        return $Platform
+     }
+-    else {
+-        #PowerShell 6+ default variables
+-        $onWindows  = $IsWindows
+-        $onLinux    = $IsLinux
+-        $onMacOS    = $IsMacOS
++
++    if ($PSVersionTable.PSEdition -eq 'Desktop') {
++        return 'Windows'
+     }
+ 
+-    if ($onWindows) {
+-        $base = $env:APPDATA
++    if ($IsWindows) { return 'Windows' }
++    if ($IsLinux) { return 'Linux' }
++    if ($IsMacOS) { return 'macOS' }
++
++    throw 'RenderKit could not determine the current operating system.'
++}
++
++function Get-RenderKitUserHome {
++    [CmdletBinding()]
++    [OutputType([System.String])]
++    param()
++
++    if (-not [string]::IsNullOrWhiteSpace([string]$HOME)) {
++        return [System.IO.Path]::GetFullPath([string]$HOME)
+     }
+-    elseif ($onMacOS) {
+-        $base = Join-Path $HOME ".config"
++
++    $profilePath = [Environment]::GetFolderPath(
++        [Environment+SpecialFolder]::UserProfile
++    )
++    if (-not [string]::IsNullOrWhiteSpace($profilePath)) {
++        return [System.IO.Path]::GetFullPath($profilePath)
+     }
+-    elseif ($onLinux) {
+-        $base = $env:XDG_CONFIG_HOME
+-            if(!($base)) {
+-                $base = Join-Path $HOME ".config"
+-            } 
++
++    throw 'RenderKit could not resolve the current user home directory.'
++}
++
++function Get-RenderKitKnownFolderPath {
++    [CmdletBinding()]
++    [OutputType([System.String])]
++    param(
++        [Parameter(Mandatory)]
++        [ValidateSet('ApplicationData', 'LocalApplicationData')]
++        [string]$Name
++    )
++
++    $specialFolder = [Environment+SpecialFolder](
++        [Enum]::Parse([Environment+SpecialFolder], $Name)
++    )
++    $path = [Environment]::GetFolderPath($specialFolder)
++    if ([string]::IsNullOrWhiteSpace($path)) {
++        return $null
+     }
+-    $root = Join-Path $base "RenderKit"
+ 
+-    $folders = @(
+-        $root
+-        Join-Path $root "mappings"
+-        Join-Path $root "templates"
++    return [System.IO.Path]::GetFullPath($path)
++}
++
++function New-RenderKitStorageDirectory {
++    [CmdletBinding()]
++    [OutputType([System.String])]
++    param(
++        [Parameter(Mandatory)]
++        [string]$Path
++    )
++
++    if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
++        New-Item -ItemType Directory -Path $Path -Force -ErrorAction Stop |
++            Out-Null
++    }
++
++    return [System.IO.Path]::GetFullPath($Path)
++}
++
++function Get-RenderKitStorageRoot {
++    [CmdletBinding()]
++    [OutputType([System.String])]
++    param(
++        [Parameter(Mandatory)]
++        [ValidateSet('Configuration', 'State', 'Cache', 'UserData')]
++        [string]$Kind,
++
++        [ValidateSet('Auto', 'Windows', 'Linux', 'macOS')]
++        [string]$Platform = 'Auto',
++
++        [switch]$Ensure
+     )
+ 
+-    foreach ($folder in $folders) {
+-        if (!(Test-Path $folder)) {
+-            NEw-Item -ItemType Directory -Path $folder -Force | Out-Null
++    $resolvedPlatform = Get-RenderKitPlatform -Platform $Platform
++    $overrideRoot = [string]$env:RENDERKIT_HOME
++
++    if (-not [string]::IsNullOrWhiteSpace($overrideRoot)) {
++        $rootName = switch ($Kind) {
++            'Configuration' { 'config' }
++            'State' { 'state' }
++            'Cache' { 'cache' }
++            'UserData' { 'data' }
++        }
++        $root = Join-Path -Path (
++            [System.IO.Path]::GetFullPath($overrideRoot)
++        ) -ChildPath $rootName
++    }
++    else {
++        $home = Get-RenderKitUserHome
++        switch ($resolvedPlatform) {
++            'Windows' {
++                $roaming = [string]$env:APPDATA
++                if ([string]::IsNullOrWhiteSpace($roaming)) {
++                    $roaming = Get-RenderKitKnownFolderPath `
++                        -Name ApplicationData
++                }
++
++                $local = [string]$env:LOCALAPPDATA
++                if ([string]::IsNullOrWhiteSpace($local)) {
++                    $local = Get-RenderKitKnownFolderPath `
++                        -Name LocalApplicationData
++                }
++
++                if ([string]::IsNullOrWhiteSpace($roaming)) {
++                    $roaming = Join-Path -Path $home -ChildPath 'AppData/Roaming'
++                }
++                if ([string]::IsNullOrWhiteSpace($local)) {
++                    $local = Join-Path -Path $home -ChildPath 'AppData/Local'
++                }
++
++                $root = switch ($Kind) {
++                    'Configuration' {
++                        Join-Path -Path $roaming -ChildPath 'RenderKit'
++                    }
++                    'State' {
++                        Join-Path -Path $local -ChildPath 'RenderKit'
++                    }
++                    'Cache' {
++                        Join-Path -Path (
++                            Join-Path -Path $local -ChildPath 'RenderKit'
++                        ) -ChildPath 'cache'
++                    }
++                    'UserData' {
++                        Join-Path -Path $roaming -ChildPath 'RenderKit'
++                    }
++                }
++            }
++            'Linux' {
++                $configBase = [string]$env:XDG_CONFIG_HOME
++                if ([string]::IsNullOrWhiteSpace($configBase)) {
++                    $configBase = Join-Path -Path $home -ChildPath '.config'
++                }
++
++                $stateBase = [string]$env:XDG_STATE_HOME
++                if ([string]::IsNullOrWhiteSpace($stateBase)) {
++                    $stateBase = Join-Path -Path $home `
++                        -ChildPath '.local/state'
++                }
++
++                $cacheBase = [string]$env:XDG_CACHE_HOME
++                if ([string]::IsNullOrWhiteSpace($cacheBase)) {
++                    $cacheBase = Join-Path -Path $home -ChildPath '.cache'
++                }
++
++                $dataBase = [string]$env:XDG_DATA_HOME
++                if ([string]::IsNullOrWhiteSpace($dataBase)) {
++                    $dataBase = Join-Path -Path $home `
++                        -ChildPath '.local/share'
++                }
++
++                $base = switch ($Kind) {
++                    'Configuration' { $configBase }
++                    'State' { $stateBase }
++                    'Cache' { $cacheBase }
++                    'UserData' { $dataBase }
++                }
++                $root = Join-Path -Path $base -ChildPath 'renderkit'
++            }
++            'macOS' {
++                $applicationSupport = Join-Path -Path $home `
++                    -ChildPath 'Library/Application Support'
++                $cacheBase = Join-Path -Path $home `
++                    -ChildPath 'Library/Caches'
++
++                $base = switch ($Kind) {
++                    'Configuration' {
++                        if ($env:XDG_CONFIG_HOME) {
++                            $env:XDG_CONFIG_HOME
++                        }
++                        else {
++                            $applicationSupport
++                        }
++                    }
++                    'State' {
++                        if ($env:XDG_STATE_HOME) {
++                            $env:XDG_STATE_HOME
++                        }
++                        else {
++                            $applicationSupport
++                        }
++                    }
++                    'Cache' {
++                        if ($env:XDG_CACHE_HOME) {
++                            $env:XDG_CACHE_HOME
++                        }
++                        else {
++                            $cacheBase
++                        }
++                    }
++                    'UserData' {
++                        if ($env:XDG_DATA_HOME) {
++                            $env:XDG_DATA_HOME
++                        }
++                        else {
++                            $applicationSupport
++                        }
++                    }
++                }
++                $root = Join-Path -Path $base -ChildPath 'RenderKit'
++            }
+         }
+     }
+ 
+-    return $root
++    $resolvedRoot = [System.IO.Path]::GetFullPath($root)
++    if ($Ensure) {
++        return New-RenderKitStorageDirectory -Path $resolvedRoot
++    }
++
++    return $resolvedRoot
+ }
+ 
+-function Get-RenderKitUserTemplatesRoot {
+-    $root = Get-RenderKitRoot
+-    $path = Join-Path $root "templates"
++function Get-RenderKitLegacyRoot {
++    [CmdletBinding()]
++    [OutputType([System.String])]
++    param(
++        [ValidateSet('Auto', 'Windows', 'Linux', 'macOS')]
++        [string]$Platform = 'Auto'
++    )
+ 
+-    if (!(Test-Path $path)) {
+-        New-Item -ItemType Directory -Path $path | Out-Null
++    if (-not [string]::IsNullOrWhiteSpace([string]$env:RENDERKIT_HOME)) {
++        return $null
+     }
+ 
+-    return $path
++    $resolvedPlatform = Get-RenderKitPlatform -Platform $Platform
++    $home = Get-RenderKitUserHome
++
++    switch ($resolvedPlatform) {
++        'Windows' {
++            $base = [string]$env:APPDATA
++            if ([string]::IsNullOrWhiteSpace($base)) {
++                $base = Get-RenderKitKnownFolderPath -Name ApplicationData
++            }
++        }
++        'Linux' {
++            $base = [string]$env:XDG_CONFIG_HOME
++            if ([string]::IsNullOrWhiteSpace($base)) {
++                $base = Join-Path -Path $home -ChildPath '.config'
++            }
++        }
++        'macOS' {
++            $base = Join-Path -Path $home -ChildPath '.config'
++        }
++    }
++
++    if ([string]::IsNullOrWhiteSpace($base)) {
++        return $null
++    }
++
++    return [System.IO.Path]::GetFullPath(
++        (Join-Path -Path $base -ChildPath 'RenderKit')
++    )
+ }
+ 
+-function Get-RenderKitUserMappingsRoot {
+-    $root = Get-RenderKitRoot
+-    $path = Join-Path $root "mappings"
++function Copy-RenderKitLegacyStorageItem {
++    [CmdletBinding()]
++    param(
++        [Parameter(Mandatory)]
++        [string]$LegacyPath,
++
++        [Parameter(Mandatory)]
++        [string]$DestinationPath
++    )
+ 
+-    if (!(Test-Path $path)) {
+-        New-Item -ItemType Directory -Path $path | Out-Null
++    $legacyFullPath = [System.IO.Path]::GetFullPath($LegacyPath)
++    $destinationFullPath = [System.IO.Path]::GetFullPath($DestinationPath)
++    if (
++        $legacyFullPath.Equals(
++            $destinationFullPath,
++            [System.StringComparison]::Ordinal
++        )
++    ) {
++        return
++    }
++
++    if (
++        (Test-Path -LiteralPath $legacyFullPath) -and
++        -not (Test-Path -LiteralPath $destinationFullPath)
++    ) {
++        $destinationParent = Split-Path -Path $destinationFullPath -Parent
++        New-RenderKitStorageDirectory -Path $destinationParent | Out-Null
++        Copy-Item -LiteralPath $legacyFullPath `
++            -Destination $destinationFullPath `
++            -Recurse `
++            -ErrorAction Stop
++    }
++}
++
++function Get-RenderKitConfigPath {
++    [CmdletBinding()]
++    [OutputType([System.String])]
++    param(
++        [switch]$EnsureParent,
++        [switch]$SkipLegacyMigration
++    )
++
++    $root = Get-RenderKitStorageRoot `
++        -Kind Configuration `
++        -Ensure:$EnsureParent
++    $path = Join-Path -Path $root -ChildPath 'config.json'
++    if (-not $SkipLegacyMigration) {
++        $legacyRoot = Get-RenderKitLegacyRoot
++        if ($legacyRoot) {
++            Copy-RenderKitLegacyStorageItem `
++                -LegacyPath (Join-Path $legacyRoot 'config.json') `
++                -DestinationPath $path
++        }
++    }
++
++    return $path
++}
++
++function Get-RenderKitDevicesPath {
++    [CmdletBinding()]
++    [OutputType([System.String])]
++    param()
++
++    $root = Get-RenderKitStorageRoot -Kind State -Ensure
++    $path = Join-Path -Path $root -ChildPath 'Devices.json'
++    $legacyRoot = Get-RenderKitLegacyRoot
++    if ($legacyRoot) {
++        Copy-RenderKitLegacyStorageItem `
++            -LegacyPath (Join-Path $legacyRoot 'Devices.json') `
++            -DestinationPath $path
+     }
+ 
+     return $path
+ }
+ 
++function Get-RenderKitRoot {
++    [CmdletBinding()]
++    [OutputType([System.String])]
++    param()
++
++    # Compatibility wrapper for existing internal callers. New code should
++    # request a semantic storage root or a specific storage path.
++    return Get-RenderKitStorageRoot -Kind Configuration -Ensure
++}
++
++function Get-RenderKitUserTemplatesRoot {
++    $root = Get-RenderKitStorageRoot -Kind UserData -Ensure
++    $path = Join-Path $root 'templates'
++    $legacyRoot = Get-RenderKitLegacyRoot
++    if ($legacyRoot) {
++        Copy-RenderKitLegacyStorageItem `
++            -LegacyPath (Join-Path $legacyRoot 'templates') `
++            -DestinationPath $path
++    }
++
++    return New-RenderKitStorageDirectory -Path $path
++}
++
++function Get-RenderKitUserMappingsRoot {
++    $root = Get-RenderKitStorageRoot -Kind UserData -Ensure
++    $path = Join-Path $root 'mappings'
++    $legacyRoot = Get-RenderKitLegacyRoot
++    if ($legacyRoot) {
++        Copy-RenderKitLegacyStorageItem `
++            -LegacyPath (Join-Path $legacyRoot 'mappings') `
++            -DestinationPath $path
++    }
++
++    return New-RenderKitStorageDirectory -Path $path
++}
++
+ function Get-RenderKitModuleResourceRoot {
+     [CmdletBinding()]
+     [OutputType([System.String])]
+     param(
+         [Parameter(Mandatory)]
+         [string]$RelativePath
+     )
+ 
+     $candidateBasePaths = New-Object System.Collections.Generic.List[string]
+     if (-not [string]::IsNullOrWhiteSpace([string]$script:RenderKitModuleRoot)) {
+         $candidateBasePaths.Add([string]$script:RenderKitModuleRoot)
+     }
+ 
+     $fallbackBasePath = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+     if (-not $candidateBasePaths.Contains($fallbackBasePath)) {
+         $candidateBasePaths.Add($fallbackBasePath)
+     }
+ 
+     foreach ($basePath in $candidateBasePaths) {
+         $resourceCandidates = @(
+             (Join-Path $basePath $RelativePath),
+             (Join-Path (Join-Path $basePath "src") $RelativePath)
+         )
+ 
+         foreach ($candidatePath in $resourceCandidates) {
+diff --git a/src/Public/Get-RenderKitDeviceWhitelist.ps1 b/src/Public/Get-RenderKitDeviceWhitelist.ps1
+index e4103a2e1618006276307949a46f26f73be729cf..c02e6152ddc78fb1f583dbedd2b6bd8ca40e7dec 100644
+--- a/src/Public/Get-RenderKitDeviceWhitelist.ps1
++++ b/src/Public/Get-RenderKitDeviceWhitelist.ps1
+@@ -1,37 +1,38 @@
+ Register-RenderKitFunction "Get-RenderKitDeviceWhitelist"
+ function Get-RenderKitDeviceWhitelist {
+     <#
+ .SYNOPSIS
+ Returns the configured device whitelist.
+ 
+ .DESCRIPTION
+ Reads the device registry and returns version, volume names, and serial numbers.
+ 
+ .EXAMPLE
+ Get-RenderKitDeviceWhitelist
+-Returns current whitelist metadata from `%APPDATA%\RenderKit\Devices.json`.
++Returns current whitelist metadata from the platform-specific RenderKit state
++directory.
+ 
+ .INPUTS
+ None. You cannot pipe input to this command.
+ 
+ .OUTPUTS
+ System.Management.Automation.PSCustomObject
+ Returns `Path`, `Version`, `VolumeNames`, and `SerialNumbers`.
+ 
+ .LINK
+ Add-RenderKitDeviceWhitelistEntry
+ 
+ .LINK
+ Get-RenderKitDriveCandidate
+ 
+ .LINK
+ https://github.com/djtroi/RenderKit
+ #>
+     [CmdletBinding()]
+     param()
+ 
+     Write-RenderKitLog -Level Debug -Message "Get-RenderKitDeviceWhitelist started."
+ 
+     $registry = Read-RenderKitDeviceRegistry
+ 
+     return [PSCustomObject]@{
+diff --git a/src/Public/Set-ProjectRoot.ps1 b/src/Public/Set-ProjectRoot.ps1
+index df45b1958fe16127aca27403149d6a80f67e53ad..c959e5def2d38efc67d10a541524d6045e01a942 100644
+--- a/src/Public/Set-ProjectRoot.ps1
++++ b/src/Public/Set-ProjectRoot.ps1
+@@ -1,68 +1,76 @@
+ Register-RenderKitFunction "Set-ProjectRoot"
+ function Set-ProjectRoot{
+     <#
+ .SYNOPSIS
+ Sets the default RenderKit project root path.
+ 
+ .DESCRIPTION
+-Validates the given path and stores it in `%APPDATA%\RenderKit\config.json`.
++Validates the given path and stores it in the platform-specific RenderKit
++configuration directory.
+ 
+ .PARAMETER Path
+ Absolute or relative directory path to store as default RenderKit project root.
+ 
+ .EXAMPLE
+ Set-ProjectRoot -Path "D:\Projects"
+ Sets `D:\Projects` as default project root.
+ 
+ .EXAMPLE
+ Set-ProjectRoot -Path ".\Projects"
+ Sets a path relative to the current location.
+ 
+ .INPUTS
+ None. You cannot pipe input to this command.
+ 
+ .OUTPUTS
+ None. The command writes config to disk and prints the selected path.
+ 
+ .LINK
+ New-Project
+ 
+ .LINK
+ Backup-Project
+ 
+ .LINK
+ https://github.com/djtroi/RenderKit
+ #>
+     [CmdletBinding(SupportsShouldProcess)]
+     param (
+         [Parameter(Mandatory)]
+         [string]$Path
+     )
+ 
+     Write-RenderKitLog -Level Debug -Message "Set-ProjectRoot started: Path='$Path'."
+ 
+-    if (!(Test-Path -Path $Path)) {
++    if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
+         Write-RenderKitLog -Level Error -Message "The specified project root path '$Path' does not exist or is not a directory."
+         throw "The specified path '$Path' does not exist or is not a directory."
+     }
+ 
+-    $configDir = Join-Path $env:APPDATA "RenderKit"
+-    if ($PSCmdlet.ShouldProcess($configDir, "Ensure config directory exists")){
+-    if(!(Test-Path $configDir)){
+-        New-Item -ItemType Directory -Path $configDir | Out-Null
+-    }
+-    }
++    $resolvedPath = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).ProviderPath
++    $configPath = Get-RenderKitConfigPath -SkipLegacyMigration
+ 
+-    $configPath = Join-Path $configDir "config.json"
+-    $config = @{}
+-    if(Test-Path $configPath){
+-        $config = Get-Content $configPath -Raw | ConvertFrom-Json
+-    }
+-    $config.DefaultProjectPath = $Path
+-    if ($PSCmdlet.ShouldProcess($configPath, "Write RenderKit Config")){
+-    $config | ConvertTo-Json -Depth 5 | Set-Content $configPath
+-    }
++    if ($PSCmdlet.ShouldProcess($configPath, 'Write RenderKit config')) {
++        $configPath = Get-RenderKitConfigPath -EnsureParent
++        $config = Get-RenderKitConfig
++        if (-not $config) {
++            $config = [PSCustomObject]@{}
++        }
++        if ($config.PSObject.Properties.Name -contains 'DefaultProjectPath') {
++            $config.DefaultProjectPath = $resolvedPath
++        }
++        else {
++            $config | Add-Member `
++                -MemberType NoteProperty `
++                -Name DefaultProjectPath `
++                -Value $resolvedPath
++        }
++
++        $config |
++            ConvertTo-Json -Depth 5 |
++            Set-Content -LiteralPath $configPath -Encoding UTF8
+ 
+-    Write-RenderKitLog -Level Info -Message "Default project root set to '$Path'."
+-    Write-Output "Project root set to: $Path"
++        Write-RenderKitLog -Level Info -Message "Default project root set to '$resolvedPath'."
++        Write-Output "Project root set to: $resolvedPath"
++    }
+ }
+ 
+EOF
+)

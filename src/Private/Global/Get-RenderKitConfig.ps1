@@ -1,7 +1,9 @@
 function Get-RenderKitConfig {
-    $configPath = Join-Path $env:APPDATA "RenderKit\config.json"
-    if (!(Test-Path $configPath)){
+    $configPath = Get-RenderKitConfigPath
+    if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
         return @{}
     }
-    Get-Content $configPath -Raw | ConvertFrom-Json
+
+    Get-Content -LiteralPath $configPath -Raw -ErrorAction Stop |
+        ConvertFrom-Json -ErrorAction Stop
 }

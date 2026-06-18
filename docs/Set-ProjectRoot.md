@@ -32,7 +32,10 @@ Before running the command, inspect its full help with `Get-Help Set-ProjectRoot
 
 ## Output and side effects
 
-The command may write status or result objects to the pipeline. Commands that perform writes can also change RenderKit configuration, templates, mappings, project files, or destination packages according to the selected parameters. Verify the operation using the returned paths and properties.
+The command writes the resolved absolute project root and stores it in the
+platform-specific RenderKit configuration directory. See
+[Cross-Platform User Storage](storage.md) for the location on each operating
+system.
 
 ## Notes and safety
 
@@ -42,5 +45,6 @@ The command may write status or result objects to the pipeline. Commands that pe
 ## Related documentation
 
 - [Installation and updates](installation.md)
+- [Cross-Platform User Storage](storage.md)
 - [Function overview](README.md)
 - [Set-ProjectRoot source code](../src/Public/Set-ProjectRoot.ps1)
