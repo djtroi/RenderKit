@@ -154,12 +154,16 @@ function New-RenderKitNuspec {
         [hashtable]$Manifest,
 
         [Parameter(Mandatory)]
-        [string]$DestinationPath
+        [string]$DestinationPath,
+
+        [switch]$IncludeIcon
     )
 
     $psData = $Manifest.PrivateData.PSData
     $tags = @('PSModule') + @($psData.Tags)
     $tagString = ($tags | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique) -join ' '
+    $iconMetadata = if ($IncludeIcon) { '    <icon>images\RenderKit_Logo.png</icon>' } else { '' }
+    $iconFile = if ($IncludeIcon) { '    <file src="images\RenderKit_Logo.png" target="images" />' } else { '' }
 
     $nuspec = @"
 <?xml version="1.0" encoding="utf-8"?>
@@ -172,7 +176,7 @@ function New-RenderKitNuspec {
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <license type="file">LICENSE</license>
     <projectUrl>$(ConvertTo-RenderKitXmlLiteral -Value ([string]$psData.ProjectUri))</projectUrl>
-    <icon>images\RenderKit_Logo.png</icon>
+$iconMetadata
     <readme>README.md</readme>
     <description>$(ConvertTo-RenderKitXmlLiteral -Value ([string]$Manifest.Description))</description>
     <releaseNotes>$(ConvertTo-RenderKitXmlLiteral -Value ([string]$psData.ReleaseNotes))</releaseNotes>
@@ -186,7 +190,7 @@ function New-RenderKitNuspec {
     <file src="README.md" />
     <file src="CHANGELOG.md" />
     <file src="LICENSE" />
-    <file src="images\RenderKit_Logo.png" target="images" />
+$iconFile
     <file src="src\Resources\**\*.*" target="src\Resources" />
   </files>
 </package>
@@ -207,23 +211,29 @@ $stageRoot = Join-Path -Path $OutputRoot -ChildPath ('staging\{0}\{1}' -f $modul
 $packageRoot = Join-Path -Path $OutputRoot -ChildPath 'packages'
 $tempPackRoot = Join-Path -Path $OutputRoot -ChildPath ('temp\{0}\{1}' -f $moduleName, $moduleVersion)
 $nupkgPath = Join-Path -Path $packageRoot -ChildPath ('{0}.{1}.nupkg' -f $moduleName, $moduleVersion)
+$iconSourcePath = Join-Path -Path $RepositoryRoot -ChildPath 'src\assets\RenderKit_Logo.png'
+$hasPackageIcon = Test-Path -LiteralPath $iconSourcePath -PathType Leaf
 
 New-RenderKitDirectory -Path $stageRoot
 New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
 New-RenderKitDirectory -Path $tempPackRoot
 
-New-Item -ItemType Directory -Path (Join-Path -Path $stageRoot -ChildPath 'images') -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path -Path $stageRoot -ChildPath 'src') -Force | Out-Null
 
 Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'RenderKit.psd1') -Destination (Join-Path -Path $stageRoot -ChildPath 'RenderKit.psd1')
 Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'README.md') -Destination (Join-Path -Path $stageRoot -ChildPath 'README.md')
 Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'CHANGELOG.md') -Destination (Join-Path -Path $stageRoot -ChildPath 'CHANGELOG.md')
 Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'LICENSE') -Destination (Join-Path -Path $stageRoot -ChildPath 'LICENSE')
-#Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'src\assets\RenderKit_Logo.png') -Destination (Join-Path -Path $stageRoot -ChildPath 'images\RenderKit_Logo.png')
 Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'src\Resources') -Destination (Join-Path -Path $stageRoot -ChildPath 'src\Resources') -Recurse
 
+if ($hasPackageIcon) {
+    $imageStagePath = Join-Path -Path $stageRoot -ChildPath 'images'
+    New-Item -ItemType Directory -Path $imageStagePath -Force | Out-Null
+    Copy-Item -LiteralPath $iconSourcePath -Destination (Join-Path -Path $imageStagePath -ChildPath 'RenderKit_Logo.png')
+}
+
 New-RenderKitBundledModule -RepositoryRoot $RepositoryRoot -DestinationPath (Join-Path -Path $stageRoot -ChildPath 'RenderKit.psm1') -Manifest $manifest
-New-RenderKitNuspec -Manifest $manifest -DestinationPath (Join-Path -Path $stageRoot -ChildPath 'RenderKit.nuspec')
+New-RenderKitNuspec -Manifest $manifest -DestinationPath (Join-Path -Path $stageRoot -ChildPath 'RenderKit.nuspec') -IncludeIcon:$hasPackageIcon
 
 $csprojPath = Join-Path -Path $tempPackRoot -ChildPath 'RenderKit.Package.csproj'
 $csprojContent = @'
@@ -244,21 +254,36 @@ if (-not $SkipPackage) {
     $env:DOTNET_NOLOGO = '1'
     $env:DOTNET_ADD_GLOBAL_TOOLS_TO_PATH = '0'
     $env:DOTNET_CLI_HOME = $OutputRoot
+    $dotnetCommand = Get-Command -Name dotnet -CommandType Application -ErrorAction Stop
+    $nuspecPath = Join-Path -Path $stageRoot -ChildPath 'RenderKit.nuspec'
 
     Push-Location -LiteralPath $stageRoot
     try {
-        $packOutput = & 'C:\Program Files\dotnet\dotnet.exe' pack $csprojPath ("/p:NuspecFile={0}" -f (Join-Path -Path $stageRoot -ChildPath 'RenderKit.nuspec')) '--output' $packageRoot '--configuration' 'Release' 2>&1
+        $packOutput = & $dotnetCommand.Source pack $csprojPath ("/p:NuspecFile={0}" -f $nuspecPath) '--output' $packageRoot '--configuration' 'Release' '--verbosity' 'normal' 2>&1
+        $packExitCode = $LASTEXITCODE
+
         foreach ($line in $packOutput) {
-            Write-Output $line
+            Write-Host ([string]$line)
         }
 
-        if ($LASTEXITCODE -ne 0) {
-            throw "dotnet pack failed with exit code $LASTEXITCODE."
+        if ($packExitCode -ne 0) {
+            $packDetails = ($packOutput | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
+            $nuspecContent = Get-Content -LiteralPath $nuspecPath -Raw
+            throw @"
+dotnet pack failed with exit code $packExitCode.
+
+Generated nuspec:
+$nuspecContent
+
+dotnet output:
+$packDetails
+"@
         }
     }
     finally {
         Pop-Location
     }
+
     $packageTestScript = Join-Path -Path $PSScriptRoot -ChildPath 'Test-RenderKitPackage.ps1'
     & $packageTestScript -PackagePath $nupkgPath -ExpectedVersion $moduleVersion | Out-Host
 }

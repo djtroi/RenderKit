@@ -32,8 +32,18 @@ jobs:
           $result = & ./build/Build-RenderKitPackage.ps1 -RepositoryRoot $env:GITHUB_WORKSPACE
           "VERSION=$($result.Version)" >> $env:GITHUB_OUTPUT
 
+      - name: Upload build diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RenderKit-build-diagnostics
+          path: |
+            artifacts/staging/**
+            artifacts/temp/**
+          if-no-files-found: warn
+
       - name: Upload package
-        uses: actions/upload-artifact@main
+        uses: actions/upload-artifact@v4
         with:
           name: RenderKit-validation-package
           path: artifacts/packages/*.nupkg
@@ -49,7 +59,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download package
-        uses: actions/download-artifact@main
+        uses: actions/download-artifact@v4
         with:
           name: RenderKit-validation-package
           path: artifacts/packages
@@ -79,7 +89,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download package
-        uses: actions/download-artifact@main
+        uses: actions/download-artifact@v4
         with:
           name: RenderKit-validation-package
           path: artifacts/packages
