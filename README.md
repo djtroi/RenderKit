@@ -39,7 +39,7 @@ Install-Module -Name RenderKit -Scope CurrentUser
 
 Or with PSResourceGet:
 ```powershell
-Install-Module -Name RenderKit -Scope CurrentUser
+Install-PSResource -Name RenderKit -Scope CurrentUser
 ```
 
 ### 2. Create your project root
@@ -131,42 +131,14 @@ Add-RenderKitMappingToTemplate -TemplateName "client-delivery" -MappingName "cam
 
 ## Architecture
 
-RenderKit uses a command-oriented workflow that combines persistent project settings, reusable templates, source discovery, media classification, transfer verification, and backup reporting:
+- [ADR-001: Project Identity and Local Registry](architecture/ADR-001-project-identity-and-registry.md)
+- [ADR-002: Project Lifecycle State Machine](architecture/ADR-002-project-lifecycle.md)
+- [ADR-003: Domain Events, Durable Jobs, and Automation](architecture/ADR-003-domain-events-and-jobs.md)
+- [ADR-004: Artifact and Business Versioning](architecture/ADR-004-artifact-versioning.md)
+- [ADR-005: Cross-Platform Storage and Path Handling](architecture/ADR-005-cross-platform-storage.md)
+- [ADR-006: Local Engine Security Baseline](architecture/ADR-006-security-baseline.md)
+- [Architecture implementation plan](architecture/phase-implementation-plan.md)
 
-```text
-        ┌──────────────────────┐
-        │   Project Settings   │
-        │   (root + metadata)  │
-        └──────────┬───────────┘
-                   │
-                   ▼
-        ┌──────────────────────┐
-        │      Templates       │
-        │ (folders + mappings) │
-        └──────────┬───────────┘
-                   │
-                   ▼
-        ┌──────────────────────┐
-        │   Source Discovery   │
-        │ (drives + folders)   │
-        └──────────┬───────────┘
-                   │
-                   ▼
-        ┌──────────┴───────────┐
-        │          │           │
-        ▼          ▼           ▼
-  ┌───────────┐ ┌───────────┐ ┌───────────┐
-  │ Scan &    │ │ Classify  │ │ Transfer  │
-  │ Filter    │ │ Media     │ │ + Hash    │
-  └─────┬─────┘ └─────┬─────┘ └─────┬─────┘
-        │             │             │
-        └──────┬──────┴─────────────┘
-               │
-               ▼
-        ┌──────────────────────┐
-        │  Backup & Reporting  │
-        └──────────────────────┘
-```
 ## Documentation
 
 Detailed German-language usage documentation is available in [`docs/README.md`](docs/README.md). It includes:
