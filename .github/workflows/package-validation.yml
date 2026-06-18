@@ -1,0 +1,108 @@
+name: Package Validation
+
+on:
+  push:
+    branches: '*'
+  pull_request:
+    branches: '*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and validate package
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.build.outputs.VERSION }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build package
+        id: build
+        shell: pwsh
+        run: |
+          $result = & ./build/Build-RenderKitPackage.ps1 -RepositoryRoot $env:GITHUB_WORKSPACE
+          "VERSION=$($result.Version)" >> $env:GITHUB_OUTPUT
+
+      - name: Upload package
+        uses: actions/upload-artifact@main
+        with:
+          name: RenderKit-validation-package
+          path: artifacts/packages/*.nupkg
+          if-no-files-found: error
+
+  powershell-7:
+    name: PowerShell 7 / PSResourceGet
+    needs: build
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download package
+        uses: actions/download-artifact@main
+        with:
+          name: RenderKit-validation-package
+          path: artifacts/packages
+
+      - name: Validate archive and module
+        shell: pwsh
+        run: |
+          $package = Get-Item ./artifacts/packages/*.nupkg
+          ./build/Test-RenderKitPackage.ps1 -PackagePath $package.FullName -ExpectedVersion '${{ needs.build.outputs.version }}'
+
+      - name: Validate local PSResourceGet installation
+        shell: pwsh
+        run: |
+          $package = Get-Item ./artifacts/packages/*.nupkg
+          ./build/Test-RenderKitLocalInstall.ps1 `
+            -PackagePath $package.FullName `
+            -Version '${{ needs.build.outputs.version }}' `
+            -PackageManager PSResourceGet
+
+  windows-powershell-5:
+    name: Windows PowerShell 5.1 / PowerShellGet 2.2.5
+    needs: build
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download package
+        uses: actions/download-artifact@main
+        with:
+          name: RenderKit-validation-package
+          path: artifacts/packages
+
+      - name: Install supported legacy package manager
+        shell: powershell
+        run: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+          Install-Module -Name PowerShellGet -RequiredVersion 2.2.5 -Scope CurrentUser -Force -AllowClobber
+
+      - name: Validate archive and module
+        shell: powershell
+        run: |
+          $package = Get-Item ./artifacts/packages/*.nupkg
+          ./build/Test-RenderKitPackage.ps1 -PackagePath $package.FullName -ExpectedVersion '${{ needs.build.outputs.version }}'
+
+      - name: Validate local PowerShellGet installation
+        shell: powershell
+        run: |
+          Import-Module PowerShellGet -RequiredVersion 2.2.5 -Force
+          $package = Get-Item ./artifacts/packages/*.nupkg
+          ./build/Test-RenderKitLocalInstall.ps1 `
+            -PackagePath $package.FullName `
+            -Version '${{ needs.build.outputs.version }}' `
+            -PackageManager PowerShellGet

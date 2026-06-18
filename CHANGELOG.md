@@ -2,7 +2,7 @@
 
 ## 0.3.8 - 2026-06-16
 
-### Patch
+### Patch 
 
 ---
 
@@ -15,6 +15,9 @@
 - Added project export and delivery services for manifest generation, archive creation, checksums, package metadata, and deliverable file selection.
 - Added default deliverable presets for exports, review, and publish outputs in the bundled templates.
 - Added docs Folder with detailed documentation for the public Cmdlets
+- Added package validation that opens every generated `.nupkg`, reads every compressed entry, extracts the package, validates the manifest, imports the packaged module, verifies its exported functions, and records package hash and size information.
+- Added pre-publication CI installation tests for PSResourceGet on PowerShell 7 and PowerShellGet 2.2.5 on Windows PowerShell 5.1.
+- Added post-publication PSGallery smoke tests that download and validate the served archive, record its SHA-256 hash, retry Gallery discovery, and install the exact released version through both tested package-manager paths.
 
 ### Changed
 
@@ -25,6 +28,10 @@
 - Modernized the README with badges, table of contents, quickstart, tutorial placeholders, GitHub-style callouts, architecture overview, and refreshed command examples.
 - Updated release metadata and documentation references for version `0.3.8`.
 - Updated README.md
+- Documented PSResourceGet as the recommended installer and PowerShellGet as a compatibility-tested legacy path without treating a package-manager upgrade as a fix for server hash mismatches.
+- Clarified that Windows PowerShell 5.1 remains a supported RenderKit runtime and that package hash or archive failures occur before the module runtime is loaded.
+- Expanded installation troubleshooting with a Windows PowerShell 5.1 package-manager bootstrap and separate guidance for Gallery hash mismatches and their secondary Central Directory extraction errors.
+- Changed PSGallery publishing to use `Publish-PSResource -Path` on the validated staged module so the official publisher creates the Gallery package instead of uploading the separately generated `dotnet pack` artifact.
 
 ### Fixed
 
