@@ -59,6 +59,47 @@ jobs:
           path: ${{ steps.build.outputs.STAGE_PATH }}
           if-no-files-found: error
 
+          package-compatibility:
+      name: Validate supported installers
+      needs: build
+      runs-on: windows-latest
+
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+
+        - name: Download .nupkg artifact
+          uses: actions/download-artifact@v4
+          with:
+            name: RenderKit-${{ needs.build.outputs.version }}-nupkg
+            path: ./artifacts
+
+        - name: Validate PSResourceGet installation
+          shell: pwsh
+          run: |
+            $package = Get-Item ./artifacts/*.nupkg
+            ./build/Test-RenderKitLocalInstall.ps1 `
+              -PackagePath $package.FullName `
+              -Version '${{ needs.build.outputs.version }}' `
+              -PackageManager PSResourceGet
+
+        - name: Install PowerShellGet 2.2.5
+          shell: powershell
+          run: |
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+            Install-Module -Name PowerShellGet -RequiredVersion 2.2.5 -Scope CurrentUser -Force -AllowClobber
+
+        - name: Validate PowerShellGet installation
+          shell: powershell
+          run: |
+            Import-Module PowerShellGet -RequiredVersion 2.2.5 -Force
+            $package = Get-Item ./artifacts/*.nupkg
+            ./build/Test-RenderKitLocalInstall.ps1 `
+              -PackagePath $package.FullName `
+              -Version '${{ needs.build.outputs.version }}' `
+              -PackageManager PowerShellGet
+
   github-release:
     name: GitHub Release
     needs: build
@@ -153,7 +194,7 @@ jobs:
 
   psgallery:
     name: Publish to PowerShell Gallery
-    needs: [build, github-release]
+    needs: [build, github-release, package-compatibility]
     runs-on: windows-latest
 
     defaults:
@@ -166,12 +207,6 @@ jobs:
         with:
           name: RenderKit-${{ needs.build.outputs.version }}-stage
           path: ./stage
-
-      - name: Download .nupkg
-        uses: actions/download-artifact@main
-        with:
-          name: RenderKit-${{ needs.build.outputs.version }}-nupkg
-          path: ./artifacts
 
       - name: Ensure PSResourceGet and PSGallery are available
         run: |
@@ -198,9 +233,43 @@ jobs:
               throw 'Missing repository secret NUGETAPIKEY.'
           }
 
-          $nupkg = "./artifacts/${{ needs.build.outputs.nupkg_name }}"
+          $manifest = Get-ChildItem -Path ./stage -Filter RenderKit.psd1 -File -Recurse
+          if (@($manifest).Count -ne 1) {
+              throw "Expected exactly one staged RenderKit manifest, found $(@($manifest).Count)."
+          }
 
           Publish-PSResource `
-            -NupkgPath $nupkg `
+            -Path $manifest.Directory.FullName `
             -Repository PSGallery `
             -ApiKey $env:NUGETAPIKEY
+
+  gallery-validation:
+    name: Validate PSGallery installation
+    needs: [build, psgallery]
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate with PSResourceGet
+        shell: pwsh
+        run: |
+          ./build/Test-RenderKitGalleryInstall.ps1 `
+            -Version '${{ needs.build.outputs.version }}' `
+            -PackageManager PSResourceGet
+
+      - name: Install PowerShellGet 2.2.5
+        shell: powershell
+        run: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+          Install-Module -Name PowerShellGet -RequiredVersion 2.2.5 -Scope CurrentUser -Force -AllowClobber
+
+      - name: Validate with PowerShellGet 2.2.5
+        shell: powershell
+        run: |
+          Import-Module PowerShellGet -RequiredVersion 2.2.5 -Force
+          ./build/Test-RenderKitGalleryInstall.ps1 `
+            -Version '${{ needs.build.outputs.version }}' `
+            -PackageManager PowerShellGet

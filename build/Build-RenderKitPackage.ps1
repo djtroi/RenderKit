@@ -259,6 +259,8 @@ if (-not $SkipPackage) {
     finally {
         Pop-Location
     }
+    $packageTestScript = Join-Path -Path $PSScriptRoot -ChildPath 'Test-RenderKitPackage.ps1'
+    & $packageTestScript -PackagePath $nupkgPath -ExpectedVersion $moduleVersion | Out-Host
 }
 
 Remove-Module RenderKit -Force -ErrorAction SilentlyContinue

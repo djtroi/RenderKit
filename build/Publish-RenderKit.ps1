@@ -19,13 +19,12 @@ if (-not (Test-Path -LiteralPath $buildResult.PackagePath)) {
 }
 
 $publishTarget = if ($DestinationPath) { $DestinationPath } else { $Repository }
-$publishParams = @{
-    NupkgPath = $buildResult.PackagePath
-}
+$publishParams = @{}
 
 if ($DestinationPath) {
 }
 else {
+    $publishParams.Path = $buildResult.StagePath
     $publishParams.Repository = $Repository
 }
 
