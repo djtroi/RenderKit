@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.3.8 - 2026-06-16
+
+### Patch
+
+---
+
+### Added
+
+- Added project lifecycle commands for removing, renaming, duplicating, importing, exporting, and sending RenderKit projects.
+- Added `.rkit` manifest-only and `.rkitpkg` self-contained project export/import workflows with archive manifests, resource handling, conflict modes, optional hash verification, and safe relative-path validation.
+- Added deliverable definitions to templates and a `Send-Project` workflow for preparing review or delivery packages as folders, ZIP files, or manifest-only outputs.
+- Added `Add-RenderKitDeliverableToTemplate` for adding or updating reusable deliverable rules in user templates.
+- Added project export and delivery services for manifest generation, archive creation, checksums, package metadata, and deliverable file selection.
+- Added default deliverable presets for exports, review, and publish outputs in the bundled templates.
+
+### Changed
+
+- Updated bundled templates and mappings to schema version `1.1` so they can carry deliverable metadata consistently.
+- Expanded the exported public command surface in the module manifest and module loader to include the new project lifecycle, import/export, deliverable, and sending commands.
+- Improved project metadata handling so project operations can preserve identity where appropriate and create new metadata for duplicated/imported projects.
+- Updated release automation to use current GitHub Actions references, ensure PSResourceGet and PSGallery are available before publishing, and prepare the local PSResourceGet store directory in CI.
+- Modernized the README with badges, table of contents, quickstart, tutorial placeholders, GitHub-style callouts, architecture overview, and refreshed command examples.
+- Updated release metadata and documentation references for version `0.3.8`.
+- Updated README.md
+
+### Fixed
+
+- Fixed exported documentation coverage by listing the newly merged project lifecycle and delivery commands.
+- Fixed release publishing robustness by registering PSGallery idempotently before `Publish-PSResource` runs.
+
+
 ## 0.3.7 - 2026-04-21
 
 ### Patch
