@@ -24,7 +24,7 @@
 ### Prerequisites
 - [ ] RenderKit module code available locally.
 - [ ] At least one valid RenderKit project exists.
-- [ ] `%APPDATA%\RenderKit\Devices.json` is readable/writable.
+- [ ] The platform-specific RenderKit state `Devices.json` is readable/writable.
 - [ ] One source location with mixed file types and nested folders exists.
 - [ ] (Optional but recommended) One removable source and one fixed drive source.
 
@@ -100,7 +100,7 @@ Import-Media
      ```powershell
      Set-ProjectRoot -Path "C:\RK_Projects"
      ```
-  2. Verify `%APPDATA%\RenderKit\config.json`.
+  2. Verify `config.json` in the platform-specific RenderKit configuration directory.
 - [ ] Expected:
   - `DefaultProjectPath` exists and points to configured path.
 

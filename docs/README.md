@@ -10,6 +10,10 @@ This documentation covers installation, updates, and the use of every implemente
 4. Import media: [`Import-Media`](Import-Media.md)
 5. Back up or deliver a project: [`Backup-Project`](Backup-Project.md), [`Send-Project`](Send-Project.md)
 
+RenderKit user storage follows platform conventions. See
+[Cross-Platform User Storage](storage.md) for Windows, Linux, macOS, XDG, and
+portable/test override locations.
+
 ## Project management
 
 - [`Set-ProjectRoot`](Set-ProjectRoot.md) – Configure the default project root

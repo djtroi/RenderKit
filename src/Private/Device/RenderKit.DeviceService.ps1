@@ -1,7 +1,3 @@
-function Get-RenderKitDevicesPath {
-    return Join-Path (Get-RenderKitRoot) "Devices.json"
-}
-
 function New-RenderKitDeviceRegistry {
     return [PSCustomObject]@{
         Version       = "1.0"

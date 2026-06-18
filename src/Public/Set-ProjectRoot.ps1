@@ -5,7 +5,8 @@ function Set-ProjectRoot{
 Sets the default RenderKit project root path.
 
 .DESCRIPTION
-Validates the given path and stores it in `%APPDATA%\RenderKit\config.json`.
+Validates the given path and stores it in the platform-specific RenderKit
+configuration directory.
 
 .PARAMETER Path
 Absolute or relative directory path to store as default RenderKit project root.
@@ -41,28 +42,35 @@ https://github.com/djtroi/RenderKit
 
     Write-RenderKitLog -Level Debug -Message "Set-ProjectRoot started: Path='$Path'."
 
-    if (!(Test-Path -Path $Path)) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
         Write-RenderKitLog -Level Error -Message "The specified project root path '$Path' does not exist or is not a directory."
         throw "The specified path '$Path' does not exist or is not a directory."
     }
 
-    $configDir = Join-Path $env:APPDATA "RenderKit"
-    if ($PSCmdlet.ShouldProcess($configDir, "Ensure config directory exists")){
-    if(!(Test-Path $configDir)){
-        New-Item -ItemType Directory -Path $configDir | Out-Null
-    }
-    }
+    $resolvedPath = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).ProviderPath
+    $configPath = Get-RenderKitConfigPath -SkipLegacyMigration
 
-    $configPath = Join-Path $configDir "config.json"
-    $config = @{}
-    if(Test-Path $configPath){
-        $config = Get-Content $configPath -Raw | ConvertFrom-Json
-    }
-    $config.DefaultProjectPath = $Path
-    if ($PSCmdlet.ShouldProcess($configPath, "Write RenderKit Config")){
-    $config | ConvertTo-Json -Depth 5 | Set-Content $configPath
-    }
+    if ($PSCmdlet.ShouldProcess($configPath, 'Write RenderKit config')) {
+        $configPath = Get-RenderKitConfigPath -EnsureParent
+        $config = Get-RenderKitConfig
+        if (-not $config) {
+            $config = [PSCustomObject]@{}
+        }
+        if ($config.PSObject.Properties.Name -contains 'DefaultProjectPath') {
+            $config.DefaultProjectPath = $resolvedPath
+        }
+        else {
+            $config | Add-Member `
+                -MemberType NoteProperty `
+                -Name DefaultProjectPath `
+                -Value $resolvedPath
+        }
 
-    Write-RenderKitLog -Level Info -Message "Default project root set to '$Path'."
-    Write-Output "Project root set to: $Path"
+        $config |
+            ConvertTo-Json -Depth 5 |
+            Set-Content -LiteralPath $configPath -Encoding UTF8
+
+        Write-RenderKitLog -Level Info -Message "Default project root set to '$resolvedPath'."
+        Write-Output "Project root set to: $resolvedPath"
+    }
 }

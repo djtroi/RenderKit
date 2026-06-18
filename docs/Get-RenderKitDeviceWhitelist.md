@@ -32,7 +32,9 @@ Before running the command, inspect its full help with `Get-Help Get-RenderKitDe
 
 ## Output and side effects
 
-The command may write status or result objects to the pipeline. Commands that perform writes can also change RenderKit configuration, templates, mappings, project files, or destination packages according to the selected parameters. Verify the operation using the returned paths and properties.
+The command returns normalized device-whitelist metadata. The whitelist is
+stored in the platform-specific RenderKit state directory. If no whitelist
+exists, the device service creates an empty one.
 
 ## Notes and safety
 
@@ -42,5 +44,6 @@ The command may write status or result objects to the pipeline. Commands that pe
 ## Related documentation
 
 - [Installation and updates](installation.md)
+- [Cross-Platform User Storage](storage.md)
 - [Function overview](README.md)
 - [Get-RenderKitDeviceWhitelist source code](../src/Public/Get-RenderKitDeviceWhitelist.ps1)

@@ -9,7 +9,8 @@ Reads the device registry and returns version, volume names, and serial numbers.
 
 .EXAMPLE
 Get-RenderKitDeviceWhitelist
-Returns current whitelist metadata from `%APPDATA%\RenderKit\Devices.json`.
+Returns current whitelist metadata from the platform-specific RenderKit state
+directory.
 
 .INPUTS
 None. You cannot pipe input to this command.
