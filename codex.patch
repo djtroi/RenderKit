@@ -1,11 +1,10 @@
- (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
 diff --git a/.github/workflows/cross-platform-storage.yml b/.github/workflows/cross-platform-storage.yml
 new file mode 100644
-index 0000000000000000000000000000000000000000..773cba1fb136999c2e03af56bf2273d532b9be6a
+index 0000000000000000000000000000000000000000..3a5d2f48e95b20c00509f5461bf5c63d5371594c
 --- /dev/null
 +++ b/.github/workflows/cross-platform-storage.yml
 @@ -0,0 +1,69 @@
-+name: Cross-Platform Storage and Persistence
++name: Cross-Platform Foundation
 +
 +on:
 +  push:
@@ -17,8 +16,8 @@ index 0000000000000000000000000000000000000000..773cba1fb136999c2e03af56bf2273d5
 +  contents: read
 +
 +jobs:
-+  storage-tests:
-+    name: Storage / ${{ matrix.os }}
++  foundation-tests:
++    name: Foundation / ${{ matrix.os }}
 +    runs-on: ${{ matrix.os }}
 +    strategy:
 +      fail-fast: false
@@ -38,19 +37,19 @@ index 0000000000000000000000000000000000000000..773cba1fb136999c2e03af56bf2273d5
 +          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
 +          Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force
 +
-+      - name: Run storage tests
++      - name: Run foundation tests
 +        shell: pwsh
 +        run: |
 +          Import-Module Pester -MinimumVersion 5.5.0
 +          $result = Invoke-Pester `
-+            -Path ./Tests/Storage `
++            -Path ./Tests/Storage, ./Tests/Versioning `
 +            -PassThru
 +          if ($result.FailedCount -gt 0) {
-+              throw "$($result.FailedCount) storage test(s) failed."
++              throw "$($result.FailedCount) foundation test(s) failed."
 +          }
 +
 +  windows-powershell-5:
-+    name: Storage / Windows PowerShell 5.1
++    name: Foundation / Windows PowerShell 5.1
 +    runs-on: windows-latest
 +
 +    steps:
@@ -64,15 +63,15 @@ index 0000000000000000000000000000000000000000..773cba1fb136999c2e03af56bf2273d5
 +          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
 +          Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force
 +
-+      - name: Run storage tests
++      - name: Run foundation tests
 +        shell: powershell
 +        run: |
 +          Import-Module Pester -MinimumVersion 5.5.0
 +          $result = Invoke-Pester `
-+            -Path ./Tests/Storage `
++            -Path ./Tests/Storage, ./Tests/Versioning `
 +            -PassThru
 +          if ($result.FailedCount -gt 0) {
-+              throw "$($result.FailedCount) storage test(s) failed."
++              throw "$($result.FailedCount) foundation test(s) failed."
 +          }
 diff --git a/Tests/Import-Media-Drive-Detection-Engine.md b/Tests/Import-Media-Drive-Detection-Engine.md
 index 1d280dc35cc7f7fd95a8037e82ba5d676493a35f..478277137068625e478f85de4f6e1ab81be0e20b 100644
@@ -577,6 +576,72 @@ index 0000000000000000000000000000000000000000..ac58954d723e43a06db960af5b0bc150
 +            )
 +    }
 +}
+diff --git a/Tests/Versioning/RenderKit.ArtifactVersionService.Tests.ps1 b/Tests/Versioning/RenderKit.ArtifactVersionService.Tests.ps1
+new file mode 100644
+index 0000000000000000000000000000000000000000..951df5b167a1a43a2370e2316680f75a6e416ab1
+--- /dev/null
++++ b/Tests/Versioning/RenderKit.ArtifactVersionService.Tests.ps1
+@@ -0,0 +1,60 @@
++$repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
++$script:RenderKitModuleRoot = $repositoryRoot
++. (Join-Path $repositoryRoot 'src/Private/Versioning/RenderKit.ArtifactVersionService.ps1')
++
++Describe 'RenderKit artifact version service' {
++    BeforeEach {
++        $script:RenderKitArtifactVersionCatalog = $null
++        $script:RenderKitArtifactMigrations = @{}
++    }
++
++    It 'loads the central version policy' {
++        $policy = Get-RenderKitArtifactVersionPolicy -ArtifactType Template
++        $policy.Current | Should -Be '1.1'
++        $policy.MinimumReadable | Should -Be '1.0'
++    }
++
++    It 'treats artifact type names case-insensitively' {
++        (Get-RenderKitArtifactVersionPolicy -ArtifactType mapping).ArtifactType |
++            Should -Be 'Mapping'
++    }
++
++    It 'reports current, upgradeable, old, and future versions explicitly' {
++        (Test-RenderKitArtifactCompatibility Template '1.1').Status |
++            Should -Be 'Current'
++        (Test-RenderKitArtifactCompatibility Template '1.0').Status |
++            Should -Be 'UpgradeAvailable'
++        (Test-RenderKitArtifactCompatibility Template '0.9').Status |
++            Should -Be 'UpgradeRequired'
++        (Test-RenderKitArtifactCompatibility Template '2.0').Status |
++            Should -Be 'UnsupportedFutureVersion'
++    }
++
++    It 'rejects malformed and unknown version requests' {
++        { Test-RenderKitArtifactCompatibility Template 'latest' } |
++            Should -Throw
++        { Get-RenderKitArtifactVersionPolicy -ArtifactType Unknown } |
++            Should -Throw
++    }
++
++    It 'finds the shortest registered forward migration path' {
++        Register-RenderKitArtifactMigration Template 1.0 1.1 { param($value) $value }
++        Register-RenderKitArtifactMigration Template 1.1 2.0 { param($value) $value }
++        Register-RenderKitArtifactMigration Template 1.0 2.0 { param($value) $value }
++
++        $path = @(Get-RenderKitArtifactMigrationPath Template 1.0 2.0)
++        $path.Count | Should -Be 1
++        $path[0].FromVersion | Should -Be '1.0'
++        $path[0].ToVersion | Should -Be '2.0'
++    }
++
++    It 'returns no path when no migration chain is registered' {
++        @(Get-RenderKitArtifactMigrationPath Mapping 1.0 1.1).Count |
++            Should -Be 0
++    }
++
++    It 'rejects backward migration registrations' {
++        { Register-RenderKitArtifactMigration Mapping 1.1 1.0 { } } |
++            Should -Throw
++    }
++}
 diff --git a/docs/Get-RenderKitDeviceWhitelist.md b/docs/Get-RenderKitDeviceWhitelist.md
 index adaae232478b8d7591d56bd0f0bf87779741b564..59a0fbb50b7a0290428261257c9cef8b60871354 100644
 --- a/docs/Get-RenderKitDeviceWhitelist.md
@@ -626,10 +691,10 @@ index adaae232478b8d7591d56bd0f0bf87779741b564..59a0fbb50b7a0290428261257c9cef8b
 \ No newline at end of file
 +- [Get-RenderKitDeviceWhitelist source code](../src/Public/Get-RenderKitDeviceWhitelist.ps1)
 diff --git a/docs/README.md b/docs/README.md
-index 1b109286446450a32bb2b83f925f080d07fced6c..31b7ab69f57a07aa5a548a8ebb9c8c6ac3ca8571 100644
+index 1b109286446450a32bb2b83f925f080d07fced6c..c8d2ca696a588b56593befcc10e29f454af91ce1 100644
 --- a/docs/README.md
 +++ b/docs/README.md
-@@ -1,51 +1,55 @@
+@@ -1,51 +1,58 @@
  # RenderKit Documentation
  
  This documentation covers installation, updates, and the use of every implemented public RenderKit function. Each function has its own Markdown file with the same structure: summary, syntax, prerequisites, parameters, example, output, safety guidance, and related links.
@@ -645,6 +710,9 @@ index 1b109286446450a32bb2b83f925f080d07fced6c..31b7ab69f57a07aa5a548a8ebb9c8c6a
 +RenderKit user storage follows platform conventions. See
 +[Cross-Platform User Storage](storage.md) for Windows, Linux, macOS, XDG, and
 +portable/test override locations.
++
++Technical schema compatibility is governed by the
++[Artifact Versioning](artifact-versioning.md) foundation.
 +
  ## Project management
  
@@ -736,6 +804,52 @@ index fd019245ca45af9b42ac50a5c16b4510367bacd2..18a7bbe0f20d248bbde7881a8f5767bc
 -- [Set-ProjectRoot source code](../src/Public/Set-ProjectRoot.ps1)
 \ No newline at end of file
 +- [Set-ProjectRoot source code](../src/Public/Set-ProjectRoot.ps1)
+diff --git a/docs/artifact-versioning.md b/docs/artifact-versioning.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..2a5ccf4c17ed475aaf9dfafd42a5cdb82c2e16ab
+--- /dev/null
++++ b/docs/artifact-versioning.md
+@@ -0,0 +1,40 @@
++# Artifact versioning
++
++RenderKit keeps user-facing project versions separate from technical artifact
++schema versions. The technical versions protect compatibility for persisted
++projects, templates, mappings, registries, and manifests.
++
++## Central policy
++
++`src/Resources/Schemas/ArtifactVersions.psd1` is the authoritative catalog for
++technical artifact versions. Each artifact declares:
++
++- the version written by the current engine;
++- the minimum and maximum readable versions; and
++- the minimum and maximum writable versions.
++
++The catalog is trusted module data. User-controlled files cannot register code
++or modify migration behavior.
++
++## Compatibility outcomes
++
++The internal compatibility service returns one of these explicit states:
++
++- `Current`: the artifact uses the current schema;
++- `UpgradeAvailable`: it is safe to read and write, but a newer schema exists;
++- `UpgradeRequired`: the current operation is not safe without migration; or
++- `UnsupportedFutureVersion`: the artifact was created by a newer engine.
++
++Future versions fail closed. RenderKit does not silently rewrite an artifact
++whose schema it does not understand.
++
++## Migrations
++
++Migration functions are registered only by trusted module code. The migration
++planner uses registered forward-only edges and selects the shortest available
++path. Phase 3 provides registration and planning primitives; automatic
++migration execution and rollout orchestration remain separate, explicit
++features.
++
++The initial runtime integration validates templates and mappings on read and
++before write. No new public cmdlet is introduced by this foundation.
 diff --git a/docs/storage.md b/docs/storage.md
 new file mode 100644
 index 0000000000000000000000000000000000000000..e7db976e4e045704aff7215e77d0ad74e5f76c36
@@ -844,6 +958,78 @@ index 0000000000000000000000000000000000000000..e7db976e4e045704aff7215e77d0ad74
 +- The portable override is treated as an explicit user choice.
 +- Credentials and secrets must not be stored in these general-purpose JSON
 +  files.
+diff --git a/src/Classes/RenderKit.Classes.ps1 b/src/Classes/RenderKit.Classes.ps1
+index 877ed41c5369d3bad9ad6810a1360b02c4b4e7dc..be7b5c9deb5e9ec0346856d8cebd9726f5c12fee 100644
+--- a/src/Classes/RenderKit.Classes.ps1
++++ b/src/Classes/RenderKit.Classes.ps1
+@@ -1,64 +1,65 @@
+ class RenderKitMapping{
+     [string]$Version
+     [string]$Id
+     [System.Collections.Generic.List[RenderKitType]]$Types
+ 
+     RenderKitMapping([string]$id) {
+         $this.Version = "1.1"
+         $this.Id    =   $id
+         $this.Types =   [System.Collections.Generic.List[RenderKitType]]::new()
+     }
+ 
+     [void]AddType([RenderKitType]$type) {
+         $this.Types.Add($type)
+     }
+ }
+ 
+ class RenderKitTemplate {
+     [string]$Version
+     [string]$Name
+     [string[]]$Mappings
+     [System.Collections.Generic.List[object]]$Deliverables
+     [System.Collections.Generic.List[RenderKitFolder]]$Folders
+ 
+     RenderKitTemplate([string]$name) {
++        $this.Version   =   "1.1"
+         $this.Name      =   $name
+         $this.Mappings  =   @()
+         $this.Deliverables = [System.Collections.Generic.List[object]]::new()
+         $this.Folders   =   [System.Collections.Generic.List[RenderKitFolder]]::new()
+     }
+ 
+     [void]AddMapping([string]$mappingId) {
+         $this.Mappings += $mappingId
+     }
+ 
+     [void]AddFolder([RenderKitFolder]$Folder) {
+         $this.Folders.Add($Folder)
+     }
+ }
+ 
+ class RenderKitType {
+     [string]$Name
+     [string[]]$Extensions
+ 
+     RenderKitType([string]$Name, [string[]]$Extensions){
+         $this.Name = $Name
+         $this.Extensions = $Extensions
+     }
+ }
+ 
+ class RenderKitFolder {
+     [string]$Name
+     [string]$Mapping
+     [System.Collections.Generic.List[RenderKitFolder]]$SubFolders
+ 
+     RenderKitFolder([string]$Name, [string]$Mapping) {
+         $this.Name          =   $Name
+         $this.Mapping       =   $Mapping
+         $this.SubFolders    =   [System.Collections.Generic.List[RenderKitFolder]]::new()
+         }
+ 
+         [void]AddSubFolder([RenderKitFolder]$Folder) {
+             $this.SubFolders.Add($Folder)
+         }
+-}
+\ No newline at end of file
++}
 diff --git a/src/Private/Backup/Get-BackupLock.ps1 b/src/Private/Backup/Get-BackupLock.ps1
 index b128dba211608f676d84f426f612cc0cbb3948e1..2066976b65dbb66314a6211b021c93a81ef738ed 100644
 --- a/src/Private/Backup/Get-BackupLock.ps1
@@ -1144,10 +1330,10 @@ index ccd69c94d5dc084a6501ad2f7cff7f005cab7b58..5d673991fe0869b02bab1832fffc14f9
              Metadata        =  $meta
          }
 diff --git a/src/Private/Mapping/RenderKit.MappingService.ps1 b/src/Private/Mapping/RenderKit.MappingService.ps1
-index 3a90aa3d9e858baa92041e508070e84a6ec9ebc2..ae5aa714596a6a44e697d95bec863e64877e4532 100644
+index 3a90aa3d9e858baa92041e508070e84a6ec9ebc2..4306fe85bf82e122c5ada0bab81824da528264d8 100644
 --- a/src/Private/Mapping/RenderKit.MappingService.ps1
 +++ b/src/Private/Mapping/RenderKit.MappingService.ps1
-@@ -1,47 +1,50 @@
+@@ -1,47 +1,81 @@
  function Read-RenderKitMappingFile {
      param(
          [Parameter(Mandatory)]
@@ -1161,11 +1347,17 @@ index 3a90aa3d9e858baa92041e508070e84a6ec9ebc2..ae5aa714596a6a44e697d95bec863e64
  
      try {
 -        return Get-Content $path -Raw | ConvertFrom-Json -ErrorAction Stop
-+        return Read-RenderKitJsonFile -Path $path
++        $mapping = Read-RenderKitJsonFile -Path $path
++        Confirm-RenderKitMapping -Mapping $mapping | Out-Null
++        return $mapping
      }
      catch {
-         Write-RenderKitLog -Level Error -Message "Invalid JSON in mapping '$MappingId'."
-         throw "Invalid JSON in mapping '$MappingId'"
+-        Write-RenderKitLog -Level Error -Message "Invalid JSON in mapping '$MappingId'."
+-        throw "Invalid JSON in mapping '$MappingId'"
++        Write-RenderKitLog -Level Error -Message (
++            "Mapping '$MappingId' could not be read: $($_.Exception.Message)"
++        )
++        throw
      }
  }
  
@@ -1191,6 +1383,7 @@ index 3a90aa3d9e858baa92041e508070e84a6ec9ebc2..ae5aa714596a6a44e697d95bec863e64
          [string]$MappingId
      )
  
++    Confirm-RenderKitMapping -Mapping $Mapping -RequireWritable | Out-Null
      $path = Get-RenderKitUserMappingPath -MappingId $MappingId
  
 -    $Mapping | ConvertTo-Json -Depth 5 |
@@ -1200,6 +1393,32 @@ index 3a90aa3d9e858baa92041e508070e84a6ec9ebc2..ae5aa714596a6a44e697d95bec863e64
 +        -Path $path `
 +        -Depth 5 |
 +        Out-Null
++}
++
++function Confirm-RenderKitMapping {
++    [CmdletBinding()]
++    param(
++        [Parameter(Mandatory)]
++        [object]$Mapping,
++        [switch]$RequireWritable
++    )
++
++    foreach ($property in @('Version', 'Id', 'Types')) {
++        if (-not ($Mapping.PSObject.Properties.Name -contains $property) -or
++            $null -eq $Mapping.$property) {
++            throw "Mapping is missing '$property' property."
++        }
++    }
++
++    $compatibility = Test-RenderKitArtifactCompatibility `
++        -ArtifactType Mapping `
++        -Version ([string]$Mapping.Version)
++    if (-not $compatibility.CanRead -or
++        ($RequireWritable -and -not $compatibility.CanWrite)) {
++        throw "Mapping version '$($Mapping.Version)' is not supported for this operation (status: $($compatibility.Status))."
++    }
++
++    return $compatibility
  }
 diff --git a/src/Private/Project/RenderKit.ProjectDeliveryService.ps1 b/src/Private/Project/RenderKit.ProjectDeliveryService.ps1
 index cb9ec5be3f6c68cdf91cf5275361a5ccc9aa9e7e..44124176f27f1851bf10f9ef2d4d84f6e64daadc 100644
@@ -2556,10 +2775,10 @@ index 79fecd6640d2c9f5f6956d38f4db83627e6a17b4..9d827a42b0ea59e2b31a5348b327b529
 \ No newline at end of file
 +}
 diff --git a/src/Private/Template/RenderKit.TemplateService.ps1 b/src/Private/Template/RenderKit.TemplateService.ps1
-index 6fa02b8bb342e08662c1a973952d9b4ba0e94c4f..fb40a896e5e6b4d3ef627f1e512213187dca946b 100644
+index 6fa02b8bb342e08662c1a973952d9b4ba0e94c4f..f652e09982ef9e89b0c6fcb5af83820b316d5c0d 100644
 --- a/src/Private/Template/RenderKit.TemplateService.ps1
 +++ b/src/Private/Template/RenderKit.TemplateService.ps1
-@@ -69,68 +69,71 @@ function Resolve-ProjectTemplate {
+@@ -69,112 +69,133 @@ function Resolve-ProjectTemplate {
          Where-Object { $_.Name -eq "default" -and $_.Source -eq "system" } |
          Select-Object -First 1
  
@@ -2604,6 +2823,7 @@ index 6fa02b8bb342e08662c1a973952d9b4ba0e94c4f..fb40a896e5e6b4d3ef627f1e51221318
  
 -    $Template | ConvertTo-Json -Depth 20 |
 -        Set-Content -Path $Path -Encoding UTF8
++    Confirm-Template -Template $Template -RequireWritable | Out-Null
 +    Write-RenderKitJsonFileAtomic `
 +        -Value $Template `
 +        -Path $Path `
@@ -2620,7 +2840,8 @@ index 6fa02b8bb342e08662c1a973952d9b4ba0e94c4f..fb40a896e5e6b4d3ef627f1e51221318
      $resolved = Resolve-ProjectTemplate -TemplateName $TemplateName
  
      $json = Read-RenderKitTemplateFile -Path $resolved.Path
-     Confirm-Template -Template $json
+-    Confirm-Template -Template $json
++    Confirm-Template -Template $json | Out-Null
  
      return [PSCustomObject]@{
          Name         = $resolved.Name
@@ -2634,6 +2855,296 @@ index 6fa02b8bb342e08662c1a973952d9b4ba0e94c4f..fb40a896e5e6b4d3ef627f1e51221318
  
  function Confirm-Template {
      param(
+         [Parameter(Mandatory)]
+-        $Template
++        $Template,
++
++        [switch]$RequireWritable
+     )
+ 
+-    if (!($Template.Version)) {
+-        Write-RenderKitLog -Level Error -Message "Template is missing 'Version' property"
++    if (-not ($Template.PSObject.Properties.Name -contains 'Version') -or
++        [string]::IsNullOrWhiteSpace([string]$Template.Version)) {
++        throw "Template is missing 'Version' property."
+     }
+ 
+-    if (!($Template.Name)) {
+-        Write-RenderKitLog -Level Error -Message "Template is missing 'Name' property."
++    if (-not ($Template.PSObject.Properties.Name -contains 'Name') -or
++        [string]::IsNullOrWhiteSpace([string]$Template.Name)) {
++        throw "Template is missing 'Name' property."
+     }
+-    if (!($Template.Folders)) {
+-        Write-RenderKitLog -Level Error -Message "Template is Missing 'Folders' property."
++    if (-not ($Template.PSObject.Properties.Name -contains 'Folders') -or
++        $null -eq $Template.Folders) {
++        throw "Template is missing 'Folders' property."
+     }
+ 
+-    if ($Template.Version -notin @("1.0", "1.1")) { #TODO Implement Logic, that reads from .psd1 the actual schema version
+-        Write-RenderKitLog -Level Warning -Message "Unsupported Template Version '$($Template.Version)'."
++    $compatibility = Test-RenderKitArtifactCompatibility `
++        -ArtifactType Template `
++        -Version ([string]$Template.Version)
++    if (-not $compatibility.CanRead -or
++        ($RequireWritable -and -not $compatibility.CanWrite)) {
++        throw "Template version '$($Template.Version)' is not supported for this operation (status: $($compatibility.Status))."
++    }
++    if ($compatibility.Status -eq 'UpgradeAvailable') {
++        Write-RenderKitLog -Level Warning -Message (
++            "Template version '$($Template.Version)' is supported but version " +
++            "'$($compatibility.CurrentVersion)' is current."
++        )
+     }
+ 
+     foreach ($folder in $Template.Folders){
+         Test-FolderNode $folder
+     }
++
++    return $compatibility
+ }
+ 
+ function Test-FolderNode {
+     param(
+         [Parameter(Mandatory)]
+         $Folder
+     )
+ 
+     if (!($Folder.Name)) {
+         Write-RenderKitLog -Level Error -Message "Folder node missing 'Name' Property"
+     }
+ 
+     if (!($Folder.PSObject.Properties.Name -contains "SubFolders")) {
+         Write-RenderKitLog -Message "Folder '$($Folder.Name)' missing 'SubFolders' property"
+     }
+ 
+     if($Folder.SubFolders) {
+         foreach ($sub in $Folder.SubFolders) {
+             Test-FolderNode $sub
+         }
+     }
+ }
+diff --git a/src/Private/Versioning/RenderKit.ArtifactVersionService.ps1 b/src/Private/Versioning/RenderKit.ArtifactVersionService.ps1
+new file mode 100644
+index 0000000000000000000000000000000000000000..bd1179f7790569111baefd8fe983a7bb29df7b26
+--- /dev/null
++++ b/src/Private/Versioning/RenderKit.ArtifactVersionService.ps1
+@@ -0,0 +1,214 @@
++function Get-RenderKitArtifactVersionCatalog {
++    [CmdletBinding()]
++    param()
++
++    if ($script:RenderKitArtifactVersionCatalog) {
++        return $script:RenderKitArtifactVersionCatalog
++    }
++
++    $path = Join-Path -Path $script:RenderKitModuleRoot `
++        -ChildPath 'src/Resources/Schemas/ArtifactVersions.psd1'
++    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
++        throw "RenderKit artifact version catalog was not found at '$path'."
++    }
++
++    $catalog = Import-PowerShellDataFile -LiteralPath $path
++    if (-not $catalog.Artifacts -or -not $catalog.CatalogVersion) {
++        throw "RenderKit artifact version catalog '$path' is invalid."
++    }
++
++    $script:RenderKitArtifactVersionCatalog = $catalog
++    return $catalog
++}
++
++function ConvertTo-RenderKitArtifactVersion {
++    [CmdletBinding()]
++    param(
++        [Parameter(Mandatory)]
++        [AllowEmptyString()]
++        [string]$Version
++    )
++
++    $parsed = $null
++    if ([string]::IsNullOrWhiteSpace($Version) -or
++        -not [version]::TryParse($Version, [ref]$parsed)) {
++        throw "Artifact version '$Version' is not a valid numeric version."
++    }
++
++    return $parsed
++}
++
++function Get-RenderKitArtifactVersionPolicy {
++    [CmdletBinding()]
++    param(
++        [Parameter(Mandatory)]
++        [string]$ArtifactType
++    )
++
++    $catalog = Get-RenderKitArtifactVersionCatalog
++    $key = @($catalog.Artifacts.Keys |
++        Where-Object { $_ -ieq $ArtifactType } |
++        Select-Object -First 1)
++    if ($key.Count -eq 0) {
++        throw "Unknown RenderKit artifact type '$ArtifactType'."
++    }
++
++    $policy = $catalog.Artifacts[$key[0]]
++    foreach ($property in @(
++        'Current',
++        'MinimumReadable',
++        'MaximumReadable',
++        'MinimumWritable',
++        'MaximumWritable'
++    )) {
++        ConvertTo-RenderKitArtifactVersion -Version $policy[$property] |
++            Out-Null
++    }
++
++    return [PSCustomObject]@{
++        ArtifactType    = [string]$key[0]
++        Current         = [string]$policy.Current
++        MinimumReadable = [string]$policy.MinimumReadable
++        MaximumReadable = [string]$policy.MaximumReadable
++        MinimumWritable = [string]$policy.MinimumWritable
++        MaximumWritable = [string]$policy.MaximumWritable
++    }
++}
++
++function Test-RenderKitArtifactCompatibility {
++    [CmdletBinding()]
++    param(
++        [Parameter(Mandatory)]
++        [string]$ArtifactType,
++
++        [Parameter(Mandatory)]
++        [string]$Version
++    )
++
++    $policy = Get-RenderKitArtifactVersionPolicy -ArtifactType $ArtifactType
++    $candidate = ConvertTo-RenderKitArtifactVersion -Version $Version
++    $current = ConvertTo-RenderKitArtifactVersion -Version $policy.Current
++    $minimumReadable = ConvertTo-RenderKitArtifactVersion `
++        -Version $policy.MinimumReadable
++    $maximumReadable = ConvertTo-RenderKitArtifactVersion `
++        -Version $policy.MaximumReadable
++    $minimumWritable = ConvertTo-RenderKitArtifactVersion `
++        -Version $policy.MinimumWritable
++    $maximumWritable = ConvertTo-RenderKitArtifactVersion `
++        -Version $policy.MaximumWritable
++
++    $canRead = $candidate -ge $minimumReadable -and
++        $candidate -le $maximumReadable
++    $canWrite = $candidate -ge $minimumWritable -and
++        $candidate -le $maximumWritable
++
++    if ($candidate -gt $maximumReadable) {
++        $status = 'UnsupportedFutureVersion'
++    }
++    elseif (-not $canRead -or -not $canWrite) {
++        $status = 'UpgradeRequired'
++    }
++    elseif ($candidate -lt $current) {
++        $status = 'UpgradeAvailable'
++    }
++    else {
++        $status = 'Current'
++    }
++
++    return [PSCustomObject]@{
++        ArtifactType      = $policy.ArtifactType
++        RequestedVersion  = $candidate.ToString()
++        CurrentVersion    = $current.ToString()
++        Status            = $status
++        CanRead           = $canRead
++        CanWrite          = $canWrite
++        MigrationRequired = -not $canWrite
++        IsFutureVersion   = $candidate -gt $current
++    }
++}
++
++function Register-RenderKitArtifactMigration {
++    [CmdletBinding()]
++    param(
++        [Parameter(Mandatory)]
++        [string]$ArtifactType,
++        [Parameter(Mandatory)]
++        [string]$FromVersion,
++        [Parameter(Mandatory)]
++        [string]$ToVersion,
++        [Parameter(Mandatory)]
++        [scriptblock]$Migration
++    )
++
++    $policy = Get-RenderKitArtifactVersionPolicy -ArtifactType $ArtifactType
++    $from = (ConvertTo-RenderKitArtifactVersion $FromVersion).ToString()
++    $to = (ConvertTo-RenderKitArtifactVersion $ToVersion).ToString()
++    if ([version]$to -le [version]$from) {
++        throw 'Artifact migrations must move to a newer version.'
++    }
++
++    if (-not $script:RenderKitArtifactMigrations) {
++        $script:RenderKitArtifactMigrations = @{}
++    }
++    if (-not $script:RenderKitArtifactMigrations.ContainsKey($policy.ArtifactType)) {
++        $script:RenderKitArtifactMigrations[$policy.ArtifactType] = @{}
++    }
++
++    $key = "$from->$to"
++    $script:RenderKitArtifactMigrations[$policy.ArtifactType][$key] = @{
++        FromVersion = $from
++        ToVersion = $to
++        Migration = $Migration
++    }
++}
++
++function Get-RenderKitArtifactMigrationPath {
++    [CmdletBinding()]
++    param(
++        [Parameter(Mandatory)]
++        [string]$ArtifactType,
++        [Parameter(Mandatory)]
++        [string]$FromVersion,
++        [string]$ToVersion
++    )
++
++    $policy = Get-RenderKitArtifactVersionPolicy -ArtifactType $ArtifactType
++    $from = (ConvertTo-RenderKitArtifactVersion $FromVersion).ToString()
++    if ([string]::IsNullOrWhiteSpace($ToVersion)) {
++        $ToVersion = $policy.Current
++    }
++    $to = (ConvertTo-RenderKitArtifactVersion $ToVersion).ToString()
++    if ($from -eq $to) {
++        return @()
++    }
++
++    $migrations = @{}
++    if ($script:RenderKitArtifactMigrations -and
++        $script:RenderKitArtifactMigrations.ContainsKey($policy.ArtifactType)) {
++        $migrations = $script:RenderKitArtifactMigrations[$policy.ArtifactType]
++    }
++
++    $queue = [System.Collections.Queue]::new()
++    $queue.Enqueue(@{ Version = $from; Path = @() })
++    $visited = @{ $from = $true }
++    while ($queue.Count -gt 0) {
++        $item = $queue.Dequeue()
++        foreach ($migration in $migrations.Values |
++            Where-Object { $_.FromVersion -eq $item.Version } |
++            Sort-Object { [version]$_.ToVersion }) {
++            $path = @($item.Path) + @([PSCustomObject]$migration)
++            if ($migration.ToVersion -eq $to) {
++                return $path
++            }
++            if (-not $visited.ContainsKey($migration.ToVersion)) {
++                $visited[$migration.ToVersion] = $true
++                $queue.Enqueue(@{
++                    Version = $migration.ToVersion
++                    Path = $path
++                })
++            }
++        }
++    }
++
++    return @()
++}
 diff --git a/src/Public/Get-RenderKitDeviceWhitelist.ps1 b/src/Public/Get-RenderKitDeviceWhitelist.ps1
 index e4103a2e1618006276307949a46f26f73be729cf..c02e6152ddc78fb1f583dbedd2b6bd8ca40e7dec 100644
 --- a/src/Public/Get-RenderKitDeviceWhitelist.ps1
@@ -2781,6 +3292,63 @@ index df45b1958fe16127aca27403149d6a80f67e53ad..ddecddde97c43aec66d7e8679e494035
 +        Write-Output "Project root set to: $resolvedPath"
 +    }
  }
- 
-EOF
-)
+diff --git a/src/Resources/Schemas/ArtifactVersions.psd1 b/src/Resources/Schemas/ArtifactVersions.psd1
+new file mode 100644
+index 0000000000000000000000000000000000000000..cc570b3481affa2c2432f5f4b0be9a1c4e0a7c74
+--- /dev/null
++++ b/src/Resources/Schemas/ArtifactVersions.psd1
+@@ -0,0 +1,54 @@
++@{
++    CatalogVersion = '1.0'
++    Artifacts = @{
++        Project = @{
++            Current = '1.0'
++            MinimumReadable = '1.0'
++            MaximumReadable = '1.0'
++            MinimumWritable = '1.0'
++            MaximumWritable = '1.0'
++        }
++        Template = @{
++            Current = '1.1'
++            MinimumReadable = '1.0'
++            MaximumReadable = '1.1'
++            MinimumWritable = '1.0'
++            MaximumWritable = '1.1'
++        }
++        Mapping = @{
++            Current = '1.1'
++            MinimumReadable = '1.0'
++            MaximumReadable = '1.1'
++            MinimumWritable = '1.0'
++            MaximumWritable = '1.1'
++        }
++        DeviceRegistry = @{
++            Current = '1.0'
++            MinimumReadable = '1.0'
++            MaximumReadable = '1.0'
++            MinimumWritable = '1.0'
++            MaximumWritable = '1.0'
++        }
++        BackupManifest = @{
++            Current = '1.1'
++            MinimumReadable = '1.0'
++            MaximumReadable = '1.1'
++            MinimumWritable = '1.1'
++            MaximumWritable = '1.1'
++        }
++        ProjectManifest = @{
++            Current = '1.0'
++            MinimumReadable = '1.0'
++            MaximumReadable = '1.0'
++            MinimumWritable = '1.0'
++            MaximumWritable = '1.0'
++        }
++        DeliveryManifest = @{
++            Current = '1.0'
++            MinimumReadable = '1.0'
++            MaximumReadable = '1.0'
++            MinimumWritable = '1.0'
++            MaximumWritable = '1.0'
++        }
++    }
++}

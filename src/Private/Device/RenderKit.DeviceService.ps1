@@ -17,7 +17,7 @@ function Read-RenderKitDeviceRegistry {
     }
 
     try {
-        $registry = Get-Content -Path $path -Raw | ConvertFrom-Json -ErrorAction Stop
+        $registry = Read-RenderKitJsonFile -Path $path
     }
     catch {
         Write-RenderKitLog -Level Error -Message "Invalid JSON in device whitelist '$path'."

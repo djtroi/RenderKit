@@ -13,6 +13,8 @@ This documentation covers installation, updates, and the use of every implemente
 RenderKit user storage follows platform conventions. See
 [Cross-Platform User Storage](storage.md) for Windows, Linux, macOS, XDG, and
 portable/test override locations.
+Technical schema compatibility is governed by the
+[Artifact Versioning](artifact-versioning.md) foundation.
 
 ## Project management
 

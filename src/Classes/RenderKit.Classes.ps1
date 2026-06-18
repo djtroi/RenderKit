@@ -22,6 +22,7 @@ class RenderKitTemplate {
     [System.Collections.Generic.List[RenderKitFolder]]$Folders
 
     RenderKitTemplate([string]$name) {
+        $this.Version   =   "1.1"
         $this.Name      =   $name
         $this.Mappings  =   @()
         $this.Deliverables = [System.Collections.Generic.List[object]]::new()

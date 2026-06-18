@@ -1,9 +1,13 @@
-function Get-RenderKitConfig {
-    $configPath = Get-RenderKitConfigPath
-    if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
-        return @{}
-    }
+ function Get-RenderKitConfig {
 
-    Get-Content -LiteralPath $configPath -Raw -ErrorAction Stop |
-        ConvertFrom-Json -ErrorAction Stop
+    $configPath = Get-RenderKitConfigPath
+    $config = Read-RenderKitJsonFile `
+        -Path $configPath `
+        -AllowMissing
+    if ($null -eq $config) {
+         return @{}
+     }
+
+
+    return $config
 }
