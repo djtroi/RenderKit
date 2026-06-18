@@ -219,7 +219,7 @@ Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'RenderKit.ps
 Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'README.md') -Destination (Join-Path -Path $stageRoot -ChildPath 'README.md')
 Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'CHANGELOG.md') -Destination (Join-Path -Path $stageRoot -ChildPath 'CHANGELOG.md')
 Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'LICENSE') -Destination (Join-Path -Path $stageRoot -ChildPath 'LICENSE')
-Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'src\assets\RenderKit_Logo.png') -Destination (Join-Path -Path $stageRoot -ChildPath 'images\RenderKit_Logo.png')
+#Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'src\assets\RenderKit_Logo.png') -Destination (Join-Path -Path $stageRoot -ChildPath 'images\RenderKit_Logo.png')
 Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'src\Resources') -Destination (Join-Path -Path $stageRoot -ChildPath 'src\Resources') -Recurse
 
 New-RenderKitBundledModule -RepositoryRoot $RepositoryRoot -DestinationPath (Join-Path -Path $stageRoot -ChildPath 'RenderKit.psm1') -Manifest $manifest
