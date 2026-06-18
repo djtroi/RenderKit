@@ -13,6 +13,7 @@
 - [Why RenderKit Exists](#why-renderkit-exists)
 - [Core Features](#core-features)
 - [Architecture](#architecture)
+- [Documentation](#documentation)
 - [Public Functions](#public-functions)
 - [Maintainer Release Workflow](#maintainer-release-workflow)
 - [Roadmap](#roadmap)
@@ -166,6 +167,15 @@ RenderKit uses a command-oriented workflow that combines persistent project sett
         │  Backup & Reporting  │
         └──────────────────────┘
 ```
+## Documentation
+
+Detailed German-language usage documentation is available in [`docs/README.md`](docs/README.md). It includes:
+
+- installation and update instructions for PSResourceGet and PowerShellGet;
+- a guided first-run workflow;
+- one consistently structured Markdown reference page per implemented public function;
+- parameter, safety, output, and usage guidance for every documented command.
+
 ## Public Functions
 
 
