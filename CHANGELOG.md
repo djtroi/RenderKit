@@ -14,6 +14,7 @@
 - Added `Add-RenderKitDeliverableToTemplate` for adding or updating reusable deliverable rules in user templates.
 - Added project export and delivery services for manifest generation, archive creation, checksums, package metadata, and deliverable file selection.
 - Added default deliverable presets for exports, review, and publish outputs in the bundled templates.
+- Added docs Folder with detailed documentation for the public Cmdlets
 
 ### Changed
 
