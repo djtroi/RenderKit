@@ -8,7 +8,7 @@ function Get-RenderKitProjectTemplateContext {
         return Get-ProjectTemplate
     }
 
-    $metadata = Get-Content -LiteralPath $metadataPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+    $metadata = Read-RenderKitJsonFile -Path $metadataPath
     if ($metadata.template -and $metadata.template.name) {
         return Get-ProjectTemplate -TemplateName ([string]$metadata.template.name)
     }
@@ -246,7 +246,11 @@ function Write-RenderKitDeliverableManifest {
     )
     $directory = Split-Path -Path $Path -Parent
     if (-not [string]::IsNullOrWhiteSpace($directory) -and -not (Test-Path -LiteralPath $directory -PathType Container)) { New-Item -ItemType Directory -Path $directory -Force | Out-Null }
-    $Manifest | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $Path -Encoding UTF8
+    Write-RenderKitJsonFileAtomic `
+        -Value $Manifest `
+        -Path $Path `
+        -Depth 20 |
+        Out-Null
 }
 
 function Write-RenderKitDeliverableChecksumFile {

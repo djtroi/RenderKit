@@ -31,9 +31,11 @@ function Save-BackupManifest {
         }
     }
 
-    $Manifest |
-        ConvertTo-Json -Depth 10 |
-        Set-Content -Path $targetPath -Encoding UTF8
+    Write-RenderKitJsonFileAtomic `
+        -Value $Manifest `
+        -Path $targetPath `
+        -Depth 10 |
+        Out-Null
 
     Write-RenderKitLog -Level Info -Message "Backup manifest written to '$targetPath'."
 

@@ -214,9 +214,11 @@ function Write-RenderKitProjectMetadata{
     }
     $jsonPath = Get-RenderKitProjectMetadataPath -ProjectRoot $ProjectRoot
 
-    $Metadata |
-    ConvertTo-Json -Depth 6 |
-    Set-Content -Path $jsonPath -Encoding UTF8
+    Write-RenderKitJsonFileAtomic `
+        -Value $Metadata `
+        -Path $jsonPath `
+        -Depth 6 |
+        Out-Null
 }
 
 function Remove-RenderKitProjectDirectory {
@@ -290,7 +292,7 @@ function Update-RenderKitProjectName {
     }
 
     try {
-        $metadata = Get-Content -LiteralPath $metadataPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+        $metadata = Read-RenderKitJsonFile -Path $metadataPath
     }
     catch {
         Write-RenderKitLog -Level Error -Message "Invalid project metadata JSON in '$metadataPath'."
@@ -308,7 +310,11 @@ function Update-RenderKitProjectName {
     }
 
     $metadata.project.name = $NewProjectName
-    $metadata | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $metadataPath -Encoding UTF8
+    Write-RenderKitJsonFileAtomic `
+        -Value $metadata `
+        -Path $metadataPath `
+        -Depth 6 |
+        Out-Null
 
     return $metadata
 }
@@ -365,7 +371,7 @@ function Set-RenderKitProjectCopyMetadata {
     }
 
     try {
-        $metadata = Get-Content -LiteralPath $metadataPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+        $metadata = Read-RenderKitJsonFile -Path $metadataPath
     }
     catch {
         Write-RenderKitLog -Level Error -Message "Invalid project metadata JSON in '$metadataPath'."
@@ -388,7 +394,11 @@ function Set-RenderKitProjectCopyMetadata {
     $metadata.project.createdBy = $env:USERNAME
     $metadata.project.toolVersion = $script:RenderKitModuleVersion
 
-    $metadata | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $metadataPath -Encoding UTF8
+    Write-RenderKitJsonFileAtomic `
+        -Value $metadata `
+        -Path $metadataPath `
+        -Depth 6 |
+        Out-Null
 
     return $metadata
 }

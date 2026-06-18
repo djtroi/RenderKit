@@ -26,7 +26,7 @@ function Get-RenderKitProject{
         if (!(Test-Path $candidate)) { continue }
         try {
             $metaPath = Get-RenderKitProjectMetadataPath -ProjectRoot $candidate
-            $meta = Get-Content $metaPath -Raw | ConvertFrom-Json
+            $meta = Read-RenderKitJsonFile -Path $metaPath
         }
 
         catch {
