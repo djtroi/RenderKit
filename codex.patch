@@ -1,11 +1,11 @@
  (cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF' 
 diff --git a/.github/workflows/cross-platform-storage.yml b/.github/workflows/cross-platform-storage.yml
 new file mode 100644
-index 0000000000000000000000000000000000000000..5fc856f889139fbce2ca4d7d953f7b977c201bbf
+index 0000000000000000000000000000000000000000..773cba1fb136999c2e03af56bf2273d532b9be6a
 --- /dev/null
 +++ b/.github/workflows/cross-platform-storage.yml
 @@ -0,0 +1,69 @@
-+name: Cross-Platform Storage
++name: Cross-Platform Storage and Persistence
 +
 +on:
 +  push:
@@ -43,7 +43,7 @@ index 0000000000000000000000000000000000000000..5fc856f889139fbce2ca4d7d953f7b97
 +        run: |
 +          Import-Module Pester -MinimumVersion 5.5.0
 +          $result = Invoke-Pester `
-+            -Path ./Tests/Storage/RenderKit.StorageService.Tests.ps1 `
++            -Path ./Tests/Storage `
 +            -PassThru
 +          if ($result.FailedCount -gt 0) {
 +              throw "$($result.FailedCount) storage test(s) failed."
@@ -69,7 +69,7 @@ index 0000000000000000000000000000000000000000..5fc856f889139fbce2ca4d7d953f7b97
 +        run: |
 +          Import-Module Pester -MinimumVersion 5.5.0
 +          $result = Invoke-Pester `
-+            -Path ./Tests/Storage/RenderKit.StorageService.Tests.ps1 `
++            -Path ./Tests/Storage `
 +            -PassThru
 +          if ($result.FailedCount -gt 0) {
 +              throw "$($result.FailedCount) storage test(s) failed."
@@ -184,6 +184,187 @@ index 1d280dc35cc7f7fd95a8037e82ba5d676493a35f..478277137068625e478f85de4f6e1ab8
    2. At prompt `Include fixed drives? [Y/N]` answer `N`.
  - [ ] Expected:
    - Graceful exit.
+diff --git a/Tests/Storage/RenderKit.PersistenceService.Tests.ps1 b/Tests/Storage/RenderKit.PersistenceService.Tests.ps1
+new file mode 100644
+index 0000000000000000000000000000000000000000..2f3a4db1750d3387726b92ef6d9a30d5755cdf1a
+--- /dev/null
++++ b/Tests/Storage/RenderKit.PersistenceService.Tests.ps1
+@@ -0,0 +1,175 @@
++BeforeAll {
++    $repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
++    . (Join-Path $repositoryRoot `
++        'src/Private/Storage/RenderKit.StorageService.ps1')
++    . (Join-Path $repositoryRoot `
++        'src/Private/Storage/RenderKit.PersistenceService.ps1')
++}
++
++Describe 'RenderKit JSON persistence service' {
++    BeforeEach {
++        $script:testRoot = Join-Path $TestDrive 'persistence'
++        New-Item -ItemType Directory -Path $script:testRoot -Force |
++            Out-Null
++        $script:jsonPath = Join-Path $script:testRoot 'state.json'
++    }
++
++    It 'writes UTF-8 JSON and reads it back' {
++        Write-RenderKitJsonFileAtomic `
++            -Value ([PSCustomObject]@{ Name = 'RenderKit'; Version = 1 }) `
++            -Path $script:jsonPath |
++            Out-Null
++
++        $value = Read-RenderKitJsonFile -Path $script:jsonPath
++        $value.Name | Should -Be 'RenderKit'
++        $value.Version | Should -Be 1
++        $bytes = [System.IO.File]::ReadAllBytes($script:jsonPath)
++        $bytes[0] | Should -Be 0x7B
++    }
++
++    It 'preserves the previous valid file as a backup' {
++        Write-RenderKitJsonFileAtomic `
++            -Value ([PSCustomObject]@{ Version = 1 }) `
++            -Path $script:jsonPath |
++            Out-Null
++        Write-RenderKitJsonFileAtomic `
++            -Value ([PSCustomObject]@{ Version = 2 }) `
++            -Path $script:jsonPath |
++            Out-Null
++
++        (Read-RenderKitJsonFile -Path $script:jsonPath).Version |
++            Should -Be 2
++        (Read-RenderKitJsonFile -Path "$script:jsonPath.bak").Version |
++            Should -Be 1
++    }
++
++    It 'does not replace the current file when validation fails' {
++        Write-RenderKitJsonFileAtomic `
++            -Value ([PSCustomObject]@{ Version = 1 }) `
++            -Path $script:jsonPath |
++            Out-Null
++
++        {
++            Write-RenderKitJsonFileAtomic `
++                -Value ([PSCustomObject]@{ Version = 2 }) `
++                -Path $script:jsonPath `
++                -Validator {
++                    param($value)
++                    return $value.Version -lt 2
++                }
++        } | Should -Throw
++
++        (Read-RenderKitJsonFile -Path $script:jsonPath).Version |
++            Should -Be 1
++        @(Get-ChildItem -LiteralPath $script:testRoot -Filter '*.tmp.*') |
++            Should -HaveCount 0
++    }
++
++    It 'times out while another handle owns the file lock' {
++        $firstLock = Enter-RenderKitFileLock -Path $script:jsonPath
++        try {
++            {
++                Enter-RenderKitFileLock `
++                    -Path $script:jsonPath `
++                    -TimeoutMilliseconds 100 `
++                    -RetryMilliseconds 20
++            } | Should -Throw '*Timed out*'
++        }
++        finally {
++            Exit-RenderKitFileLock -LockHandle $firstLock
++        }
++    }
++
++    It 'updates the latest value inside one locked transaction' {
++        Write-RenderKitJsonFileAtomic `
++            -Value ([PSCustomObject]@{ Counter = 1 }) `
++            -Path $script:jsonPath |
++            Out-Null
++
++        $updated = Invoke-RenderKitJsonFileTransaction `
++            -Path $script:jsonPath `
++            -DefaultValue ([PSCustomObject]@{ Counter = 0 }) `
++            -Update {
++                param($current)
++                $current.Counter++
++                return $current
++            }
++
++        $updated.Counter | Should -Be 2
++        (Read-RenderKitJsonFile -Path $script:jsonPath).Counter |
++            Should -Be 2
++    }
++
++    It 'creates a missing file from the transaction default value' {
++        $updated = Invoke-RenderKitJsonFileTransaction `
++            -Path $script:jsonPath `
++            -DefaultValue ([PSCustomObject]@{ Counter = 0 }) `
++            -Update {
++                param($current)
++                $current.Counter = 1
++                return $current
++            }
++
++        $updated.Counter | Should -Be 1
++        Test-Path -LiteralPath $script:jsonPath -PathType Leaf |
++            Should -BeTrue
++    }
++
++    It 'restores the last backup without replacing the backup' {
++        Write-RenderKitJsonFileAtomic `
++            -Value ([PSCustomObject]@{ Version = 1 }) `
++            -Path $script:jsonPath |
++            Out-Null
++        Write-RenderKitJsonFileAtomic `
++            -Value ([PSCustomObject]@{ Version = 2 }) `
++            -Path $script:jsonPath |
++            Out-Null
++
++        Restore-RenderKitJsonFileBackup -Path $script:jsonPath |
++            Out-Null
++
++        (Read-RenderKitJsonFile -Path $script:jsonPath).Version |
++            Should -Be 1
++        (Read-RenderKitJsonFile -Path "$script:jsonPath.bak").Version |
++            Should -Be 1
++    }
++
++    It 'does not replace a valid backup with a corrupt current file' {
++        Write-RenderKitJsonFileAtomic `
++            -Value ([PSCustomObject]@{ Version = 1 }) `
++            -Path $script:jsonPath |
++            Out-Null
++        Write-RenderKitJsonFileAtomic `
++            -Value ([PSCustomObject]@{ Version = 2 }) `
++            -Path $script:jsonPath |
++            Out-Null
++        Set-Content -LiteralPath $script:jsonPath -Value '{invalid'
++
++        Write-RenderKitJsonFileAtomic `
++            -Value ([PSCustomObject]@{ Version = 3 }) `
++            -Path $script:jsonPath |
++            Out-Null
++
++        (Read-RenderKitJsonFile -Path $script:jsonPath).Version |
++            Should -Be 3
++        (Read-RenderKitJsonFile -Path "$script:jsonPath.bak").Version |
++            Should -Be 1
++    }
++
++    It 'rejects files larger than the configured read limit' {
++        Set-Content -LiteralPath $script:jsonPath -Value '{"value":12345}'
++
++        {
++            Read-RenderKitJsonFile `
++                -Path $script:jsonPath `
++                -MaximumBytes 4
++        } | Should -Throw '*exceeds*'
++    }
++
++    It 'returns null for an allowed missing file' {
++        Read-RenderKitJsonFile `
++            -Path $script:jsonPath `
++            -AllowMissing |
++            Should -BeNullOrEmpty
++    }
++}
 diff --git a/Tests/Storage/RenderKit.StorageService.Tests.ps1 b/Tests/Storage/RenderKit.StorageService.Tests.ps1
 new file mode 100644
 index 0000000000000000000000000000000000000000..ac58954d723e43a06db960af5b0bc150a9c76db2
@@ -557,10 +738,10 @@ index fd019245ca45af9b42ac50a5c16b4510367bacd2..18a7bbe0f20d248bbde7881a8f5767bc
 +- [Set-ProjectRoot source code](../src/Public/Set-ProjectRoot.ps1)
 diff --git a/docs/storage.md b/docs/storage.md
 new file mode 100644
-index 0000000000000000000000000000000000000000..fb5db91b0f41c750fc38081a1481ba9376ea7217
+index 0000000000000000000000000000000000000000..e7db976e4e045704aff7215e77d0ad74e5f76c36
 --- /dev/null
 +++ b/docs/storage.md
-@@ -0,0 +1,80 @@
+@@ -0,0 +1,102 @@
 +# Cross-Platform User Storage
 +
 +RenderKit keeps user-owned files outside the installed module directory. The
@@ -633,6 +814,28 @@ index 0000000000000000000000000000000000000000..fb5db91b0f41c750fc38081a1481ba93
 +to their new location only when the destination does not already exist.
 +Existing destination data is never overwritten by automatic migration.
 +
++## JSON persistence
++
++RenderKit-owned JSON state is written through a shared persistence service:
++
++1. an exclusive sidecar file lock is acquired with a bounded timeout;
++2. the new JSON is written as UTF-8 without a byte-order mark to a temporary
++   file in the destination directory;
++3. the temporary file is parsed and optionally validated;
++4. the previous valid destination is retained as `<name>.bak`;
++5. the validated temporary file replaces the destination atomically where the
++   file system supports replacement, with a backup-backed copy fallback;
++6. temporary files and lock handles are released in `finally` blocks.
++
++Operations that require read-modify-write consistency can use one lock for the
++complete transaction so a writer reloads the latest value after acquiring the
++lock. A persistent empty `<name>.lock` sidecar may remain on disk; ownership is
++represented by the exclusive open file handle, not by the existence of the
++sidecar.
++
++The internal recovery operation restores a validated `.bak` file without
++overwriting that backup with the corrupt or unwanted current file.
++
 +## Security
 +
 +- User storage does not require administrator or root privileges.
@@ -641,11 +844,117 @@ index 0000000000000000000000000000000000000000..fb5db91b0f41c750fc38081a1481ba93
 +- The portable override is treated as an explicit user choice.
 +- Credentials and secrets must not be stored in these general-purpose JSON
 +  files.
+diff --git a/src/Private/Backup/Get-BackupLock.ps1 b/src/Private/Backup/Get-BackupLock.ps1
+index b128dba211608f676d84f426f612cc0cbb3948e1..2066976b65dbb66314a6211b021c93a81ef738ed 100644
+--- a/src/Private/Backup/Get-BackupLock.ps1
++++ b/src/Private/Backup/Get-BackupLock.ps1
+@@ -27,36 +27,55 @@ function Get-BackupLock {
+         else {
+             "unknown-machine"
+         }
+ 
+         Write-RenderKitLog -Level Error -Message "Backup lock already present for '$ProjectRoot' (PID $($state.Lock.processId) on $machine)."
+         throw "Backup already running (PID $($state.Lock.processId) on $machine)."
+     }
+ 
+     if ($state.IsStale -and (Test-Path -Path $lockPath -PathType Leaf)) {
+         Write-RenderKitLog -Level Warning -Message "Removing stale backup lock at '$lockPath'."
+         Remove-Item -Path $lockPath -Force -ErrorAction Stop
+     }
+ 
+     $ownerToken = [guid]::NewGuid().ToString()
+     $lock = @{
+         lockType        = "backup"
+         lockedAt        = (Get-Date).ToString("o")
+         ownerToken      = $ownerToken
+         processId       = $PID
+         machine         = $ENV:COMPUTERNAME
+         maschine        = $ENV:COMPUTERNAME
+         user            = $ENV:USERNAME
+         toolVersion     = $script:RenderKitModuleVersion
+     }
+ 
+-    $lock |
+-        ConvertTo-Json -Depth 5 |
+-        Set-Content -Path $lockPath -Encoding UTF8
++    $lockJson = $lock | ConvertTo-Json -Depth 5 -ErrorAction Stop
++    $encoding = New-Object System.Text.UTF8Encoding($false)
++    $lockBytes = $encoding.GetBytes($lockJson)
++    $lockStream = $null
++    try {
++        $lockStream = [System.IO.File]::Open(
++            $lockPath,
++            [System.IO.FileMode]::CreateNew,
++            [System.IO.FileAccess]::Write,
++            [System.IO.FileShare]::None
++        )
++        $lockStream.Write($lockBytes, 0, $lockBytes.Length)
++        $lockStream.Flush()
++    }
++    catch [System.IO.IOException] {
++        throw "Backup lock was acquired concurrently for '$ProjectRoot'."
++    }
++    finally {
++        if ($lockStream) {
++            $lockStream.Dispose()
++        }
++    }
+ 
+     return [PSCustomObject]@{
+         ProjectRoot = $ProjectRoot
+         LockPath    = $lockPath
+         OwnerToken  = $ownerToken
+         LockedAt    = $lock.lockedAt
+     }
+ }
+diff --git a/src/Private/Backup/Save-BackupManifest.ps1 b/src/Private/Backup/Save-BackupManifest.ps1
+index 11ccc5d3991138096923f24417384ac2ad822a8b..749eeb46cedab1277b06f522a9fdb9079d8eeefc 100644
+--- a/src/Private/Backup/Save-BackupManifest.ps1
++++ b/src/Private/Backup/Save-BackupManifest.ps1
+@@ -9,33 +9,35 @@ function Save-BackupManifest {
+ 
+     Write-RenderKitLog -Level Debug -Message "Save-BackupManifest started: ProjectRoot='$ProjectRoot', ManifestPath='$ManifestPath'."
+ 
+     $targetPath = $ManifestPath
+     if ([string]::IsNullOrWhiteSpace($targetPath)) {
+         if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
+             Write-RenderKitLog -Level Error -Message "Either -ProjectRoot or -ManifestPath must be provided."
+             throw "Either -ProjectRoot or -ManifestPath must be provided."
+         }
+ 
+         $renderKitPath = Join-Path $ProjectRoot ".renderkit"
+         if (-not (Test-Path -Path $renderKitPath -PathType Container)) {
+             Write-RenderKitLog -Level Warning -Message "RenderKit metadata folder not found at '$renderKitPath'. Creating it to store the manifest."
+             New-Item -ItemType Directory -Path $renderKitPath | Out-Null
+         }
+ 
+         $targetPath = Join-Path $renderKitPath "backup.manifest.json"
+     }
+     else {
+         $manifestDirectory = Split-Path -Path $targetPath -Parent
+         if (-not [string]::IsNullOrWhiteSpace($manifestDirectory) -and -not (Test-Path -Path $manifestDirectory -PathType Container)) {
+             New-Item -ItemType Directory -Path $manifestDirectory -Force | Out-Null
+         }
+     }
+ 
+-    $Manifest |
+-        ConvertTo-Json -Depth 10 |
+-        Set-Content -Path $targetPath -Encoding UTF8
++    Write-RenderKitJsonFileAtomic `
++        -Value $Manifest `
++        -Path $targetPath `
++        -Depth 10 |
++        Out-Null
+ 
+     Write-RenderKitLog -Level Info -Message "Backup manifest written to '$targetPath'."
+ 
+     return $targetPath
+ }
 diff --git a/src/Private/Device/RenderKit.DeviceService.ps1 b/src/Private/Device/RenderKit.DeviceService.ps1
-index a64dae006370618bccadca90f57040e1b266b37b..4e18df7788c2cdc9bfd977230c8af029fcb5c8c2 100644
+index a64dae006370618bccadca90f57040e1b266b37b..0464f211af8e5b39956e72de22753f8b446f9a5e 100644
 --- a/src/Private/Device/RenderKit.DeviceService.ps1
 +++ b/src/Private/Device/RenderKit.DeviceService.ps1
-@@ -1,29 +1,25 @@
+@@ -1,49 +1,45 @@
 -function Get-RenderKitDevicesPath {
 -    return Join-Path (Get-RenderKitRoot) "Devices.json"
 -}
@@ -669,30 +978,1052 @@ index a64dae006370618bccadca90f57040e1b266b37b..4e18df7788c2cdc9bfd977230c8af029
      }
  
      try {
-         $registry = Get-Content -Path $path -Raw | ConvertFrom-Json -ErrorAction Stop
+-        $registry = Get-Content -Path $path -Raw | ConvertFrom-Json -ErrorAction Stop
++        $registry = Read-RenderKitJsonFile -Path $path
      }
      catch {
          Write-RenderKitLog -Level Error -Message "Invalid JSON in device whitelist '$path'."
          throw "Invalid JSON in device whitelist '$path'."
      }
+ 
+     $version = "1.0"
+     if (
+         $registry.PSObject.Properties.Name -contains "Version" -and
+         -not [string]::IsNullOrWhiteSpace($registry.Version)
+     ) {
+         $version = [string]$registry.Version
+     }
+ 
+     $volumeNames = @()
+     if ($registry.PSObject.Properties.Name -contains "VolumeNames") {
+         $volumeNames = @(
+             $registry.VolumeNames |
+                 Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                 ForEach-Object { ([string]$_).Trim() } |
+                 Sort-Object -Unique
+         )
+     }
+ 
+     $serialNumbers = @()
+@@ -83,55 +79,54 @@ function Write-RenderKitDeviceRegistry {
+     if ($Registry.PSObject.Properties.Name -contains "VolumeNames") {
+         $volumeNames = @(
+             $Registry.VolumeNames |
+                 Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                 ForEach-Object { ([string]$_).Trim() } |
+                 Sort-Object -Unique
+         )
+     }
+ 
+     $serialNumbers = @()
+     if ($Registry.PSObject.Properties.Name -contains "SerialNumbers") {
+         $serialNumbers = @(
+             $Registry.SerialNumbers |
+                 Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                 ForEach-Object { ([string]$_).Trim() } |
+                 Sort-Object -Unique
+         )
+     }
+ 
+     $normalizedRegistry = [PSCustomObject]@{
+         Version       = $version
+         VolumeNames   = $volumeNames
+         SerialNumbers = $serialNumbers
+     }
+ 
+-    $normalizedRegistry |
+-        ConvertTo-Json -Depth 10 |
+-        Set-Content -Path $path -Encoding UTF8
+-
+-    return $normalizedRegistry
++    return Write-RenderKitJsonFileAtomic `
++        -Value $normalizedRegistry `
++        -Path $path `
++        -Depth 10
+ }
+ 
+ function Resolve-RenderKitDriveLetter {
+     param(
+         [Parameter(Mandatory)]
+         [string]$DriveLetter
+     )
+ 
+     $value = $DriveLetter.Trim()
+     if ([string]::IsNullOrWhiteSpace($value)) {
+         return $null
+     }
+ 
+     $value = $value.TrimEnd('\')
+     if ($value.Length -eq 1) {
+         $value = "${value}:"
+     }
+     elseif ($value.Length -gt 2 -and $value[1] -eq ':') {
+         $value = $value.Substring(0, 2)
+     }
+ 
+     return $value.ToUpperInvariant()
+ }
+ 
+ function Get-RenderKitFileSystemPriority {
 diff --git a/src/Private/Global/Get-RenderKitConfig.ps1 b/src/Private/Global/Get-RenderKitConfig.ps1
-index f50b2110190a36ecb665760664b315ebda1cffaa..910abbd147bcbfa851d2b6aee1668be1a7504308 100644
+index f50b2110190a36ecb665760664b315ebda1cffaa..3a3dc4af4afb5bc0ce22ad0e875474efe5c47b88 100644
 --- a/src/Private/Global/Get-RenderKitConfig.ps1
 +++ b/src/Private/Global/Get-RenderKitConfig.ps1
-@@ -1,7 +1,9 @@
+@@ -1,7 +1,11 @@
  function Get-RenderKitConfig {
 -    $configPath = Join-Path $env:APPDATA "RenderKit\config.json"
 -    if (!(Test-Path $configPath)){
 +    $configPath = Get-RenderKitConfigPath
-+    if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
++    $config = Read-RenderKitJsonFile `
++        -Path $configPath `
++        -AllowMissing
++    if ($null -eq $config) {
          return @{}
      }
 -    Get-Content $configPath -Raw | ConvertFrom-Json
 -}
 \ No newline at end of file
 +
-+    Get-Content -LiteralPath $configPath -Raw -ErrorAction Stop |
-+        ConvertFrom-Json -ErrorAction Stop
++    return $config
++}
+diff --git a/src/Private/Global/Get-RenderKitProject.ps1 b/src/Private/Global/Get-RenderKitProject.ps1
+index ccd69c94d5dc084a6501ad2f7cff7f005cab7b58..5d673991fe0869b02bab1832fffc14f977b2a146 100644
+--- a/src/Private/Global/Get-RenderKitProject.ps1
++++ b/src/Private/Global/Get-RenderKitProject.ps1
+@@ -4,51 +4,51 @@ function Get-RenderKitProject{
+         [Parameter(Mandatory)]
+         [string]$ProjectName,
+         [string]$Path
+     )
+ 
+     Write-RenderKitLog -Level Debug -Message "Get-RenderKitProject started: ProjectName='$ProjectName', Path='$Path'."
+ 
+     $searchRoots = @()
+ 
+     if ($Path) {
+         $searchRoots += $Path
+     }
+     else {
+         $config = Get-RenderKitConfig
+         if ($config.DefaultProjectPath){
+             $searchRoots += $config.DefaultProjectPath
+         }
+     }
+ 
+     foreach ($root in $searchRoots){
+ 
+         $candidate = Join-Path $root $ProjectName
+         if (!(Test-Path $candidate)) { continue }
+         try {
+             $metaPath = Get-RenderKitProjectMetadataPath -ProjectRoot $candidate
+-            $meta = Get-Content $metaPath -Raw | ConvertFrom-Json
++            $meta = Read-RenderKitJsonFile -Path $metaPath
+         }
+ 
+         catch {
+             Write-RenderKitLog -Level Error -Message "Invalid project metadata JSON in '$metaPath'."
+             throw "Invalid project metadata JSON in $metaPath"
+         }
+ 
+         #validation
+ 
+         if (
+             !($meta.project.id) -or
+             !($meta.project.name) -or
+             $meta.tool -ne "RenderKit"
+         ) {
+             Write-RenderKitLog -Level Error -Message "Invalid RenderKit project metadata schema in '$metaPath'."
+             throw "Invalid RenderKit project metadata schema"
+         }
+ 
+         return [PSCustomObject]@{
+             id              =  $meta.project.id
+             Name            =  $meta.project.name
+             RootPath        =  $candidate
+             MetadataPath    =  $metaPath
+             Metadata        =  $meta
+         }
+diff --git a/src/Private/Mapping/RenderKit.MappingService.ps1 b/src/Private/Mapping/RenderKit.MappingService.ps1
+index 3a90aa3d9e858baa92041e508070e84a6ec9ebc2..ae5aa714596a6a44e697d95bec863e64877e4532 100644
+--- a/src/Private/Mapping/RenderKit.MappingService.ps1
++++ b/src/Private/Mapping/RenderKit.MappingService.ps1
+@@ -1,47 +1,50 @@
+ function Read-RenderKitMappingFile {
+     param(
+         [Parameter(Mandatory)]
+         [string]$MappingId
+     )
+ 
+     $path = Resolve-RenderKitMappingPath -MappingId $MappingId
+     if (!(Test-Path $path)) {
+         return $null
+     }
+ 
+     try {
+-        return Get-Content $path -Raw | ConvertFrom-Json -ErrorAction Stop
++        return Read-RenderKitJsonFile -Path $path
+     }
+     catch {
+         Write-RenderKitLog -Level Error -Message "Invalid JSON in mapping '$MappingId'."
+         throw "Invalid JSON in mapping '$MappingId'"
+     }
+ }
+ 
+ function Resolve-RenderKitMappingPath {
+     param(
+         [Parameter(Mandatory)]
+         [string]$MappingId
+     )
+ 
+     $userPath = Get-RenderKitUserMappingPath -MappingId $MappingId
+     if (Test-Path $userPath) {
+         return $userPath
+     }
+ 
+     return Get-RenderKitSystemMappingPath -MappingId $MappingId
+ }
+ 
+ function Write-RenderKitMappingFile {
+     param(
+         [Parameter(Mandatory)]
+         [object]$Mapping,
+         [Parameter(Mandatory)]
+         [string]$MappingId
+     )
+ 
+     $path = Get-RenderKitUserMappingPath -MappingId $MappingId
+ 
+-    $Mapping | ConvertTo-Json -Depth 5 |
+-        Set-Content -Path $path -Encoding UTF8
++    Write-RenderKitJsonFileAtomic `
++        -Value $Mapping `
++        -Path $path `
++        -Depth 5 |
++        Out-Null
+ }
+diff --git a/src/Private/Project/RenderKit.ProjectDeliveryService.ps1 b/src/Private/Project/RenderKit.ProjectDeliveryService.ps1
+index cb9ec5be3f6c68cdf91cf5275361a5ccc9aa9e7e..44124176f27f1851bf10f9ef2d4d84f6e64daadc 100644
+--- a/src/Private/Project/RenderKit.ProjectDeliveryService.ps1
++++ b/src/Private/Project/RenderKit.ProjectDeliveryService.ps1
+@@ -1,36 +1,36 @@
+ function Get-RenderKitProjectTemplateContext {
+     [CmdletBinding()]
+     param([Parameter(Mandatory)][string]$ProjectRoot)
+ 
+     $metadataPath = Get-RenderKitProjectMetadataPath -ProjectRoot $ProjectRoot
+     if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
+         Write-RenderKitLog -Level Warning -Message "Project metadata not found. Using default template."
+         return Get-ProjectTemplate
+     }
+ 
+-    $metadata = Get-Content -LiteralPath $metadataPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
++    $metadata = Read-RenderKitJsonFile -Path $metadataPath
+     if ($metadata.template -and $metadata.template.name) {
+         return Get-ProjectTemplate -TemplateName ([string]$metadata.template.name)
+     }
+ 
+     return Get-ProjectTemplate
+ }
+ 
+ function ConvertTo-RenderKitArrayList {
+     param([object]$Value)
+     if ($null -eq $Value) { return [System.Collections.ArrayList]::new() }
+     if ($Value -is [System.Collections.ArrayList]) { return $Value }
+     return [System.Collections.ArrayList]@($Value)
+ }
+ 
+ function Get-RenderKitDeliverableFallbackRule {
+     [CmdletBinding()]
+     param([Parameter(Mandatory)]$Template)
+ 
+     $candidateNames = @('05_Exports', '06_Review', '07_Publish', '02_Exports', 'Exports', 'Review', 'Publish')
+     $sourceFolders = New-Object System.Collections.Generic.List[string]
+     foreach ($folder in @($Template.Folders)) {
+         if ($candidateNames -contains ([string]$folder.Name)) {
+             $sourceFolders.Add([string]$folder.Name)
+         }
+     }
+@@ -224,51 +224,55 @@ function New-RenderKitDeliverableManifest {
+     }
+ }
+ 
+ function Copy-RenderKitDeliverableFileSet {
+     [CmdletBinding()]
+     param(
+         [Parameter(Mandatory)]$Files,
+         [Parameter(Mandatory)][string]$DestinationRoot
+     )
+     foreach ($file in @($Files)) {
+         $target = Join-Path -Path $DestinationRoot -ChildPath $file.PackageRelativePath
+         $targetDirectory = Split-Path -Path $target -Parent
+         if (-not (Test-Path -LiteralPath $targetDirectory -PathType Container)) { New-Item -ItemType Directory -Path $targetDirectory -Force | Out-Null }
+         Copy-Item -LiteralPath $file.SourcePath -Destination $target -Force -ErrorAction Stop
+     }
+ }
+ 
+ function Write-RenderKitDeliverableManifest {
+     [CmdletBinding()]
+     param(
+         [Parameter(Mandatory)]$Manifest,
+         [Parameter(Mandatory)][string]$Path
+     )
+     $directory = Split-Path -Path $Path -Parent
+     if (-not [string]::IsNullOrWhiteSpace($directory) -and -not (Test-Path -LiteralPath $directory -PathType Container)) { New-Item -ItemType Directory -Path $directory -Force | Out-Null }
+-    $Manifest | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $Path -Encoding UTF8
++    Write-RenderKitJsonFileAtomic `
++        -Value $Manifest `
++        -Path $Path `
++        -Depth 20 |
++        Out-Null
+ }
+ 
+ function Write-RenderKitDeliverableChecksumFile {
+     [CmdletBinding()]
+     param(
+         [Parameter(Mandatory)]$Manifest,
+         [Parameter(Mandatory)][string]$Path
+     )
+     $lines = foreach ($file in @($Manifest.files)) {
+         if ($file.hashes.SHA256) { "$($file.hashes.SHA256)  $($file.packageRelativePath)" }
+     }
+     if ($lines) { $lines | Set-Content -LiteralPath $Path -Encoding ASCII }
+ }
+ 
+ function Export-RenderKitDeliverableZip {
+     [CmdletBinding()]
+     param(
+         [Parameter(Mandatory)]$Files,
+         [Parameter(Mandatory)]$Manifest,
+         [Parameter(Mandatory)][string]$DestinationPath,
+         [ValidateSet('NoCompression', 'Fastest', 'Optimal')][string]$CompressionLevel = 'Optimal'
+     )
+     $directory = Split-Path -Path $DestinationPath -Parent
+     if (-not [string]::IsNullOrWhiteSpace($directory) -and -not (Test-Path -LiteralPath $directory -PathType Container)) { New-Item -ItemType Directory -Path $directory -Force | Out-Null }
+     if (Test-Path -LiteralPath $DestinationPath -PathType Leaf) { Remove-Item -LiteralPath $DestinationPath -Force }
+@@ -277,26 +281,26 @@ function Export-RenderKitDeliverableZip {
+     New-Item -ItemType Directory -Path $stagingFilesRoot -Force | Out-Null
+     try {
+         Copy-RenderKitDeliverableFileSet -Files $Files -DestinationRoot $stagingFilesRoot
+         $zip = [System.IO.Compression.ZipFile]::Open($DestinationPath, [System.IO.Compression.ZipArchiveMode]::Create)
+         try {
+             $manifestEntry = $zip.CreateEntry('manifest.json', [System.IO.Compression.CompressionLevel]::Optimal)
+             $stream = $manifestEntry.Open()
+             try {
+                 $writer = [System.IO.StreamWriter]::new($stream, [System.Text.UTF8Encoding]::new($false))
+                 try { $writer.Write(($Manifest | ConvertTo-Json -Depth 20)) } finally { $writer.Dispose() }
+             }
+             finally { $stream.Dispose() }
+ 
+             foreach ($file in @($Files)) {
+                 $stagedPath = Join-Path -Path $stagingFilesRoot -ChildPath $file.PackageRelativePath
+                 Add-RenderKitFileToZipArchive -Archive $zip -SourcePath $stagedPath -EntryName ('files/{0}' -f $file.PackageRelativePath) -DefaultCompressionLevel $CompressionLevel
+             }
+         }
+         finally { $zip.Dispose() }
+     }
+     finally {
+         if (Test-Path -LiteralPath $stagingRoot -PathType Container) {
+             Remove-Item -LiteralPath $stagingRoot -Recurse -Force -ErrorAction SilentlyContinue
+         }
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/src/Private/Project/RenderKit.ProjectExportService.ps1 b/src/Private/Project/RenderKit.ProjectExportService.ps1
+index 00f99890105d3b9e097ffa6e0ee08cd8c986a18e..cf452773931f211d68953c466f0ee92c54653b48 100644
+--- a/src/Private/Project/RenderKit.ProjectExportService.ps1
++++ b/src/Private/Project/RenderKit.ProjectExportService.ps1
+@@ -114,51 +114,51 @@ function Get-RenderKitProjectMappingSnapshot {
+                 })
+             }
+             catch {
+                 Write-RenderKitLog -Level Warning -Message "Could not snapshot mapping '$($file.Name)': $($_.Exception.Message)"
+             }
+         }
+     }
+     return $snapshots.ToArray()
+ }
+ 
+ function New-RenderKitProjectManifest {
+     [CmdletBinding()]
+     param(
+         [Parameter(Mandatory)][string]$ProjectRoot,
+         [Parameter(Mandatory)][ValidateSet('ManifestOnly', 'SelfContained')][string]$Mode,
+         [Parameter(Mandatory)][string]$DestinationPath,
+         [string[]]$HashAlgorithm = @('SHA256'),
+         [switch]$IncludeAbsolutePaths
+     )
+ 
+     $resolvedProjectRoot = (Resolve-Path -LiteralPath $ProjectRoot -ErrorAction Stop).ProviderPath
+     $projectInfo = Get-Item -LiteralPath $resolvedProjectRoot -ErrorAction Stop
+     $metadataPath = Get-RenderKitProjectMetadataPath -ProjectRoot $resolvedProjectRoot
+     $metadata = $null
+     if (Test-Path -LiteralPath $metadataPath -PathType Leaf) {
+-        $metadata = Get-Content -LiteralPath $metadataPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
++        $metadata = Read-RenderKitJsonFile -Path $metadataPath
+     }
+ 
+     $doc = [System.Xml.XmlDocument]::new()
+     $declaration = $doc.CreateXmlDeclaration('1.0', 'utf-8', $null)
+     [void]$doc.AppendChild($declaration)
+     $root = $doc.CreateElement('RenderKitProjectManifest')
+     $root.SetAttribute('schemaVersion', '1.0')
+     $root.SetAttribute('createdAtUtc', (Get-Date).ToUniversalTime().ToString('o'))
+     [void]$doc.AppendChild($root)
+ 
+     $tool = $doc.CreateElement('Tool')
+     $tool.SetAttribute('name', 'RenderKit')
+     $tool.SetAttribute('version', [string]$script:RenderKitModuleVersion)
+     [void]$root.AppendChild($tool)
+ 
+     $project = $doc.CreateElement('Project')
+     $projectId = if ($metadata -and $metadata.project -and $metadata.project.id) { [string]$metadata.project.id } else { [guid]::NewGuid().Guid }
+     $projectName = if ($metadata -and $metadata.project -and $metadata.project.name) { [string]$metadata.project.name } else { [string]$projectInfo.Name }
+     $project.SetAttribute('id', $projectId)
+     $project.SetAttribute('name', $projectName)
+     $project.SetAttribute('sourceRootName', $projectInfo.Name)
+     if ($metadata -and $metadata.template) {
+         $project.SetAttribute('templateName', [string]$metadata.template.name)
+         $project.SetAttribute('templateSource', [string]$metadata.template.source)
+     }
+@@ -313,26 +313,26 @@ function Read-RenderKitProjectArchiveManifest {
+     param([Parameter(Mandatory)][string]$Path)
+ 
+     $zip = [System.IO.Compression.ZipFile]::OpenRead($Path)
+     try {
+         $entry = $zip.GetEntry('project.xml')
+         if (-not $entry) { throw "Archive '$Path' does not contain project.xml." }
+         $stream = $entry.Open()
+         try {
+             $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::UTF8)
+             try { [xml]$xml = $reader.ReadToEnd() } finally { $reader.Dispose() }
+         }
+         finally { $stream.Dispose() }
+         return $xml
+     }
+     finally { $zip.Dispose() }
+ }
+ 
+ function Test-RenderKitProjectManifestFileEntry {
+     [CmdletBinding()]
+     param([Parameter(Mandatory)]$FileNode)
+ 
+     $relativePath = [string]$FileNode.relativePath
+     if (-not (Test-RenderKitProjectSafeRelativePath -RelativePath $relativePath)) {
+         throw "Unsafe relative path in project manifest: '$relativePath'."
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/src/Private/Project/RenderKit.ProjectService.ps1 b/src/Private/Project/RenderKit.ProjectService.ps1
+index 6ecb86883a9cac06a652cc76e42202a6fdf905af..b32e779f08fb953b00e2d9f208e77256faf1741b 100644
+--- a/src/Private/Project/RenderKit.ProjectService.ps1
++++ b/src/Private/Project/RenderKit.ProjectService.ps1
+@@ -192,53 +192,55 @@ function New-RenderKitProjectMetadata {
+         template = @{
+             name        = $TemplateName
+             source      = $TemplateSource
+         }
+     }
+ }
+ 
+ function Write-RenderKitProjectMetadata{
+     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '',
+      Justification = 'Data counts here as singular noun')]
+     [CmdletBinding()]
+     param(
+         [Parameter(Mandatory)]
+         [string]$ProjectRoot,
+         [Parameter(Mandatory)]
+         [object]$Metadata
+     )
+ 
+     $renderKitDir = Join-Path $ProjectRoot ".renderkit"
+ 
+     if (!(Test-Path $renderKitDir)){
+         New-Item -ItemType Directory -Path $renderKitDir | Out-Null
+     }
+     $jsonPath = Get-RenderKitProjectMetadataPath -ProjectRoot $ProjectRoot
+ 
+-    $Metadata |
+-    ConvertTo-Json -Depth 6 |
+-    Set-Content -Path $jsonPath -Encoding UTF8
++    Write-RenderKitJsonFileAtomic `
++        -Value $Metadata `
++        -Path $jsonPath `
++        -Depth 6 |
++        Out-Null
+ }
+ 
+ function Remove-RenderKitProjectDirectory {
+     [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+         "PSUseShouldProcessForStateChangingFunctions",
+         "",
+         Justification = "internal function. The public function already has a DryRun feature and ShouldProcess support"
+     )]
+     [CmdletBinding()]
+     param(
+         [Parameter(Mandatory)]
+         [string]$ProjectRoot
+     )
+ 
+     if (-not (Test-Path -LiteralPath $ProjectRoot -PathType Container)) {
+         Write-RenderKitLog -Level Error -Message "Project folder not found: $ProjectRoot"
+         throw "Project folder not found: $ProjectRoot"
+     }
+ 
+     Remove-Item -LiteralPath $ProjectRoot -Recurse -Force -ErrorAction Stop
+ }
+ 
+ function Rename-RenderKitProjectDirectory {
+     [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+         "PSUseShouldProcessForStateChangingFunctions",
+@@ -268,69 +270,73 @@ function Rename-RenderKitProjectDirectory {
+ }
+ 
+ function Update-RenderKitProjectName {
+     [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+         "PSUseShouldProcessForStateChangingFunctions",
+         "",
+         Justification = "internal function. The public function already has a DryRun feature and ShouldProcess support"
+     )]
+     [CmdletBinding()]
+     param(
+         [Parameter(Mandatory)]
+         [string]$ProjectRoot,
+         [Parameter(Mandatory)]
+         [string]$NewProjectName,
+         [Parameter(Mandatory)]
+         [string]$ExpectedProjectId
+     )
+ 
+     $metadataPath = Get-RenderKitProjectMetadataPath -ProjectRoot $ProjectRoot
+     if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
+         Write-RenderKitLog -Level Error -Message "Project metadata not found: $metadataPath"
+         throw "Project metadata not found: $metadataPath"
+     }
+ 
+     try {
+-        $metadata = Get-Content -LiteralPath $metadataPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
++        $metadata = Read-RenderKitJsonFile -Path $metadataPath
+     }
+     catch {
+         Write-RenderKitLog -Level Error -Message "Invalid project metadata JSON in '$metadataPath'."
+         throw "Invalid project metadata JSON in $metadataPath"
+     }
+ 
+     if (-not $metadata.project -or -not $metadata.project.id -or $metadata.tool -ne "RenderKit") {
+         Write-RenderKitLog -Level Error -Message "Invalid RenderKit project metadata schema in '$metadataPath'."
+         throw "Invalid RenderKit project metadata schema"
+     }
+ 
+     if ([string]$metadata.project.id -ne $ExpectedProjectId) {
+         Write-RenderKitLog -Level Error -Message "Project metadata id mismatch in '$metadataPath'."
+         throw "Project metadata id mismatch in $metadataPath"
+     }
+ 
+     $metadata.project.name = $NewProjectName
+-    $metadata | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $metadataPath -Encoding UTF8
++    Write-RenderKitJsonFileAtomic `
++        -Value $metadata `
++        -Path $metadataPath `
++        -Depth 6 |
++        Out-Null
+ 
+     return $metadata
+ }
+ 
+ function Copy-RenderKitProjectDirectory {
+     [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+         "PSUseShouldProcessForStateChangingFunctions",
+         "",
+         Justification = "internal function. The public function already has a DryRun feature and ShouldProcess support"
+     )]
+     [CmdletBinding()]
+     param(
+         [Parameter(Mandatory)]
+         [string]$ProjectRoot,
+         [Parameter(Mandatory)]
+         [string]$CopyProjectRoot
+     )
+ 
+     if (-not (Test-Path -LiteralPath $ProjectRoot -PathType Container)) {
+         Write-RenderKitLog -Level Error -Message "Project folder not found: $ProjectRoot"
+         throw "Project folder not found: $ProjectRoot"
+     }
+ 
+     if (Test-Path -LiteralPath $CopyProjectRoot) {
+         Write-RenderKitLog -Level Error -Message "Copy project path already exists: $CopyProjectRoot"
+@@ -343,52 +349,56 @@ function Copy-RenderKitProjectDirectory {
+ function Set-RenderKitProjectCopyMetadata {
+     [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+         "PSUseShouldProcessForStateChangingFunctions",
+         "",
+         Justification = "internal function. The public function already has a DryRun feature and ShouldProcess support"
+     )]
+     [CmdletBinding()]
+     param(
+         [Parameter(Mandatory)]
+         [string]$ProjectRoot,
+         [Parameter(Mandatory)]
+         [string]$ProjectName,
+         [Parameter(Mandatory)]
+         [string]$ProjectId,
+         [Parameter(Mandatory)]
+         [string]$SourceProjectId
+     )
+ 
+     $metadataPath = Get-RenderKitProjectMetadataPath -ProjectRoot $ProjectRoot
+     if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
+         Write-RenderKitLog -Level Error -Message "Project metadata not found: $metadataPath"
+         throw "Project metadata not found: $metadataPath"
+     }
+ 
+     try {
+-        $metadata = Get-Content -LiteralPath $metadataPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
++        $metadata = Read-RenderKitJsonFile -Path $metadataPath
+     }
+     catch {
+         Write-RenderKitLog -Level Error -Message "Invalid project metadata JSON in '$metadataPath'."
+         throw "Invalid project metadata JSON in $metadataPath"
+     }
+ 
+     if (-not $metadata.project -or -not $metadata.project.id -or $metadata.tool -ne "RenderKit") {
+         Write-RenderKitLog -Level Error -Message "Invalid RenderKit project metadata schema in '$metadataPath'."
+         throw "Invalid RenderKit project metadata schema"
+     }
+ 
+     if ([string]$metadata.project.id -ne $SourceProjectId) {
+         Write-RenderKitLog -Level Error -Message "Copied project metadata id does not match source project id in '$metadataPath'."
+         throw "Copied project metadata id does not match source project id in $metadataPath"
+     }
+ 
+     $metadata.project.id = $ProjectId
+     $metadata.project.name = $ProjectName
+     $metadata.project.createdAt = (Get-Date).ToString("o")
+     $metadata.project.createdBy = $env:USERNAME
+     $metadata.project.toolVersion = $script:RenderKitModuleVersion
+ 
+-    $metadata | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $metadataPath -Encoding UTF8
++    Write-RenderKitJsonFileAtomic `
++        -Value $metadata `
++        -Path $metadataPath `
++        -Depth 6 |
++        Out-Null
+ 
+     return $metadata
+-}
+\ No newline at end of file
++}
+diff --git a/src/Private/Storage/RenderKit.PersistenceService.ps1 b/src/Private/Storage/RenderKit.PersistenceService.ps1
+new file mode 100644
+index 0000000000000000000000000000000000000000..5585f679d2d7dee8a7f986af03e64b312f7da99b
+--- /dev/null
++++ b/src/Private/Storage/RenderKit.PersistenceService.ps1
+@@ -0,0 +1,404 @@
++function Enter-RenderKitFileLock {
++    [CmdletBinding()]
++    param(
++        [Parameter(Mandatory)]
++        [string]$Path,
++
++        [ValidateRange(1, 300000)]
++        [int]$TimeoutMilliseconds = 10000,
++
++        [ValidateRange(10, 5000)]
++        [int]$RetryMilliseconds = 100
++    )
++
++    $targetPath = [System.IO.Path]::GetFullPath($Path)
++    $parent = Split-Path -Path $targetPath -Parent
++    if (-not [string]::IsNullOrWhiteSpace($parent)) {
++        New-RenderKitStorageDirectory -Path $parent | Out-Null
++    }
++
++    $lockPath = "$targetPath.lock"
++    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
++    $lastError = $null
++
++    while ($stopwatch.ElapsedMilliseconds -lt $TimeoutMilliseconds) {
++        try {
++            $stream = [System.IO.File]::Open(
++                $lockPath,
++                [System.IO.FileMode]::OpenOrCreate,
++                [System.IO.FileAccess]::ReadWrite,
++                [System.IO.FileShare]::None
++            )
++
++            return [PSCustomObject]@{
++                TargetPath = $targetPath
++                LockPath = $lockPath
++                Stream = $stream
++                AcquiredAtUtc = [DateTime]::UtcNow
++            }
++        }
++        catch [System.IO.IOException] {
++            $lastError = $_
++            Start-Sleep -Milliseconds $RetryMilliseconds
++        }
++        catch [System.UnauthorizedAccessException] {
++            throw "RenderKit cannot acquire file lock '$lockPath': $($_.Exception.Message)"
++        }
++    }
++
++    $message = "Timed out after $TimeoutMilliseconds ms waiting for file lock '$lockPath'."
++    if ($lastError) {
++        $message = "$message $($lastError.Exception.Message)"
++    }
++    throw $message
++}
++
++function Exit-RenderKitFileLock {
++    [CmdletBinding()]
++    param(
++        [Parameter(Mandatory)]
++        [object]$LockHandle
++    )
++
++    if ($LockHandle.Stream) {
++        $LockHandle.Stream.Dispose()
++    }
++}
++
++function Test-RenderKitJsonValue {
++    [CmdletBinding()]
++    param(
++        [Parameter(Mandatory)]
++        [object]$Value,
++
++        [scriptblock]$Validator,
++
++        [Parameter(Mandatory)]
++        [string]$Path
++    )
++
++    if (-not $Validator) {
++        return
++    }
++
++    $validationResult = & $Validator $Value
++    if ($validationResult -eq $false) {
++        throw "JSON validation failed for '$Path'."
++    }
++}
++
++function Read-RenderKitJsonFile {
++    [CmdletBinding()]
++    param(
++        [Parameter(Mandatory)]
++        [string]$Path,
++
++        [ValidateRange(1, 1073741824)]
++        [long]$MaximumBytes = 10485760,
++
++        [scriptblock]$Validator,
++
++        [switch]$AllowMissing
++    )
++
++    $resolvedPath = [System.IO.Path]::GetFullPath($Path)
++    if (-not (Test-Path -LiteralPath $resolvedPath -PathType Leaf)) {
++        if ($AllowMissing) {
++            return $null
++        }
++        throw "JSON file not found: '$resolvedPath'."
++    }
++
++    $item = Get-Item -LiteralPath $resolvedPath -ErrorAction Stop
++    if ($item.Length -gt $MaximumBytes) {
++        throw "JSON file '$resolvedPath' exceeds the $MaximumBytes byte limit."
++    }
++
++    try {
++        $value = Get-Content -LiteralPath $resolvedPath -Raw -ErrorAction Stop |
++            ConvertFrom-Json -ErrorAction Stop
++    }
++    catch {
++        throw "Invalid JSON in '$resolvedPath': $($_.Exception.Message)"
++    }
++
++    if ($null -eq $value) {
++        throw "JSON file '$resolvedPath' contains a null root value."
++    }
++
++    Test-RenderKitJsonValue `
++        -Value $value `
++        -Validator $Validator `
++        -Path $resolvedPath
++
++    return $value
++}
++
++function Write-RenderKitJsonFileCore {
++    [CmdletBinding()]
++    param(
++        [Parameter(Mandatory)]
++        [object]$Value,
++
++        [Parameter(Mandatory)]
++        [string]$Path,
++
++        [ValidateRange(1, 100)]
++        [int]$Depth = 20,
++
++        [scriptblock]$Validator,
++
++        [switch]$SkipBackup
++    )
++
++    $targetPath = [System.IO.Path]::GetFullPath($Path)
++    $parent = Split-Path -Path $targetPath -Parent
++    if (-not [string]::IsNullOrWhiteSpace($parent)) {
++        New-RenderKitStorageDirectory -Path $parent | Out-Null
++    }
++
++    $temporaryPath = '{0}.tmp.{1}.{2}' -f (
++        $targetPath,
++        $PID,
++        [guid]::NewGuid().ToString('N')
++    )
++    $backupPath = "$targetPath.bak"
++    $encoding = New-Object System.Text.UTF8Encoding($false)
++
++    try {
++        $json = $Value | ConvertTo-Json -Depth $Depth -ErrorAction Stop
++        $jsonBytes = $encoding.GetBytes($json)
++        $temporaryStream = $null
++        try {
++            $temporaryStream = [System.IO.File]::Open(
++                $temporaryPath,
++                [System.IO.FileMode]::CreateNew,
++                [System.IO.FileAccess]::Write,
++                [System.IO.FileShare]::None
++            )
++            $temporaryStream.Write($jsonBytes, 0, $jsonBytes.Length)
++            $temporaryStream.Flush($true)
++        }
++        finally {
++            if ($temporaryStream) {
++                $temporaryStream.Dispose()
++            }
++        }
++
++        $validatedValue = Read-RenderKitJsonFile `
++            -Path $temporaryPath `
++            -Validator $Validator
++
++        if (Test-Path -LiteralPath $targetPath -PathType Leaf) {
++            $currentValueIsValid = $true
++            try {
++                Read-RenderKitJsonFile `
++                    -Path $targetPath `
++                    -Validator $Validator |
++                    Out-Null
++            }
++            catch {
++                $currentValueIsValid = $false
++            }
++
++            if ($SkipBackup) {
++                try {
++                    [System.IO.File]::Replace(
++                        $temporaryPath,
++                        $targetPath,
++                        $null,
++                        $true
++                    )
++                }
++                catch {
++                    [System.IO.File]::Copy(
++                        $temporaryPath,
++                        $targetPath,
++                        $true
++                    )
++                }
++            }
++            else {
++                try {
++                    $replacementBackupPath = if ($currentValueIsValid) {
++                        $backupPath
++                    }
++                    else {
++                        $null
++                    }
++                    [System.IO.File]::Replace(
++                        $temporaryPath,
++                        $targetPath,
++                        $replacementBackupPath,
++                        $true
++                    )
++                }
++                catch {
++                    if ($currentValueIsValid) {
++                        $backupTemporaryPath = '{0}.tmp.{1}.{2}' -f (
++                            $backupPath,
++                            $PID,
++                            [guid]::NewGuid().ToString('N')
++                        )
++                        try {
++                            Copy-Item -LiteralPath $targetPath `
++                                -Destination $backupTemporaryPath `
++                                -Force `
++                                -ErrorAction Stop
++                            Move-Item -LiteralPath $backupTemporaryPath `
++                                -Destination $backupPath `
++                                -Force `
++                                -ErrorAction Stop
++                        }
++                        finally {
++                            if (Test-Path -LiteralPath $backupTemporaryPath) {
++                                Remove-Item -LiteralPath $backupTemporaryPath `
++                                    -Force `
++                                    -ErrorAction SilentlyContinue
++                            }
++                        }
++                    }
++
++                    [System.IO.File]::Copy(
++                        $temporaryPath,
++                        $targetPath,
++                        $true
++                    )
++                }
++            }
++        }
++        else {
++            Move-Item -LiteralPath $temporaryPath `
++                -Destination $targetPath `
++                -ErrorAction Stop
++        }
++
++        return $validatedValue
++    }
++    finally {
++        if (Test-Path -LiteralPath $temporaryPath) {
++            Remove-Item -LiteralPath $temporaryPath `
++                -Force `
++                -ErrorAction SilentlyContinue
++        }
++    }
++}
++
++function Write-RenderKitJsonFileAtomic {
++    [CmdletBinding()]
++    param(
++        [Parameter(Mandatory)]
++        [object]$Value,
++
++        [Parameter(Mandatory)]
++        [string]$Path,
++
++        [ValidateRange(1, 100)]
++        [int]$Depth = 20,
++
++        [scriptblock]$Validator,
++
++        [ValidateRange(1, 300000)]
++        [int]$LockTimeoutMilliseconds = 10000
++    )
++
++    $lockHandle = Enter-RenderKitFileLock `
++        -Path $Path `
++        -TimeoutMilliseconds $LockTimeoutMilliseconds
++    try {
++        return Write-RenderKitJsonFileCore `
++            -Value $Value `
++            -Path $Path `
++            -Depth $Depth `
++            -Validator $Validator
++    }
++    finally {
++        Exit-RenderKitFileLock -LockHandle $lockHandle
++    }
++}
++
++function Invoke-RenderKitJsonFileTransaction {
++    [CmdletBinding()]
++    param(
++        [Parameter(Mandatory)]
++        [string]$Path,
++
++        [Parameter(Mandatory)]
++        [object]$DefaultValue,
++
++        [Parameter(Mandatory)]
++        [scriptblock]$Update,
++
++        [ValidateRange(1, 100)]
++        [int]$Depth = 20,
++
++        [scriptblock]$Validator,
++
++        [ValidateRange(1, 300000)]
++        [int]$LockTimeoutMilliseconds = 10000
++    )
++
++    $lockHandle = Enter-RenderKitFileLock `
++        -Path $Path `
++        -TimeoutMilliseconds $LockTimeoutMilliseconds
++    try {
++        $currentValue = Read-RenderKitJsonFile `
++            -Path $Path `
++            -Validator $Validator `
++            -AllowMissing
++        if ($null -eq $currentValue) {
++            $currentValue = $DefaultValue
++        }
++
++        $updatedValue = & $Update $currentValue
++        if ($null -eq $updatedValue) {
++            throw "JSON transaction for '$Path' returned no value."
++        }
++
++        return Write-RenderKitJsonFileCore `
++            -Value $updatedValue `
++            -Path $Path `
++            -Depth $Depth `
++            -Validator $Validator
++    }
++    finally {
++        Exit-RenderKitFileLock -LockHandle $lockHandle
++    }
++}
++
++function Restore-RenderKitJsonFileBackup {
++    [CmdletBinding()]
++    param(
++        [Parameter(Mandatory)]
++        [string]$Path,
++
++        [ValidateRange(1, 100)]
++        [int]$Depth = 20,
++
++        [scriptblock]$Validator,
++
++        [ValidateRange(1, 300000)]
++        [int]$LockTimeoutMilliseconds = 10000
++    )
++
++    $targetPath = [System.IO.Path]::GetFullPath($Path)
++    $backupPath = "$targetPath.bak"
++    $lockHandle = Enter-RenderKitFileLock `
++        -Path $targetPath `
++        -TimeoutMilliseconds $LockTimeoutMilliseconds
++    try {
++        $backupValue = Read-RenderKitJsonFile `
++            -Path $backupPath `
++            -Validator $Validator
++
++        return Write-RenderKitJsonFileCore `
++            -Value $backupValue `
++            -Path $targetPath `
++            -Depth $Depth `
++            -Validator $Validator `
++            -SkipBackup
++    }
++    finally {
++        Exit-RenderKitFileLock -LockHandle $lockHandle
++    }
 +}
 diff --git a/src/Private/Storage/RenderKit.StorageService.ps1 b/src/Private/Storage/RenderKit.StorageService.ps1
 index 7f35555d82bd83fdb3d3664a27b2dd6d110b5631..163994b7204c42e5db5768b2f5f40211989da23f 100644
@@ -1147,6 +2478,162 @@ index 7f35555d82bd83fdb3d3664a27b2dd6d110b5631..163994b7204c42e5db5768b2f5f40211
          )
  
          foreach ($candidatePath in $resourceCandidates) {
+diff --git a/src/Private/Template/Read-ProjectTemplate.ps1 b/src/Private/Template/Read-ProjectTemplate.ps1
+index 79fecd6640d2c9f5f6956d38f4db83627e6a17b4..9d827a42b0ea59e2b31a5348b327b529b6afbf5a 100644
+--- a/src/Private/Template/Read-ProjectTemplate.ps1
++++ b/src/Private/Template/Read-ProjectTemplate.ps1
+@@ -1,42 +1,42 @@
+ function Read-ProjectTemplate{
+ 
+     [CmdletBinding()]
+     param(
+         [string]$Path #JSON or Markdown
+     )
+ 
+     if (-not $Path -or -not (Test-Path $Path)) {
+         Write-RenderKitLog -Level Error -Message "Template file not found: $Path"
+         throw "Template not found: $Path"
+     }
+     $ext = [IO.Path]::GetExtension($Path).ToLower()
+ 
+     switch($ext){
+         ".json" {
+             try {
+-                $json = Get-Content $Path -Raw | ConvertFrom-Json -ErrorAction Stop
++                $json = Read-RenderKitJsonFile -Path $Path
+                 if (-not ($json.PSObject.Properties['Folders'])) {
+                     Write-RenderKitLog -Level Error -Message "Template JSON '$Path' does not contain a 'Folders' tag."
+                     throw "JSON does not contain a folders tag"
+                 }
+                 return Format-Folder -Node $json.folders
+             }
+             catch {
+                 Write-RenderKitLog -Level Error -Message "Invalid JSON template '$Path': $($_.Exception.Message)"
+                 throw "Invalid json template: $_"
+             }
+         }
+         ".md" {
+             try {
+                 $lines = Get-Content $Path
+                 $stack = @(@{})
+                 $lastIndent = 0
+ 
+             foreach ($line in $lines) {
+                 if ($line -notmatch '^\s*-\s+') { continue }
+ 
+                 $indent = ($line -match '^\s*').Length
+                 $name = ($line -replace '^\s*-\s+', '').Trim()
+ 
+                 while ($indent -lt $lastIndent) {
+                     $stack = $stack[0..($stack.Count - 2)]
+@@ -83,26 +83,26 @@ function Format-Folder{
+                  $children = Format-Folder -Node $item.SubFolders
+             }
+ 
+             $result += [PSCustomObject]@{
+                 Name        =   $item.Name
+                 Children    =   @($children)
+             }
+         }
+     }
+ 
+     elseif ($Node -is [hashtable]) {
+         foreach ($key in $Node.Keys){
+             $children = @()
+             if($Node[$key] -and $Node[$key].Count -gt 0 ){
+                 $children = Format-Folder -Node $Node[$key]
+             }
+ 
+             $result += [PSCustomObject]@{
+                 Name        =   $key
+                 Children    =   @($children)
+             }
+         }
+     }
+ 
+     return @($result)
+-}
+\ No newline at end of file
++}
+diff --git a/src/Private/Template/RenderKit.TemplateService.ps1 b/src/Private/Template/RenderKit.TemplateService.ps1
+index 6fa02b8bb342e08662c1a973952d9b4ba0e94c4f..fb40a896e5e6b4d3ef627f1e512213187dca946b 100644
+--- a/src/Private/Template/RenderKit.TemplateService.ps1
++++ b/src/Private/Template/RenderKit.TemplateService.ps1
+@@ -69,68 +69,71 @@ function Resolve-ProjectTemplate {
+         Where-Object { $_.Name -eq "default" -and $_.Source -eq "system" } |
+         Select-Object -First 1
+ 
+     if (-not $default) {
+         $default = $templates |
+             Where-Object Name -eq "default" |
+             Sort-Object @{Expression = {$_.Source -eq "user"}; Descending = $true} |
+             Select-Object -First 1
+     }
+ 
+     if (-not $default) {
+         Write-RenderKitLog -Level Error -Message "Default template not found (default.json)."
+         throw "Default template not found (default.json)."
+     }
+ 
+     return $default
+ }
+ 
+ function Read-RenderKitTemplateFile {
+     param(
+         [Parameter(Mandatory)]
+         [string]$Path
+     )
+ 
+     try {
+-        return Get-Content $Path -Raw | ConvertFrom-Json -ErrorAction Stop
++        return Read-RenderKitJsonFile -Path $Path
+     }
+     catch {
+         Write-RenderKitLog -Level Error -Message "Invalid JSON in template '$Path'."
+         throw "Invalid JSON in template '$Path'"
+     }
+ }
+ 
+ function Write-RenderKitTemplateFile {
+     param(
+         [Parameter(Mandatory)]
+         [object]$Template,
+         [Parameter(Mandatory)]
+         [string]$Path
+     )
+ 
+-    $Template | ConvertTo-Json -Depth 20 |
+-        Set-Content -Path $Path -Encoding UTF8
++    Write-RenderKitJsonFileAtomic `
++        -Value $Template `
++        -Path $Path `
++        -Depth 20 |
++        Out-Null
+ }
+ 
+ function Get-ProjectTemplate {
+ 
+     param(
+         [string]$TemplateName
+     )
+ 
+     $resolved = Resolve-ProjectTemplate -TemplateName $TemplateName
+ 
+     $json = Read-RenderKitTemplateFile -Path $resolved.Path
+     Confirm-Template -Template $json
+ 
+     return [PSCustomObject]@{
+         Name         = $resolved.Name
+         Version      = $json.Version
+         Source       = $resolved.Source
+         Folders      = $json.Folders
+         Mappings     = $json.Mappings
+         Deliverables = $json.Deliverables
+     }
+ }
+ 
+ function Confirm-Template {
+     param(
 diff --git a/src/Public/Get-RenderKitDeviceWhitelist.ps1 b/src/Public/Get-RenderKitDeviceWhitelist.ps1
 index e4103a2e1618006276307949a46f26f73be729cf..c02e6152ddc78fb1f583dbedd2b6bd8ca40e7dec 100644
 --- a/src/Public/Get-RenderKitDeviceWhitelist.ps1
@@ -1192,10 +2679,10 @@ index e4103a2e1618006276307949a46f26f73be729cf..c02e6152ddc78fb1f583dbedd2b6bd8c
  
      return [PSCustomObject]@{
 diff --git a/src/Public/Set-ProjectRoot.ps1 b/src/Public/Set-ProjectRoot.ps1
-index df45b1958fe16127aca27403149d6a80f67e53ad..c959e5def2d38efc67d10a541524d6045e01a942 100644
+index df45b1958fe16127aca27403149d6a80f67e53ad..ddecddde97c43aec66d7e8679e4940354fb2a5ce 100644
 --- a/src/Public/Set-ProjectRoot.ps1
 +++ b/src/Public/Set-ProjectRoot.ps1
-@@ -1,68 +1,76 @@
+@@ -1,68 +1,79 @@
  Register-RenderKitFunction "Set-ProjectRoot"
  function Set-ProjectRoot{
      <#
@@ -1267,23 +2754,26 @@ index df45b1958fe16127aca27403149d6a80f67e53ad..c959e5def2d38efc67d10a541524d604
 -    }
 +    if ($PSCmdlet.ShouldProcess($configPath, 'Write RenderKit config')) {
 +        $configPath = Get-RenderKitConfigPath -EnsureParent
-+        $config = Get-RenderKitConfig
-+        if (-not $config) {
-+            $config = [PSCustomObject]@{}
-+        }
-+        if ($config.PSObject.Properties.Name -contains 'DefaultProjectPath') {
-+            $config.DefaultProjectPath = $resolvedPath
-+        }
-+        else {
-+            $config | Add-Member `
-+                -MemberType NoteProperty `
-+                -Name DefaultProjectPath `
-+                -Value $resolvedPath
-+        }
-+
-+        $config |
-+            ConvertTo-Json -Depth 5 |
-+            Set-Content -LiteralPath $configPath -Encoding UTF8
++        Invoke-RenderKitJsonFileTransaction `
++            -Path $configPath `
++            -DefaultValue ([PSCustomObject]@{}) `
++            -Depth 5 `
++            -Update {
++                param($config)
++                if (
++                    $config.PSObject.Properties.Name -contains
++                    'DefaultProjectPath'
++                ) {
++                    $config.DefaultProjectPath = $resolvedPath
++                }
++                else {
++                    $config | Add-Member `
++                        -MemberType NoteProperty `
++                        -Name DefaultProjectPath `
++                        -Value $resolvedPath
++                }
++                return $config
++            } | Out-Null
  
 -    Write-RenderKitLog -Level Info -Message "Default project root set to '$Path'."
 -    Write-Output "Project root set to: $Path"

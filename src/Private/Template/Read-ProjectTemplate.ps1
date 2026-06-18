@@ -14,7 +14,7 @@ function Read-ProjectTemplate{
     switch($ext){
         ".json" {
             try {
-                $json = Get-Content $Path -Raw | ConvertFrom-Json -ErrorAction Stop
+                $json = Read-RenderKitJsonFile -Path $Path
                 if (-not ($json.PSObject.Properties['Folders'])) {
                     Write-RenderKitLog -Level Error -Message "Template JSON '$Path' does not contain a 'Folders' tag."
                     throw "JSON does not contain a folders tag"

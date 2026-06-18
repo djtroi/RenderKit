@@ -136,7 +136,7 @@ function New-RenderKitProjectManifest {
     $metadataPath = Get-RenderKitProjectMetadataPath -ProjectRoot $resolvedProjectRoot
     $metadata = $null
     if (Test-Path -LiteralPath $metadataPath -PathType Leaf) {
-        $metadata = Get-Content -LiteralPath $metadataPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+        $metadata = Read-RenderKitJsonFile -Path $metadataPath
     }
 
     $doc = [System.Xml.XmlDocument]::new()

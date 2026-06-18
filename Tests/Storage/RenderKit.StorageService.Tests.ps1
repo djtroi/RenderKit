@@ -106,10 +106,10 @@ Describe 'RenderKit cross-platform storage service' {
     }
 
     It 'uses native macOS locations when XDG variables are absent' {
-        $home = Get-RenderKitUserHome
-        $applicationSupport = Join-Path $home `
+        $userHome = Get-RenderKitUserHome
+        $applicationSupport = Join-Path $userHome `
             'Library/Application Support/RenderKit'
-        $cache = Join-Path $home 'Library/Caches/RenderKit'
+        $cache = Join-Path $userHome 'Library/Caches/RenderKit'
 
         Get-RenderKitStorageRoot -Kind Configuration -Platform macOS |
             Should -Be $applicationSupport

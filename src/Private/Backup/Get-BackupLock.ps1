@@ -49,9 +49,28 @@ function Get-BackupLock {
         toolVersion     = $script:RenderKitModuleVersion
     }
 
-    $lock |
-        ConvertTo-Json -Depth 5 |
-        Set-Content -Path $lockPath -Encoding UTF8
+    $lockJson = $lock | ConvertTo-Json -Depth 5 -ErrorAction Stop
+    $encoding = New-Object System.Text.UTF8Encoding($false)
+    $lockBytes = $encoding.GetBytes($lockJson)
+    $lockStream = $null
+    try {
+        $lockStream = [System.IO.File]::Open(
+            $lockPath,
+            [System.IO.FileMode]::CreateNew,
+            [System.IO.FileAccess]::Write,
+            [System.IO.FileShare]::None
+        )
+        $lockStream.Write($lockBytes, 0, $lockBytes.Length)
+        $lockStream.Flush()
+    }
+    catch [System.IO.IOException] {
+        throw "Backup lock was acquired concurrently for '$ProjectRoot'."
+    }
+    finally {
+        if ($lockStream) {
+            $lockStream.Dispose()
+        }
+    }
 
     return [PSCustomObject]@{
         ProjectRoot = $ProjectRoot

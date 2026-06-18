@@ -101,11 +101,10 @@ function Write-RenderKitDeviceRegistry {
         SerialNumbers = $serialNumbers
     }
 
-    $normalizedRegistry |
-        ConvertTo-Json -Depth 10 |
-        Set-Content -Path $path -Encoding UTF8
-
-    return $normalizedRegistry
+    return Write-RenderKitJsonFileAtomic `
+        -Value $normalizedRegistry `
+        -Path $path `
+        -Depth 10
 }
 
 function Resolve-RenderKitDriveLetter {

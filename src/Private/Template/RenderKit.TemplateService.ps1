@@ -91,7 +91,7 @@ function Read-RenderKitTemplateFile {
     )
 
     try {
-        return Get-Content $Path -Raw | ConvertFrom-Json -ErrorAction Stop
+        return Read-RenderKitJsonFile -Path $Path
     }
     catch {
         Write-RenderKitLog -Level Error -Message "Invalid JSON in template '$Path'."
@@ -107,8 +107,11 @@ function Write-RenderKitTemplateFile {
         [string]$Path
     )
 
-    $Template | ConvertTo-Json -Depth 20 |
-        Set-Content -Path $Path -Encoding UTF8
+    Write-RenderKitJsonFileAtomic `
+        -Value $Template `
+        -Path $Path `
+        -Depth 20 |
+        Out-Null
 }
 
 function Get-ProjectTemplate {

@@ -10,7 +10,7 @@ function Read-RenderKitMappingFile {
     }
 
     try {
-        return Get-Content $path -Raw | ConvertFrom-Json -ErrorAction Stop
+        return Read-RenderKitJsonFile -Path $path
     }
     catch {
         Write-RenderKitLog -Level Error -Message "Invalid JSON in mapping '$MappingId'."
@@ -42,6 +42,9 @@ function Write-RenderKitMappingFile {
 
     $path = Get-RenderKitUserMappingPath -MappingId $MappingId
 
-    $Mapping | ConvertTo-Json -Depth 5 |
-        Set-Content -Path $path -Encoding UTF8
+    Write-RenderKitJsonFileAtomic `
+        -Value $Mapping `
+        -Path $path `
+        -Depth 5 |
+        Out-Null
 }

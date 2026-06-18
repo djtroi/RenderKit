@@ -43,7 +43,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@main
         with:
           name: RenderKit-validation-package
           path: artifacts/packages/*.nupkg
