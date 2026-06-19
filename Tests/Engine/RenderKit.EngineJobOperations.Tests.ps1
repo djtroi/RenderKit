@@ -1,12 +1,14 @@
-$repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$script:RenderKitModuleRoot = $repositoryRoot
-. (Join-Path $repositoryRoot 'src/Private/Storage/RenderKit.StorageService.ps1')
-. (Join-Path $repositoryRoot 'src/Private/Storage/RenderKit.PersistenceService.ps1')
-. (Join-Path $repositoryRoot 'src/Private/Versioning/RenderKit.ArtifactVersionService.ps1')
-. (Join-Path $repositoryRoot 'src/Private/Job/RenderKit.JobService.ps1')
-. (Join-Path $repositoryRoot 'src/Private/Engine/RenderKit.EngineContractService.ps1')
-
 Describe 'RenderKit engine job operations' {
+    BeforeAll {
+        $repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+        $script:RenderKitModuleRoot = $repositoryRoot
+        . (Join-Path $repositoryRoot 'src/Private/Storage/RenderKit.StorageService.ps1')
+        . (Join-Path $repositoryRoot 'src/Private/Storage/RenderKit.PersistenceService.ps1')
+        . (Join-Path $repositoryRoot 'src/Private/Versioning/RenderKit.ArtifactVersionService.ps1')
+        . (Join-Path $repositoryRoot 'src/Private/Job/RenderKit.JobService.ps1')
+        . (Join-Path $repositoryRoot 'src/Private/Engine/RenderKit.EngineContractService.ps1')
+    }
+
     BeforeEach {
         $env:RENDERKIT_HOME = Join-Path $TestDrive 'renderkit-home'
         $script:RenderKitArtifactVersionCatalog = $null

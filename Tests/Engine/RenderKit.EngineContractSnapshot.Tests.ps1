@@ -1,10 +1,11 @@
-$repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$script:RenderKitModuleRoot = $repositoryRoot
-. (Join-Path $repositoryRoot 'src/Private/Event/RenderKit.EventService.ps1')
-. (Join-Path $repositoryRoot 'src/Private/Job/RenderKit.JobService.ps1')
-. (Join-Path $repositoryRoot 'src/Private/Engine/RenderKit.EngineContractService.ps1')
-
 Describe 'RenderKit engine contract snapshot' {
+    BeforeAll {
+        $repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+        $script:RenderKitModuleRoot = $repositoryRoot
+        . (Join-Path $repositoryRoot 'src/Private/Event/RenderKit.EventService.ps1')
+        . (Join-Path $repositoryRoot 'src/Private/Job/RenderKit.JobService.ps1')
+        . (Join-Path $repositoryRoot 'src/Private/Engine/RenderKit.EngineContractService.ps1')
+    }
     It 'returns a machine-readable host handoff contract' {
         $actor = New-RenderKitActorContext `
             -ActorId 'host-system' `

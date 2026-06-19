@@ -1,8 +1,11 @@
-$repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$script:RenderKitModuleRoot = $repositoryRoot
-. (Join-Path $repositoryRoot 'src/Private/Versioning/RenderKit.ArtifactVersionService.ps1')
 
 Describe 'RenderKit artifact version service' {
+        BeforeAll {
+        $repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+        $script:RenderKitModuleRoot = $repositoryRoot
+        . (Join-Path $repositoryRoot 'src/Private/Versioning/RenderKit.ArtifactVersionService.ps1')
+    }
+
     BeforeEach {
         $script:RenderKitArtifactVersionCatalog = $null
         $script:RenderKitArtifactMigrations = @{}

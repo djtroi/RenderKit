@@ -9,6 +9,9 @@ BeforeAll {
 Describe 'RenderKit JSON persistence service' {
     BeforeEach {
         $script:testRoot = Join-Path $TestDrive 'persistence'
+        if (Test-Path -LiteralPath $script:testRoot) {
+            Remove-Item -LiteralPath $script:testRoot -Recurse -Force
+        }
         New-Item -ItemType Directory -Path $script:testRoot -Force |
             Out-Null
         $script:jsonPath = Join-Path $script:testRoot 'state.json'
