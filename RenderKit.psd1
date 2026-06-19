@@ -53,15 +53,15 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 0.3.8 introduces new features like:
-- Copy-Project
-- Remove-Project
-- Send-Project
-- Rename-Project
-- Add-RenderKitDeliverableToTemplate
+Version 1.0.0 introduces the RenderKit engine foundations and state model:
+- Cross-platform user storage for configuration, state, cache, and user data, including RENDERKIT_HOME overrides.
+- Atomic JSON persistence with file locking, backup restoration, validation hooks, and transaction-style state updates.
+- Artifact versioning and compatibility metadata for projects, registry data, events, jobs, templates, mappings, devices, and configuration.
+- Internal project registry and lifecycle services for tracking known projects, reconciling moved or missing project folders, validating status transitions, and emitting lifecycle events.
+- Domain-event storage, event-to-job automation subscriptions, durable jobs, trusted worker primitives, handler metadata catalogs, and repair/health checks.
+- Host-facing engine contracts with operation contexts, correlation and causation IDs, stable RenderKitResult envelopes, registered error codes, and a machine-readable contract snapshot for broker/Electron handoff.
 
-You are now able to set in your templates a folder that is a render export destination.
-With Send-Project you can package that folder for sending it to your clients.
+This release also updates project commands and import/export flows to keep registry and lifecycle state consistent, moves EventStore and JobStore metadata to schema version 1.1 while retaining readable 1.0 compatibility, and expands documentation and Pester coverage for the new foundations.
 '@
         } # End of PSData hashtable
 

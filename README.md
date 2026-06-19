@@ -1,16 +1,20 @@
 # RenderKit
+
 ![GitHub Release](https://img.shields.io/github/v/release/djtroi/RenderKit?label=release)
 ![PowerShell Gallery Version](https://img.shields.io/powershellgallery/v/RenderKit?label=PowerShell%20Gallery)
 ![Downloads](https://img.shields.io/powershellgallery/dt/RenderKit)
 [![CI/CD Pipeline](https://github.com/djtroi/RenderKit/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/djtroi/RenderKit/actions/workflows/quality-gate.yml)
 
-**RenderKit** is a PowerShell toolkit for repeatable media-production project workflows: create project structures, manage templates and mappings, import camera media, verify transfers, and archive finished work with confidence.
+**RenderKit** is a PowerShell toolkit for repeatable media-production project workflows: create project structures, manage templates and mappings, import camera media, verify transfers, package deliverables, export/import projects, and keep local workflow state auditable.
+
+Current repository version: **1.0.0**. RenderKit supports **Windows PowerShell 5.1** and **PowerShell 7+**.
 
 ## Table of Contents
 
 - [What is RenderKit?](#what-is-renderkit)
 - [Quickstart](#quickstart)
 - [Why RenderKit Exists](#why-renderkit-exists)
+- [Common Workflows](#common-workflows)
 - [Core Features](#core-features)
 - [Architecture](#architecture)
 - [Documentation](#documentation)
@@ -20,31 +24,48 @@
 
 ## What is RenderKit?
 
-RenderKit helps editors and media teams standardize the repetitive parts of a production pipeline. Instead of manually creating folders, remembering naming conventions, sorting camera files, and building backup archives by hand, RenderKit gives you composable commands for the full lifecycle of a project.
+RenderKit helps editors and media teams standardize the repetitive parts of a production pipeline. Instead of manually creating folders, remembering naming conventions, sorting camera files, building delivery packages, and creating backup archives by hand, RenderKit gives you composable commands for the full lifecycle of a project.
 
 Use it to:
 
-- define reusable project templates and media mappings;
-- create consistent editing project folders;
+- define reusable project templates, folder structures, deliverables, and media mappings;
+- create consistent editing project folders with metadata;
 - detect media drives and pick source folders interactively;
 - scan, filter, classify, and transfer media into the right destinations;
-- back up projects with manifests, integrity checks, and archive workflows.
+- copy, rename, remove, import, export, and send projects;
+- back up projects with manifests, integrity checks, and archive workflows;
+- keep local RenderKit state in platform-appropriate user storage with versioned artifacts.
 
 ## Quickstart
 
 ### 1. Install RenderKit
+
+Recommended installer for current PowerShell environments:
+
 ```powershell
-Install-Module -Name RenderKit -Scope CurrentUser
+Install-PSResource -Name RenderKit -Scope CurrentUser -Repository PSGallery
+Import-Module RenderKit
 ```
 
-Or with PSResourceGet:
+Compatibility-tested legacy installer:
+
 ```powershell
-Install-PSResource -Name RenderKit -Scope CurrentUser
+Install-Module -Name RenderKit -Scope CurrentUser -Repository PSGallery
+Import-Module RenderKit
 ```
+
+If `Install-PSResource` is not available yet, install PSResourceGet first:
+
+```powershell
+Install-Module -Name Microsoft.PowerShell.PSResourceGet -Scope CurrentUser
+```
+
+See [installation and update instructions](docs/installation.md) for local checkout installs, updates, verification commands, and troubleshooting.
 
 ### 2. Create your project root
 
 ```powershell
+New-Item -ItemType Directory -Path "D:\Editing_Projects" -Force
 Set-ProjectRoot -Path "D:\Editing_Projects"
 ```
 
@@ -71,7 +92,7 @@ Import-Media `
   -Classify `
   -Transfer `
   -ProjectRoot "D:\Editing_Projects\ClientA_2026" `
-  -TemplateName "default" `
+  -TemplateName "youtube" `
   -TransferHashAlgorithm SHA256
 ```
 
@@ -86,30 +107,51 @@ GIF walkthroughs are planned for future README updates:
 | Backup and archive workflow | _GIF coming soon: `docs/assets/tutorial-backup.gif`_ |
 
 > [!WARNING]
-> RenderKit can copy, archive, and optionally remove project data depending on the command and parameters you choose. Test new workflows with `-DryRun` where available and verify your destination paths before running production operations.
+> RenderKit can copy, archive, package, and optionally remove project data depending on the command and parameters you choose. Test new workflows with `-WhatIf` or `-DryRun` where available and verify your source, destination, and project-root paths before running production operations.
 
 ## Why RenderKit Exists
 
-Video projects tend to fail in quiet, boring ways: inconsistent folder names, forgotten camera cards, copied files without hashes, missing delivery folders, and archives that cannot be audited later. RenderKit exists to make those operational details explicit, repeatable, and scriptable.
+Video projects tend to fail in quiet, boring ways: inconsistent folder names, forgotten camera cards, copied files without hashes, missing delivery folders, unclear package contents, and archives that cannot be audited later. RenderKit exists to make those operational details explicit, repeatable, and scriptable.
 
-The goal is not to replace your editor, NLE, DAM, or backup strategy. RenderKit focuses on the glue around them: the project scaffolding, import discipline, transfer safety, and metadata that make handoffs and long-term storage easier.
+The goal is not to replace your editor, NLE, DAM, or backup strategy. RenderKit focuses on the glue around them: the project scaffolding, import discipline, transfer safety, delivery packaging, local state, and metadata that make handoffs and long-term storage easier.
+
+## Common Workflows
+
 ### Interactive import workflow
 
 Run a scan → filter → selection → classification → transfer pipeline from one command:
-_GIF coming soon
+
+_GIF coming soon: `docs/assets/tutorial-import.gif`_
+
 ```powershell
 Import-Media
 ```
+
 ### Drive detection and whitelisting
+
 ```powershell
 Get-RenderKitDriveCandidate
-
 Select-RenderKitDriveCandidate -IncludeFixed
-
-t
 Add-RenderKitDeviceWhitelistEntry -FromMountedVolumes
+Get-RenderKitDeviceWhitelist
 ```
 
+### Project lifecycle operations
+
+```powershell
+Rename-Project -ProjectName "ClientA_2026" -NewName "ClientA_Final_2026" -WhatIf
+Copy-Project -ProjectName "ClientA_Final_2026" -NewName "ClientA_Copy_2026" -DryRun
+Remove-Project -ProjectName "ClientA_Copy_2026" -DryRun
+```
+
+### Export, import, and delivery packaging
+
+```powershell
+Export-Project -ProjectRoot "D:\Editing_Projects\ClientA_2026" -DestinationPath "E:\Transfer\ClientA_2026.rkit" -Mode ManifestOnly
+Export-Project -ProjectRoot "D:\Editing_Projects\ClientA_2026" -DestinationPath "E:\Transfer\ClientA_2026.rkitpkg" -Mode SelfContained
+Import-Project -Path "E:\Transfer\ClientA_2026.rkitpkg" -DestinationRoot "D:\Editing_Projects"
+Send-Project -ProjectRoot "D:\Editing_Projects\ClientA_2026" -DestinationPath "E:\Delivery\ClientA-review.zip" -DeliveryRule "review" -PackageMode Zip
+```
 
 ### Production-ready backup pipeline
 
@@ -119,7 +161,7 @@ Backup-Project -ProjectName "ClientA_2026" -Profile DaVinci -DryRun
 Backup-Project -ProjectName "ClientA_2026" -DestinationRoot "E:\Backups" -KeepSourceProject
 ```
 
-### Template and mapping management
+### Template, mapping, and deliverable management
 
 ```powershell
 New-RenderKitTemplate -Name "client-delivery"
@@ -127,62 +169,105 @@ Add-FolderToTemplate -TemplateName "client-delivery" -FolderName "01_Footage"
 New-RenderKitMapping -Name "camera-media"
 Add-RenderKitTypeToMapping -MappingName "camera-media" -Extension ".mp4" -TargetFolder "01_Footage"
 Add-RenderKitMappingToTemplate -TemplateName "client-delivery" -MappingName "camera-media"
+Add-RenderKitDeliverableToTemplate -TemplateName "client-delivery" -Id "review" -Name "Review Files" -SourceFolder "03_Deliverables" -Recursive -DefaultPackage
 ```
+
+## Core Features
+
+- **Project lifecycle commands** for creating, copying, renaming, removing, importing, exporting, sending, and backing up projects.
+- **Template and mapping tools** for reusable project folders, logical media types, and deliverable rules.
+- **Interactive import wizard** with drive/source selection, filtering, classification, transfer mode selection, and unassigned-file handling.
+- **Transfer safety** through hash verification and transaction-style media import workflows.
+- **Export and delivery formats** including manifest-only `.rkit`, self-contained `.rkitpkg`, folder deliveries, ZIP deliveries, and manifest outputs.
+- **Cross-platform user storage** for configuration, state, cache, and user data roots, including `RENDERKIT_HOME` overrides.
+- **Atomic JSON persistence** with locking, backup restoration, validation hooks, and transaction-style state updates.
+- **Versioned internal artifacts** for project, registry, event, job, template, mapping, device, and configuration data.
+- **Internal project registry and lifecycle services** for known project tracking, moved/missing project reconciliation, status transitions, and lifecycle events.
+- **Domain events, durable jobs, automation, and worker primitives** for future host integrations and asynchronous workflows.
+- **Host-facing engine contracts** with stable result envelopes, registered error codes, operation contexts, and contract snapshots.
 
 ## Architecture
 
-- [ADR-001: Project Identity and Local Registry](architecture/ADR-001-project-identity-and-registry.md)
-- [ADR-002: Project Lifecycle State Machine](architecture/ADR-002-project-lifecycle.md)
-- [ADR-003: Domain Events, Durable Jobs, and Automation](architecture/ADR-003-domain-events-and-jobs.md)
-- [ADR-004: Artifact and Business Versioning](architecture/ADR-004-artifact-versioning.md)
-- [ADR-005: Cross-Platform Storage and Path Handling](architecture/ADR-005-cross-platform-storage.md)
-- [ADR-006: Local Engine Security Baseline](architecture/ADR-006-security-baseline.md)
-- [Architecture implementation plan](architecture/phase-implementation-plan.md)
+- [ADR-001: Project Identity and Local Registry](docs/architecture/ADR-001-project-identity-and-registry.md)
+- [ADR-002: Project Lifecycle State Machine](docs/architecture/ADR-002-project-lifecycle.md)
+- [ADR-003: Domain Events, Durable Jobs, and Automation](docs/architecture/ADR-003-domain-events-and-jobs.md)
+- [ADR-004: Artifact and Business Versioning](docs/architecture/ADR-004-artifact-versioning.md)
+- [ADR-005: Cross-Platform Storage and Path Handling](docs/architecture/ADR-005-cross-platform-storage.md)
+- [ADR-006: Local Engine Security Baseline](docs/architecture/ADR-006-security-baseline.md)
+- [Architecture implementation plan](docs/architecture/phase-implementation-plan.md)
 
 ## Documentation
 
-Detailed German-language usage documentation is available in [`docs/README.md`](docs/README.md). It includes:
+Detailed usage documentation is available in [`docs/README.md`](docs/README.md). It includes:
 
 - installation and update instructions for PSResourceGet and PowerShellGet;
 - a guided first-run workflow;
 - one consistently structured Markdown reference page per implemented public function;
-- parameter, safety, output, and usage guidance for every documented command.
+- parameter, safety, output, and usage guidance for every documented command;
+- technical documentation for storage, artifact versioning, project registry, project lifecycle, events, jobs, workers, automation, repair checks, and engine contracts.
+
+Key technical documents:
+
+- [Cross-Platform User Storage](docs/storage.md)
+- [Artifact Versioning](docs/artifact-versioning.md)
+- [Project Registry](docs/project-registry.md)
+- [Project Lifecycle](docs/project-lifecycle.md)
+- [Domain Events](docs/events.md)
+- [Background Jobs](docs/jobs.md)
+- [Event-to-Job Automation](docs/automation.md)
+- [Job Workers](docs/job-workers.md)
+- [Engine Contracts](docs/engine-contracts.md)
+- [Repair and Health Checks](docs/repair.md)
 
 ## Public Functions
 
-
 ### Project lifecycle
 
-- `Set-ProjectRoot`
-- `New-Project`
-- `Rename-Project`
-- `Remove-Project`
-- `Import-Project`
-- `Export-Project`
-- `Clone-Project`
-- `Send-Project`
+- [`Set-ProjectRoot`](docs/Set-ProjectRoot.md)
+- [`New-Project`](docs/New-Project.md)
+- [`Copy-Project`](docs/Copy-Project.md)
+- [`Rename-Project`](docs/Rename-Project.md)
+- [`Remove-Project`](docs/Remove-Project.md)
+- [`Import-Project`](docs/Import-Project.md)
+- [`Export-Project`](docs/Export-Project.md)
+- [`Send-Project`](docs/Send-Project.md)
 
 ### Template and mapping setup
 
-- `New-RenderKitTemplate`
-- `Add-FolderToTemplate`
-- `Add-RenderKitDeliverableToTemplate`
-- `New-RenderKitMapping`
-- `Add-RenderKitTypeToMapping`
-- `Add-RenderKitMappingToTemplate`
+- [`New-RenderKitTemplate`](docs/New-RenderKitTemplate.md)
+- [`Add-FolderToTemplate`](docs/Add-FolderToTemplate.md)
+- [`Add-RenderKitDeliverableToTemplate`](docs/Add-RenderKitDeliverableToTemplate.md)
+- [`New-RenderKitMapping`](docs/New-RenderKitMapping.md)
+- [`Add-RenderKitTypeToMapping`](docs/Add-RenderKitTypeToMapping.md)
+- [`Add-RenderKitMappingToTemplate`](docs/Add-RenderKitMappingToTemplate.md)
 
 ### Import and source detection
 
-- `Import-Media`
-- `Get-RenderKitDriveCandidate`
-- `Select-RenderKitDriveCandidate`
-- `Get-RenderKitDeviceWhitelist`
-- `Add-RenderKitDeviceWhitelistEntry`
+- [`Import-Media`](docs/Import-Media.md)
+- [`Get-RenderKitDriveCandidate`](docs/Get-RenderKitDriveCandidate.md)
+- [`Select-RenderKitDriveCandidate`](docs/Select-RenderKitDriveCandidate.md)
+- [`Get-RenderKitDeviceWhitelist`](docs/Get-RenderKitDeviceWhitelist.md)
+- [`Add-RenderKitDeviceWhitelistEntry`](docs/Add-RenderKitDeviceWhitelistEntry.md)
 
 ### Backup
-- `Backup-Project`
+
+- [`Backup-Project`](docs/Backup-Project.md)
+
+Check the commands exported by your installed module:
+
+```powershell
+Get-Command -Module RenderKit
+Get-Help <FunctionName> -Full
+Get-Help <FunctionName> -Examples
+```
 
 ## Maintainer Release Workflow
+
+Run the test/build helper used by the repository:
+
+```powershell
+pwsh ./build/Invoke-RenderKitTests.ps1
+```
 
 Build a clean release artifact:
 
@@ -190,8 +275,28 @@ Build a clean release artifact:
 pwsh ./build/Build-RenderKitPackage.ps1
 ```
 
-Publish the generated package to PowerShell Gallery:
+Validate a package or local install before publication:
+
+```powershell
+pwsh ./build/Test-RenderKitPackage.ps1
+pwsh ./build/Test-RenderKitLocalInstall.ps1
+```
+
+Publish the staged module to PowerShell Gallery:
 
 ```powershell
 pwsh ./build/Publish-RenderKit.ps1 -Repository PSGallery -ApiKey '<APIKEY>'
 ```
+
+Post-publication smoke tests can be run with:
+
+```powershell
+pwsh ./build/Test-RenderKitGalleryInstall.ps1 -Version '<VERSION>'
+```
+
+> [!NOTE]
+> The release workflow publishes the validated staged module through `Publish-PSResource -Path`; the PowerShell Gallery creates the served package.
+
+## Roadmap
+
+Near-term work is tracked through the architecture implementation plan and changelog. Current foundations include storage, persistence, artifact versioning, registry/lifecycle state, domain events, durable jobs, automation, workers, repair checks, and engine contracts. Future README updates can replace the tutorial placeholders above with GIF walkthroughs and expand host/Electron handoff examples as those integrations mature.
