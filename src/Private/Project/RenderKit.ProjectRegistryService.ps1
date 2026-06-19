@@ -88,7 +88,9 @@ function New-RenderKitProjectRegistryEntry {
 
     $fullPath = [System.IO.Path]::GetFullPath($ProjectRoot)
     $version = $null
-    if ($Metadata -and $Metadata.projectVersion) {
+    if ($Metadata -and
+        ($Metadata.PSObject.Properties.Name -contains 'projectVersion') -and
+        -not [string]::IsNullOrWhiteSpace([string]$Metadata.projectVersion)) {
         $version = [string]$Metadata.projectVersion
     }
 
