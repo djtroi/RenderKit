@@ -480,6 +480,12 @@ https://github.com/djtroi/RenderKit
         Write-RenderKitLog -Level Info -Message "Phase 5 skipped in WhatIf mode (simulation)."
     }
     elseif ($confirmed -and -not [string]::IsNullOrWhiteSpace($effectiveProjectRoot)) {
+        Set-RenderKitProjectStatus `
+            -ProjectRoot $effectiveProjectRoot `
+            -Status 'Active' `
+            -Reason 'Media import confirmed' `
+            -Source 'Import-Media' |
+            Out-Null
         try {
             $revisionLogPath = Write-RenderKitImportRevisionLog `
                 -ProjectRoot $effectiveProjectRoot `

@@ -140,23 +140,24 @@ function Confirm-Template {
     param(
         [Parameter(Mandatory)]
         $Template,
+
         [switch]$RequireWritable
     )
 
     if (-not ($Template.PSObject.Properties.Name -contains 'Version') -or
         [string]::IsNullOrWhiteSpace([string]$Template.Version)) {
         throw "Template is missing 'Version' property."
-     }
- 
+    }
+
     if (-not ($Template.PSObject.Properties.Name -contains 'Name') -or
         [string]::IsNullOrWhiteSpace([string]$Template.Name)) {
         throw "Template is missing 'Name' property."
-     }
+    }
     if (-not ($Template.PSObject.Properties.Name -contains 'Folders') -or
         $null -eq $Template.Folders) {
         throw "Template is missing 'Folders' property."
-     }
- 
+    }
+
     $compatibility = Test-RenderKitArtifactCompatibility `
         -ArtifactType Template `
         -Version ([string]$Template.Version)
@@ -169,14 +170,14 @@ function Confirm-Template {
             "Template version '$($Template.Version)' is supported but version " +
             "'$($compatibility.CurrentVersion)' is current."
         )
-     }
- 
-     foreach ($folder in $Template.Folders){
-         Test-FolderNode $folder
-     }
+    }
+
+    foreach ($folder in $Template.Folders){
+        Test-FolderNode $folder
+    }
 
     return $compatibility
- } 
+} 
 
 function Test-FolderNode {
     param(

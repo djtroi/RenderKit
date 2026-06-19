@@ -124,6 +124,40 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
             }
         }
         finally { $zip.Dispose() }
+         $metadataPath = Get-RenderKitProjectMetadataPath -ProjectRoot $targetRoot
+        if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
+            $metadata = New-RenderKitProjectMetadata `
+                -ProjectName $ProjectName `
+                -TemplateName 'imported' `
+                -TemplateSource 'import'
+            $metadata = Set-RenderKitProjectMetadataStatus `
+                -Metadata $metadata `
+                -Status 'Active' `
+                -Reason 'Project imported' `
+                -Source 'Import-Project' `
+                -Force
+            Write-RenderKitProjectMetadata `
+                -ProjectRoot $targetRoot `
+                -Metadata $metadata
+            Write-RenderKitProjectLifecycleEvent `
+                -Metadata $metadata `
+                -ProjectRoot $targetRoot `
+                -FromStatus 'Unknown' `
+                -ToStatus 'Active' `
+                -Reason 'Project imported' `
+                -Source 'Import-Project' |
+                Out-Null
+        }
+        else {
+            Set-RenderKitProjectStatus `
+                -ProjectRoot $targetRoot `
+                -Status 'Active' `
+                -Reason 'Project imported' `
+                -Source 'Import-Project' `
+                -Force |
+                Out-Null
+        }
+        Register-RenderKitProject -ProjectRoot $targetRoot | Out-Null
 
         return [PSCustomObject]@{
             ProjectRoot       = $targetRoot
