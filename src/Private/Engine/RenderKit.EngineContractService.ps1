@@ -891,15 +891,28 @@ function New-RenderKitEngineProjectSummary {
         [Parameter(Mandatory)]
         [object]$RegistryEntry
     )
+    $propertyNames = @($RegistryEntry.PSObject.Properties.Name)
+    $metadataPath = $null
+    $version = $null
+    $updatedAtUtc = $null
+    if ($propertyNames -contains 'metadataPath') {
+        $metadataPath = [string]$RegistryEntry.metadataPath
+    }
+    if ($propertyNames -contains 'version') {
+        $version = [string]$RegistryEntry.version
+    }
+    if ($propertyNames -contains 'updatedAtUtc') {
+        $updatedAtUtc = [string]$RegistryEntry.updatedAtUtc
+    }
 
     return [PSCustomObject]@{
         id            = [string]$RegistryEntry.id
         name          = [string]$RegistryEntry.name
         rootPath      = [string]$RegistryEntry.rootPath
-        metadataPath  = [string]$RegistryEntry.metadataPath
+        metadataPath  = $metadataPath
         version       = [string]$RegistryEntry.version
         exists        = [bool]$RegistryEntry.exists
-        updatedAtUtc  = [string]$RegistryEntry.updatedAtUtc
+        updatedAtUtc  = $updatedAtUtc
     }
 }
 
@@ -929,7 +942,7 @@ function Get-RenderKitEngineProjectList {
         if (-not [string]::IsNullOrWhiteSpace($ProjectName)) {
             $projects = @($projects | Where-Object { [string]$_.name -eq $ProjectName })
         }
-        if ($Exists.HasValue) {
+        if ($null -ne $Exists -and $Exists.HasValue)  {
             $projects = @($projects | Where-Object { [bool]$_.exists -eq [bool]$Exists.Value })
         }
 
@@ -1004,9 +1017,16 @@ function Get-RenderKitEngineProjectDetail {
     $entry = $projectMatches[0]
     $metadata = $null
     $metadataError = $null
-    if ([bool]$entry.exists -and (Test-Path -LiteralPath ([string]$entry.metadataPath) -PathType Leaf)) {
+    $entryPropertyNames = @($entry.PSObject.Properties.Name)
+    $entryMetadataPath = $null
+    if ($entryPropertyNames -contains 'metadataPath') {
+        $entryMetadataPath = [string]$entry.metadataPath
+    }
+    if ([bool]$entry.exists -and
+        -not [string]::IsNullOrWhiteSpace($entryMetadataPath) -and
+        (Test-Path -LiteralPath $entryMetadataPath -PathType Leaf)) {
         try {
-            $metadata = Read-RenderKitJsonFile -Path ([string]$entry.metadataPath)
+            $metadata = Read-RenderKitJsonFile -Path $entryMetadataPath
         }
         catch {
             $metadataError = $_.Exception.Message

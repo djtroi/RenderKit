@@ -320,9 +320,12 @@ function Initialize-RenderKitDefaultJobHandlers {
         -IsIdempotent `
         -Handler {
             param($Job)
-            Write-RenderKitLog `
-                -Level Debug `
-                -Message "Processed ProjectLifecycleAutomation job '$($Job.id)'."
+            $logger = Get-Command -Name Write-RenderKitLog -ErrorAction SilentlyContinue
+            if ($logger) {
+                Write-RenderKitLog `
+                    -Level Debug `
+                    -Message "Processed ProjectLifecycleAutomation job '$($Job.id)'."
+            }
         }
 }
 
