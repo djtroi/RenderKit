@@ -9,7 +9,7 @@ function Get-RenderKitTemplate {
     if ($Source -in @("all", "system")) {
         $systemRoot = Get-RenderKitSystemTemplatesRoot
         if (Test-Path $systemRoot) {
-            $templates = Get-ChildItem $systemRoot -Filter "*.json" | ForEach-Object {
+            $templates += Get-ChildItem $systemRoot -Filter "*.json" | ForEach-Object {
                 [PSCustomObject]@{
                     Name   = $_.BaseName
                     Path   = $_.FullName
@@ -22,7 +22,7 @@ function Get-RenderKitTemplate {
     if ($Source -in @("all", "user")) {
         $userRoot = Get-RenderKitUserTemplatesRoot
         if (Test-Path $userRoot) {
-            $templates = Get-ChildItem $userRoot -Filter "*.json" | ForEach-Object {
+            $templates += Get-ChildItem $userRoot -Filter "*.json" | ForEach-Object {
                 [PSCustomObject]@{
                     Name   = $_.BaseName
                     Path   = $_.FullName
