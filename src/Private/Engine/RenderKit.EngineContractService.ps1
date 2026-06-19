@@ -297,7 +297,10 @@ function Test-RenderKitEngineActorContext {
         return $false
     }
 
-    return -not [string]::IsNullOrWhiteSpace([string]$OperationContext.actor.actorType)
+    return (
+        -not [string]::IsNullOrWhiteSpace([string]$OperationContext.actor.actorType) -and
+        -not [string]::IsNullOrWhiteSpace([string]$OperationContext.actor.actorId)
+    )
 }
 
 function New-RenderKitEngineJob {

@@ -409,33 +409,38 @@ function Get-RenderKitUserMappingsRoot {
 }
 
 
- function Get-RenderKitModuleResourceRoot {
-     [CmdletBinding()]
-     [OutputType([System.String])]
-     param(
-         [Parameter(Mandatory)]
-         [string]$RelativePath
-     )
- 
-     $candidateBasePaths = New-Object System.Collections.Generic.List[string]
-     if (-not [string]::IsNullOrWhiteSpace([string]$script:RenderKitModuleRoot)) {
-         $candidateBasePaths.Add([string]$script:RenderKitModuleRoot)
-     }
- 
-     $fallbackBasePath = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-     if (-not $candidateBasePaths.Contains($fallbackBasePath)) {
-         $candidateBasePaths.Add($fallbackBasePath)
-     }
- 
-     foreach ($basePath in $candidateBasePaths) {
-         $resourceCandidates = @(
-             (Join-Path $basePath $RelativePath),
-             (Join-Path (Join-Path $basePath "src") $RelativePath)
-         )
- 
-         foreach ($candidatePath in $resourceCandidates) {
+function Get-RenderKitModuleResourceRoot {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RelativePath
+    )
 
-          }
-          
+    $candidateBasePaths = New-Object System.Collections.Generic.List[string]
+    if (-not [string]::IsNullOrWhiteSpace([string]$script:RenderKitModuleRoot)) {
+        $candidateBasePaths.Add([string]$script:RenderKitModuleRoot)
+    }
+
+    $fallbackBasePath = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+    if (-not $candidateBasePaths.Contains($fallbackBasePath)) {
+        $candidateBasePaths.Add($fallbackBasePath)
+    }
+
+    foreach ($basePath in $candidateBasePaths) {
+        $resourceCandidates = @(
+            (Join-Path -Path $basePath -ChildPath $RelativePath),
+            (Join-Path -Path (Join-Path -Path $basePath -ChildPath 'src') -ChildPath $RelativePath)
+        )
+
+        foreach ($candidatePath in $resourceCandidates) {
+            if (Test-Path -LiteralPath $candidatePath -PathType Container) {
+                return (Resolve-Path -LiteralPath $candidatePath).ProviderPath
+            }
         }
-        }
+    }
+
+    throw "RenderKit resource root '$RelativePath' was not found below: $($candidateBasePaths -join ', ')."
+}
+
+        

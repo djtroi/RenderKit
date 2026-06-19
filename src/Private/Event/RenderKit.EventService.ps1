@@ -198,9 +198,10 @@ function New-RenderKitDomainEvent {
     }
 
     $aggregateVersionValue = $null
-    if ($AggregateVersion.HasValue) {
-        $aggregateVersionValue = [int]$AggregateVersion.Value
+    if ($null -ne $AggregateVersion) {
+        $aggregateVersionValue = [int]$AggregateVersion
     }
+
 
     return [PSCustomObject]@{
         id                 = [guid]::NewGuid().ToString()
