@@ -137,12 +137,17 @@ function New-ProjectMetadataFolder {
 }
 
 function Get-Platform {
-    if ($IsWindows) { return "windows" }
-    if ($isMacOs) { return "macos" }
-    if ($IsLinux) { return "linux" }
-    else {
-        return "unknown"
-    }
+    if ($PSVersionTable.PSEdition -eq 'Desktop') { return "windows" }
+
+    $isWindowsVariable = Get-Variable -Name IsWindows -ErrorAction SilentlyContinue
+    $isMacOSVariable = Get-Variable -Name IsMacOS -ErrorAction SilentlyContinue
+    $isLinuxVariable = Get-Variable -Name IsLinux -ErrorAction SilentlyContinue
+
+    if ($isWindowsVariable -and [bool]$isWindowsVariable.Value) { return "windows" }
+    if ($isMacOSVariable -and [bool]$isMacOSVariable.Value) { return "macos" }
+    if ($isLinuxVariable -and [bool]$isLinuxVariable.Value) { return "linux" }
+
+    return "unknown"
 }
 
 function Get-RenderKitProjectMetadataPath{

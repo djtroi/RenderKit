@@ -13,6 +13,9 @@ Describe 'RenderKit project lifecycle service' {
 
     BeforeEach {
         $env:RENDERKIT_HOME = Join-Path $TestDrive 'renderkit-home'
+        if (Test-Path -LiteralPath $env:RENDERKIT_HOME) {
+            Remove-Item -LiteralPath $env:RENDERKIT_HOME -Recurse -Force
+        }
     }
 
     AfterEach {
