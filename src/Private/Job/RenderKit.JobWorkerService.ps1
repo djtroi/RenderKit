@@ -59,7 +59,8 @@ function Register-RenderKitJobHandler {
         [string[]]$RequiredCapabilities
     )
 
-    if (-not $script:RenderKitJobHandlers) {
+    $handlerRegistry = Get-Variable -Name RenderKitJobHandlers -Scope Script -ErrorAction SilentlyContinue
+    if (-not $handlerRegistry -or -not $handlerRegistry.Value) {
         $script:RenderKitJobHandlers = @{}
     }
 
@@ -83,7 +84,8 @@ function Get-RenderKitJobHandlerRegistration {
         [string]$JobType
     )
 
-    if (-not $script:RenderKitJobHandlers) {
+    $handlerRegistry = Get-Variable -Name RenderKitJobHandlers -Scope Script -ErrorAction SilentlyContinue
+    if (-not $handlerRegistry -or -not $handlerRegistry.Value) {
         $script:RenderKitJobHandlers = @{}
     }
 
@@ -122,7 +124,8 @@ function Get-RenderKitJobHandlerCatalog {
         [string]$JobType
     )
 
-    if (-not $script:RenderKitJobHandlers) {
+    $handlerRegistry = Get-Variable -Name RenderKitJobHandlers -Scope Script -ErrorAction SilentlyContinue
+    if (-not $handlerRegistry -or -not $handlerRegistry.Value) {
         $script:RenderKitJobHandlers = @{}
     }
 
@@ -161,6 +164,45 @@ function Get-RenderKitJobById {
     return @($store.jobs |
         Where-Object { [string]$_.id -eq $JobId } |
         Select-Object -First 1)
+}
+function Fail-RenderKitJob {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$JobId,
+
+        [string]$ErrorMessage,
+
+        [string]$ErrorCode = 'RK_INTERNAL_ERROR'
+    )
+
+    $job = Get-RenderKitJobById -JobId $JobId
+    if (-not $job) {
+        throw "RenderKit job '$JobId' was not found."
+    }
+
+    $maxAttempts = [int]$job.maxAttempts
+    if ($maxAttempts -le 0) {
+        $maxAttempts = 1
+    }
+
+    if ([int]$job.attempts -lt $maxAttempts) {
+        Set-RenderKitJobStatus `
+            -JobId $JobId `
+            -Status Failed `
+            -ErrorMessage $ErrorMessage `
+            -ErrorCode $ErrorCode
+        Reset-RenderKitJobForRetry -JobId $JobId | Out-Null
+    }
+    else {
+        Set-RenderKitJobStatus `
+            -JobId $JobId `
+            -Status Failed `
+            -ErrorMessage $ErrorMessage `
+            -ErrorCode $ErrorCode
+    }
+
+    return Get-RenderKitJobById -JobId $JobId
 }
 
 function Complete-RenderKitJob {

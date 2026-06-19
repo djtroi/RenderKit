@@ -485,8 +485,8 @@ function Set-RenderKitJobStatus {
                         $job.retryAfterUtc = $null
                     }
                     if ($Status -eq 'RetryScheduled') {
-                        if ($RetryAfterUtc.HasValue) {
-                            $job.retryAfterUtc = $RetryAfterUtc.Value.ToUniversalTime().ToString('o')
+                        if ($null -ne $RetryAfterUtc) {
+                            $job.retryAfterUtc = ([DateTime]$RetryAfterUtc).ToUniversalTime().ToString('o')
                         }
                         elseif ([string]::IsNullOrWhiteSpace([string]$job.retryAfterUtc)) {
                             $job.retryAfterUtc = $now
