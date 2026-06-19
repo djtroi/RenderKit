@@ -1,7 +1,9 @@
-$repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-. (Join-Path $repositoryRoot 'src/Private/Engine/RenderKit.EngineContractService.ps1')
-
 Describe 'RenderKit engine contract service' {
+    BeforeAll {
+        $repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+        . (Join-Path $repositoryRoot 'src/Private/Engine/RenderKit.EngineContractService.ps1')
+    }
+
     It 'creates normalized actor and operation contexts with correlation ids' {
         $correlationId = [guid]::NewGuid().ToString()
         $actor = New-RenderKitActorContext `
