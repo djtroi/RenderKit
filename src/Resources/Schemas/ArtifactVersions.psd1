@@ -16,18 +16,18 @@
             MaximumWritable = '1.0'
         }
         EventStore = @{
-            Current = '1.0'
+            Current = '1.1'
             MinimumReadable = '1.0'
-            MaximumReadable = '1.0'
+            MaximumReadable = '1.1'
             MinimumWritable = '1.0'
-            MaximumWritable = '1.0'
+            MaximumWritable = '1.1'
         }
         JobStore = @{
-            Current = '1.0'
+            Current = '1.1'
             MinimumReadable = '1.0'
-            MaximumReadable = '1.0'
+            MaximumReadable = '1.1'
             MinimumWritable = '1.0'
-            MaximumWritable = '1.0'
+            MaximumWritable = '1.1'
         }
         Template = @{
             Current = '1.1'

@@ -24,6 +24,7 @@ Internal automation signals are documented in [Domain Events](events.md).
 Future asynchronous work is backed by [Background Jobs](jobs.md).
 Event-to-job wiring is documented in [Event-to-Job Automation](automation.md).
 Trusted worker execution is documented in [Job Workers](job-workers.md).
+Host-facing engine contracts are documented in [Engine Contracts](engine-contracts.md).
 Internal health checks are documented in [Repair and Health Checks](repair.md).
 
 ## Project management
