@@ -14,6 +14,9 @@ Describe 'RenderKit project registry service' {
         $script:RenderKitArtifactMigrations = @{}
         $script:RenderKitModuleVersion = '0.0.0'
         $env:RENDERKIT_HOME = Join-Path $TestDrive 'renderkit-home'
+        if (Test-Path -LiteralPath $env:RENDERKIT_HOME) {
+            Remove-Item -LiteralPath $env:RENDERKIT_HOME -Recurse -Force
+        }
     }
 
     AfterEach {

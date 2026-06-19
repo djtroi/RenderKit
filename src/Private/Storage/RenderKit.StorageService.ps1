@@ -14,9 +14,13 @@ function Get-RenderKitPlatform {
         return 'Windows'
     }
 
-    if ($IsWindows) { return 'Windows' }
-    if ($IsLinux) { return 'Linux' }
-    if ($IsMacOS) { return 'macOS' }
+    $isWindowsVariable = Get-Variable -Name IsWindows -ErrorAction SilentlyContinue
+    $isLinuxVariable = Get-Variable -Name IsLinux -ErrorAction SilentlyContinue
+    $isMacOSVariable = Get-Variable -Name IsMacOS -ErrorAction SilentlyContinue
+
+    if ($isWindowsVariable -and [bool]$isWindowsVariable.Value) { return 'Windows' }
+    if ($isLinuxVariable -and [bool]$isLinuxVariable.Value) { return 'Linux' }
+    if ($isMacOSVariable -and [bool]$isMacOSVariable.Value) { return 'macOS' }
 
     throw 'RenderKit could not determine the current operating system.'
 }

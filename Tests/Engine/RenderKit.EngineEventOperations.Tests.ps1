@@ -13,6 +13,9 @@ Describe 'RenderKit engine event operations' {
 
     BeforeEach {
         $env:RENDERKIT_HOME = Join-Path $TestDrive 'renderkit-home'
+        if (Test-Path -LiteralPath $env:RENDERKIT_HOME) {
+            Remove-Item -LiteralPath $env:RENDERKIT_HOME -Recurse -Force
+        }
         $script:RenderKitArtifactVersionCatalog = $null
         $script:RenderKitEventJobSubscriptionCatalog = $null
         $script:actor = New-RenderKitActorContext `
