@@ -2,7 +2,6 @@
 ![GitHub Release](https://img.shields.io/github/v/release/djtroi/RenderKit?label=release)
 ![PowerShell Gallery Version](https://img.shields.io/powershellgallery/v/RenderKit?label=PowerShell%20Gallery)
 ![Downloads](https://img.shields.io/powershellgallery/dt/RenderKit)
-[![PSScriptAnalyzer](https://github.com/djtroi/RenderKit/actions/workflows/powershell_PSScriptAnalyzer.yml/badge.svg)](https://github.com/djtroi/RenderKit/actions/workflows/powershell_PSScriptAnalyzer.yml)
 [![CI/CD Pipeline](https://github.com/djtroi/RenderKit/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/djtroi/RenderKit/actions/workflows/quality-gate.yml)
 
 **RenderKit** is a PowerShell toolkit for repeatable media-production project workflows: create project structures, manage templates and mappings, import camera media, verify transfers, and archive finished work with confidence.
