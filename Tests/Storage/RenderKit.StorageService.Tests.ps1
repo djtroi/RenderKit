@@ -203,4 +203,41 @@ Describe 'RenderKit cross-platform storage service' {
                 Join-Path $env:RENDERKIT_HOME 'data/mappings'
             )
     }
+    It 'resolves user template and mapping file paths with json extensions' {
+        $env:RENDERKIT_HOME = Join-Path $script:testRoot 'user-artifacts'
+
+        Get-RenderKitUserTemplatePath -TemplateName 'client-delivery' |
+            Should -Be (
+                Join-Path $env:RENDERKIT_HOME `
+                    'data/templates/client-delivery.json'
+            )
+        Get-RenderKitUserTemplatePath -TemplateName 'client-delivery.json' |
+            Should -Be (
+                Join-Path $env:RENDERKIT_HOME `
+                    'data/templates/client-delivery.json'
+            )
+        Get-RenderKitUserMappingPath -MappingId 'camera' |
+            Should -Be (
+                Join-Path $env:RENDERKIT_HOME 'data/mappings/camera.json'
+            )
+        Get-RenderKitUserMappingPath -MappingId 'camera.json' |
+            Should -Be (
+                Join-Path $env:RENDERKIT_HOME 'data/mappings/camera.json'
+            )
+    }
+
+    It 'resolves bundled template and mapping roots from module resources' {
+        Get-RenderKitSystemTemplatesRoot |
+            Should -Be (
+                Join-Path $repositoryRoot 'src/Resources/Templates'
+            )
+        Get-RenderKitSystemMappingsRoot |
+            Should -Be (
+                Join-Path $repositoryRoot 'src/Resources/Mappings'
+            )
+        Get-RenderKitSystemMappingPath -MappingId 'video.json' |
+            Should -Be (
+                Join-Path $repositoryRoot 'src/Resources/Mappings/video.json'
+            )
+    }
 }

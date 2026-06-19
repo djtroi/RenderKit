@@ -331,6 +331,32 @@ function Get-RenderKitConfigPath {
 
     return $path
 }
+function Get-RenderKitSystemTemplatesRoot {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param()
+
+    return Get-RenderKitModuleResourceRoot -RelativePath 'Resources/Templates'
+}
+
+function Get-RenderKitUserTemplatePath {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$TemplateName
+    )
+
+    $normalizedName = [IO.Path]::GetFileNameWithoutExtension($TemplateName)
+    if ([string]::IsNullOrWhiteSpace($normalizedName)) {
+        throw 'Template name must not be empty.'
+    }
+
+    return Join-Path `
+        -Path (Get-RenderKitUserTemplatesRoot) `
+        -ChildPath "$normalizedName.json"
+}
+
 
 function Get-RenderKitDevicesPath {
     [CmdletBinding()]
