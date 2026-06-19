@@ -8,12 +8,12 @@ function Get-RenderKitPlatform {
 
     if ($Platform -ne 'Auto') {
         return $Platform
-     }
+    }
 
     if ($PSVersionTable.PSEdition -eq 'Desktop') {
         return 'Windows'
-     }
- 
+    }
+
     if ($IsWindows) { return 'Windows' }
     if ($IsLinux) { return 'Linux' }
     if ($IsMacOS) { return 'macOS' }
@@ -26,16 +26,16 @@ function Get-RenderKitUserHome {
     [OutputType([System.String])]
     param()
 
-    if (-not [string]::IsNullOrWhiteSpace([string]$userHome)) {
-        return [System.IO.Path]::GetFullPath([string]$userHome)
-     }
+    if (-not [string]::IsNullOrWhiteSpace([string]$homes)) {
+        return [System.IO.Path]::GetFullPath([string]$homes)
+    }
 
     $profilePath = [Environment]::GetFolderPath(
-        [EnvironmentSpecialFolder]::UserProfile
+        [Environment+SpecialFolder]::UserProfile
     )
     if (-not [string]::IsNullOrWhiteSpace($profilePath)) {
         return [System.IO.Path]::GetFullPath($profilePath)
-     }
+    }
 
     throw 'RenderKit could not resolve the current user home directory.'
 }
@@ -49,13 +49,13 @@ function Get-RenderKitKnownFolderPath {
         [string]$Name
     )
 
-    $specialFolder = [EnvironmentSpecialFolder](
-        [Enum]::Parse([EnvironmentSpecialFolder], $Name)
+    $specialFolder = [Environment+SpecialFolder](
+        [Enum]::Parse([Environment+SpecialFolder], $Name)
     )
     $path = [Environment]::GetFolderPath($specialFolder)
     if ([string]::IsNullOrWhiteSpace($path)) {
         return $null
-     }
+    }
 
     return [System.IO.Path]::GetFullPath($path)
 }
@@ -88,8 +88,8 @@ function Get-RenderKitStorageRoot {
         [string]$Platform = 'Auto',
 
         [switch]$Ensure
-     )
- 
+    )
+
     $resolvedPlatform = Get-RenderKitPlatform -Platform $Platform
     $overrideRoot = [string]$env:RENDERKIT_HOME
 
@@ -105,7 +105,7 @@ function Get-RenderKitStorageRoot {
         ) -ChildPath $rootName
     }
     else {
-        $userHome = Get-RenderKitUserHome
+        $homes = Get-RenderKitUserHome
         switch ($resolvedPlatform) {
             'Windows' {
                 $roaming = [string]$env:APPDATA
@@ -121,10 +121,10 @@ function Get-RenderKitStorageRoot {
                 }
 
                 if ([string]::IsNullOrWhiteSpace($roaming)) {
-                    $roaming = Join-Path -Path $userHome -ChildPath 'AppData/Roaming'
+                    $roaming = Join-Path -Path $homes -ChildPath 'AppData/Roaming'
                 }
                 if ([string]::IsNullOrWhiteSpace($local)) {
-                    $local = Join-Path -Path $userHome -ChildPath 'AppData/Local'
+                    $local = Join-Path -Path $homes -ChildPath 'AppData/Local'
                 }
 
                 $root = switch ($Kind) {
@@ -147,23 +147,23 @@ function Get-RenderKitStorageRoot {
             'Linux' {
                 $configBase = [string]$env:XDG_CONFIG_HOME
                 if ([string]::IsNullOrWhiteSpace($configBase)) {
-                    $configBase = Join-Path -Path $userHome -ChildPath '.config'
+                    $configBase = Join-Path -Path $homes -ChildPath '.config'
                 }
 
                 $stateBase = [string]$env:XDG_STATE_HOME
                 if ([string]::IsNullOrWhiteSpace($stateBase)) {
-                    $stateBase = Join-Path -Path $userHome `
+                    $stateBase = Join-Path -Path $homes `
                         -ChildPath '.local/state'
                 }
 
                 $cacheBase = [string]$env:XDG_CACHE_HOME
                 if ([string]::IsNullOrWhiteSpace($cacheBase)) {
-                    $cacheBase = Join-Path -Path $userHome -ChildPath '.cache'
+                    $cacheBase = Join-Path -Path $homes -ChildPath '.cache'
                 }
 
                 $dataBase = [string]$env:XDG_DATA_HOME
                 if ([string]::IsNullOrWhiteSpace($dataBase)) {
-                    $dataBase = Join-Path -Path $userHome `
+                    $dataBase = Join-Path -Path $homes `
                         -ChildPath '.local/share'
                 }
 
@@ -176,9 +176,9 @@ function Get-RenderKitStorageRoot {
                 $root = Join-Path -Path $base -ChildPath 'renderkit'
             }
             'macOS' {
-                $applicationSupport = Join-Path -Path $userHome `
+                $applicationSupport = Join-Path -Path $homes `
                     -ChildPath 'Library/Application Support'
-                $cacheBase = Join-Path -Path $userHome `
+                $cacheBase = Join-Path -Path $homes `
                     -ChildPath 'Library/Caches'
 
                 $base = switch ($Kind) {
@@ -217,17 +217,17 @@ function Get-RenderKitStorageRoot {
                 }
                 $root = Join-Path -Path $base -ChildPath 'RenderKit'
             }
-         }
-     }
- 
+        }
+    }
+
     $resolvedRoot = [System.IO.Path]::GetFullPath($root)
     if ($Ensure) {
         return New-RenderKitStorageDirectory -Path $resolvedRoot
     }
 
     return $resolvedRoot
- }
- 
+}
+
 function Get-RenderKitLegacyRoot {
     [CmdletBinding()]
     [OutputType([System.String])]
@@ -235,13 +235,13 @@ function Get-RenderKitLegacyRoot {
         [ValidateSet('Auto', 'Windows', 'Linux', 'macOS')]
         [string]$Platform = 'Auto'
     )
- 
+
     if (-not [string]::IsNullOrWhiteSpace([string]$env:RENDERKIT_HOME)) {
         return $null
-     }
- 
+    }
+
     $resolvedPlatform = Get-RenderKitPlatform -Platform $Platform
-    $userHome = Get-RenderKitUserHome
+    $homes = Get-RenderKitUserHome
 
     switch ($resolvedPlatform) {
         'Windows' {
@@ -253,11 +253,11 @@ function Get-RenderKitLegacyRoot {
         'Linux' {
             $base = [string]$env:XDG_CONFIG_HOME
             if ([string]::IsNullOrWhiteSpace($base)) {
-                $base = Join-Path -Path $userHome -ChildPath '.config'
+                $base = Join-Path -Path $homes -ChildPath '.config'
             }
         }
         'macOS' {
-            $base = Join-Path -Path $userHome -ChildPath '.config'
+            $base = Join-Path -Path $homes -ChildPath '.config'
         }
     }
 
@@ -268,8 +268,8 @@ function Get-RenderKitLegacyRoot {
     return [System.IO.Path]::GetFullPath(
         (Join-Path -Path $base -ChildPath 'RenderKit')
     )
- }
- 
+}
+
 function Copy-RenderKitLegacyStorageItem {
     [CmdletBinding()]
     param(
@@ -279,7 +279,7 @@ function Copy-RenderKitLegacyStorageItem {
         [Parameter(Mandatory)]
         [string]$DestinationPath
     )
- 
+
     $legacyFullPath = [System.IO.Path]::GetFullPath($LegacyPath)
     $destinationFullPath = [System.IO.Path]::GetFullPath($DestinationPath)
     if (
@@ -340,11 +340,38 @@ function Get-RenderKitDevicesPath {
         Copy-RenderKitLegacyStorageItem `
             -LegacyPath (Join-Path $legacyRoot 'Devices.json') `
             -DestinationPath $path
-     }
- 
-     return $path
- }
- 
+    }
+
+    return $path
+}
+
+function Get-RenderKitProjectRegistryPath {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param()
+
+    $root = Get-RenderKitStorageRoot -Kind State -Ensure
+    return Join-Path -Path $root -ChildPath 'Projects.json'
+}
+
+function Get-RenderKitEventStorePath {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param()
+
+    $root = Get-RenderKitStorageRoot -Kind State -Ensure
+    return Join-Path -Path $root -ChildPath 'Events.json'
+}
+
+function Get-RenderKitJobStorePath {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param()
+
+    $root = Get-RenderKitStorageRoot -Kind State -Ensure
+    return Join-Path -Path $root -ChildPath 'Jobs.json'
+}
+
 function Get-RenderKitRoot {
     [CmdletBinding()]
     [OutputType([System.String])]
@@ -380,6 +407,7 @@ function Get-RenderKitUserMappingsRoot {
 
     return New-RenderKitStorageDirectory -Path $path
 }
+
 
  function Get-RenderKitModuleResourceRoot {
      [CmdletBinding()]

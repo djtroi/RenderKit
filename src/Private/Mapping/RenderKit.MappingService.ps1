@@ -10,7 +10,7 @@ function Read-RenderKitMappingFile {
     }
 
     try {
-        return Read-RenderKitJsonFile -Path $path
+        $mapping = Read-RenderKitJsonFile -Path $path
         Confirm-RenderKitMapping -Mapping $mapping | Out-Null
         return $mapping
     }

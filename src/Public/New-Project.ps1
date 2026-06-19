@@ -72,6 +72,7 @@ https://github.com/djtroi/RenderKit
             -ProjectName $Name `
             -ProjectRoot $ProjectRoot `
             -Template $templateObject
+            Register-RenderKitProject -ProjectRoot $ProjectRoot | Out-Null
     }
     Write-RenderKitLog -Level Info -Message "Project '$Name' created successfully."
 }

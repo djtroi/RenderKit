@@ -140,6 +140,20 @@ https://github.com/djtroi/RenderKit
             -ProjectName $NewName `
             -ProjectId $CopyProjectId `
             -SourceProjectId $sourceProjectId
+            Set-RenderKitProjectRegistryEntry `
+            -ProjectId $CopyProjectId `
+            -ProjectName $NewName `
+            -ProjectRoot $CopyProjectRoot `
+            -Metadata $metadata |
+            Out-Null
+        Write-RenderKitProjectLifecycleEvent `
+            -Metadata $metadata `
+            -ProjectRoot $CopyProjectRoot `
+            -FromStatus 'Unknown' `
+            -ToStatus 'Active' `
+            -Reason 'Project copied' `
+            -Source 'Copy-Project' |
+            Out-Null
 
         $Copyd = (Test-Path -LiteralPath $CopyProjectRoot -PathType Container) -and (Test-Path -LiteralPath $sourceProjectRoot -PathType Container)
         if (-not $Copyd) {

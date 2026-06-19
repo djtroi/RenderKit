@@ -87,6 +87,8 @@ https://github.com/djtroi/RenderKit
 
     try {
         Remove-RenderKitProjectDirectory -ProjectRoot $projectRoot
+        Remove-RenderKitProjectRegistryEntry `
+            -ProjectId ([string]$project.Id)
 
         $removed = -not (Test-Path -LiteralPath $projectRoot -PathType Container)
         if (-not $removed) {

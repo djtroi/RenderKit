@@ -9,7 +9,7 @@ state, cache data, and user-created resources can evolve independently.
 | Kind | Contents |
 | --- | --- |
 | Configuration | RenderKit settings such as the default project root |
-| State | Device whitelist and future registry, job, and outbox state |
+| State | Device whitelist, project registry, and future job/outbox state |
 | Cache | Reconstructable cached data |
 | User data | User-created templates and mappings |
 
@@ -69,6 +69,28 @@ RenderKit preserves existing user data when the semantic location changes.
 Legacy configuration, device whitelist, template, and mapping files are copied
 to their new location only when the destination does not already exist.
 Existing destination data is never overwritten by automatic migration.
+
+## JSON persistence
+
+RenderKit-owned JSON state is written through a shared persistence service:
+
+1. an exclusive sidecar file lock is acquired with a bounded timeout;
+2. the new JSON is written as UTF-8 without a byte-order mark to a temporary
+   file in the destination directory;
+3. the temporary file is parsed and optionally validated;
+4. the previous valid destination is retained as `<name>.bak`;
+5. the validated temporary file replaces the destination atomically where the
+   file system supports replacement, with a backup-backed copy fallback;
+6. temporary files and lock handles are released in `finally` blocks.
+
+Operations that require read-modify-write consistency can use one lock for the
+complete transaction so a writer reloads the latest value after acquiring the
+lock. A persistent empty `<name>.lock` sidecar may remain on disk; ownership is
+represented by the exclusive open file handle, not by the existence of the
+sidecar.
+
+The internal recovery operation restores a validated `.bak` file without
+overwriting that backup with the corrupt or unwanted current file.
 
 ## Security
 

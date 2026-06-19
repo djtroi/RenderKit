@@ -13,8 +13,18 @@ This documentation covers installation, updates, and the use of every implemente
 RenderKit user storage follows platform conventions. See
 [Cross-Platform User Storage](storage.md) for Windows, Linux, macOS, XDG, and
 portable/test override locations.
+
 Technical schema compatibility is governed by the
 [Artifact Versioning](artifact-versioning.md) foundation.
+Internal project-name resolution is backed by the
+[Project Registry](project-registry.md).
+Project lifecycle status rules are documented in
+[Project Lifecycle](project-lifecycle.md).
+Internal automation signals are documented in [Domain Events](events.md).
+Future asynchronous work is backed by [Background Jobs](jobs.md).
+Event-to-job wiring is documented in [Event-to-Job Automation](automation.md).
+Trusted worker execution is documented in [Job Workers](job-workers.md).
+Internal health checks are documented in [Repair and Health Checks](repair.md).
 
 ## Project management
 

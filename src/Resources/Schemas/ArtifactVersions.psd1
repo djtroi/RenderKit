@@ -8,6 +8,27 @@
             MinimumWritable = '1.0'
             MaximumWritable = '1.0'
         }
+        ProjectRegistry = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        EventStore = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        JobStore = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
         Template = @{
             Current = '1.1'
             MinimumReadable = '1.0'

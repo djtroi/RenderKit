@@ -131,6 +131,12 @@ https://github.com/djtroi/RenderKit
             -NewProjectName $NewName `
             -ExpectedProjectId $projectId
         $metadataUpdated = $true
+        Set-RenderKitProjectRegistryEntry `
+            -ProjectId $projectId `
+            -ProjectName $NewName `
+            -ProjectRoot $newProjectRoot `
+            -Metadata $metadata |
+            Out-Null
 
         $renamed = (Test-Path -LiteralPath $newProjectRoot -PathType Container) -and -not (Test-Path -LiteralPath $oldProjectRoot -PathType Container)
         if (-not $renamed) {

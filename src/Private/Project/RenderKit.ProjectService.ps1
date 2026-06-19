@@ -193,6 +193,13 @@ function New-RenderKitProjectMetadata {
             name        = $TemplateName
             source      = $TemplateSource
         }
+
+        lifecycle = [PSCustomObject]@{
+            status             = "Draft"
+            statusUpdatedAtUtc = (Get-Date).ToUniversalTime().ToString("o")
+            statusReason       = "Project created"
+            history            = @()
+        }
     }
 }
 
@@ -219,6 +226,28 @@ function Write-RenderKitProjectMetadata{
         -Path $jsonPath `
         -Depth 6 |
         Out-Null
+}
+
+function Register-RenderKitProject {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProjectRoot
+    )
+
+    $metadataPath = Get-RenderKitProjectMetadataPath -ProjectRoot $ProjectRoot
+    $metadata = Read-RenderKitJsonFile -Path $metadataPath
+    if (-not $metadata.project -or
+        [string]::IsNullOrWhiteSpace([string]$metadata.project.id) -or
+        [string]::IsNullOrWhiteSpace([string]$metadata.project.name)) {
+        throw "Invalid RenderKit project metadata schema in '$metadataPath'."
+    }
+
+    return Set-RenderKitProjectRegistryEntry `
+        -ProjectId ([string]$metadata.project.id) `
+        -ProjectName ([string]$metadata.project.name) `
+        -ProjectRoot $ProjectRoot `
+        -Metadata $metadata
 }
 
 function Remove-RenderKitProjectDirectory {
@@ -393,6 +422,12 @@ function Set-RenderKitProjectCopyMetadata {
     $metadata.project.createdAt = (Get-Date).ToString("o")
     $metadata.project.createdBy = $env:USERNAME
     $metadata.project.toolVersion = $script:RenderKitModuleVersion
+    $metadata = Set-RenderKitProjectMetadataStatus `
+        -Metadata $metadata `
+        -Status 'Active' `
+        -Reason 'Project copied' `
+        -Source 'Copy-Project' `
+        -Force
 
     Write-RenderKitJsonFileAtomic `
         -Value $metadata `

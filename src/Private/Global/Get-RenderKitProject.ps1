@@ -14,8 +14,16 @@ function Get-RenderKitProject{
         $searchRoots += $Path
     }
     else {
+        $registered = Resolve-RenderKitProjectRegistryEntry `
+            -ProjectName $ProjectName
+        if ($registered) {
+            $Path = Split-Path -Path ([string]$registered.rootPath) -Parent
+            $searchRoots += $Path
+        }
+
         $config = Get-RenderKitConfig
-        if ($config.DefaultProjectPath){
+        if ($config.DefaultProjectPath -and
+            $searchRoots -notcontains $config.DefaultProjectPath){
             $searchRoots += $config.DefaultProjectPath
         }
     }
@@ -45,13 +53,23 @@ function Get-RenderKitProject{
             throw "Invalid RenderKit project metadata schema"
         }
 
-        return [PSCustomObject]@{
+        $project = [PSCustomObject]@{
             id              =  $meta.project.id
             Name            =  $meta.project.name
             RootPath        =  $candidate
             MetadataPath    =  $metaPath
             Metadata        =  $meta
+            Status          =  Get-RenderKitProjectStatus -Metadata $meta
         }
+
+        Set-RenderKitProjectRegistryEntry `
+            -ProjectId ([string]$project.id) `
+            -ProjectName ([string]$project.Name) `
+            -ProjectRoot ([string]$project.RootPath) `
+            -Metadata $meta |
+            Out-Null
+
+        return $project
     }
 
     Write-RenderKitLog -Level Error -Message "RenderKit project '$ProjectName' not found in search roots: $($searchRoots -join ', ')."
