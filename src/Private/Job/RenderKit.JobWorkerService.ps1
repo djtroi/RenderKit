@@ -1,20 +1,82 @@
+function New-RenderKitJobHandlerRegistration {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$JobType,
+        [Parameter(Mandatory)]
+        [scriptblock]$Handler,
+        [string]$HandlerId,
+        [string]$Version = '1.0',
+        [string]$Description,
+        [object]$PayloadSchema,
+        [bool]$SupportsCancellation = $false,
+        [bool]$SupportsProgress = $false,
+        [bool]$IsIdempotent = $false,
+        [string[]]$RequiredCapabilities
+    )
+
+    if ([string]::IsNullOrWhiteSpace($HandlerId)) {
+        $HandlerId = $JobType
+    }
+    if ([string]::IsNullOrWhiteSpace($Version)) {
+        $Version = '1.0'
+    }
+
+    $capabilities = @()
+    if ($RequiredCapabilities) {
+        $capabilities = @($RequiredCapabilities)
+    }
+
+    return [PSCustomObject]@{
+        jobType              = $JobType
+        handlerId            = $HandlerId
+        version              = $Version
+        description          = $Description
+        payloadSchema        = $PayloadSchema
+        supportsCancellation = $SupportsCancellation
+        supportsProgress     = $SupportsProgress
+        isIdempotent         = $IsIdempotent
+        requiredCapabilities = $capabilities
+        handler              = $Handler
+        registeredAtUtc      = (Get-Date).ToUniversalTime().ToString('o')
+    }
+}
+
 function Register-RenderKitJobHandler {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [string]$JobType,
         [Parameter(Mandatory)]
-        [scriptblock]$Handler
+        [scriptblock]$Handler,
+        [string]$HandlerId,
+        [string]$Version = '1.0',
+        [string]$Description,
+        [object]$PayloadSchema,
+        [switch]$SupportsCancellation,
+        [switch]$SupportsProgress,
+        [switch]$IsIdempotent,
+        [string[]]$RequiredCapabilities
     )
 
     if (-not $script:RenderKitJobHandlers) {
         $script:RenderKitJobHandlers = @{}
     }
 
-    $script:RenderKitJobHandlers[$JobType] = $Handler
+    $script:RenderKitJobHandlers[$JobType] = New-RenderKitJobHandlerRegistration `
+        -JobType $JobType `
+        -Handler $Handler `
+        -HandlerId $HandlerId `
+        -Version $Version `
+        -Description $Description `
+        -PayloadSchema $PayloadSchema `
+        -SupportsCancellation ([bool]$SupportsCancellation) `
+        -SupportsProgress ([bool]$SupportsProgress) `
+        -IsIdempotent ([bool]$IsIdempotent) `
+        -RequiredCapabilities $RequiredCapabilities
 }
 
-function Get-RenderKitJobHandler {
+function Get-RenderKitJobHandlerRegistration {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -29,7 +91,63 @@ function Get-RenderKitJobHandler {
         return $null
     }
 
-    return $script:RenderKitJobHandlers[$JobType]
+    $registration = $script:RenderKitJobHandlers[$JobType]
+    if ($registration -is [scriptblock]) {
+        return New-RenderKitJobHandlerRegistration `
+            -JobType $JobType `
+            -Handler $registration
+    }
+
+    return $registration
+}
+
+function Get-RenderKitJobHandler {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$JobType
+    )
+
+    $registration = Get-RenderKitJobHandlerRegistration -JobType $JobType
+    if (-not $registration) {
+        return $null
+    }
+
+    return $registration.handler
+}
+
+function Get-RenderKitJobHandlerCatalog {
+    [CmdletBinding()]
+    param(
+        [string]$JobType
+    )
+
+    if (-not $script:RenderKitJobHandlers) {
+        $script:RenderKitJobHandlers = @{}
+    }
+
+    $registrations = foreach ($key in @($script:RenderKitJobHandlers.Keys | Sort-Object)) {
+        if (-not [string]::IsNullOrWhiteSpace($JobType) -and [string]$key -ne $JobType) {
+            continue
+        }
+        $registration = Get-RenderKitJobHandlerRegistration -JobType ([string]$key)
+        if ($registration) {
+            [PSCustomObject]@{
+                jobType              = [string]$registration.jobType
+                handlerId            = [string]$registration.handlerId
+                version              = [string]$registration.version
+                description          = [string]$registration.description
+                payloadSchema        = $registration.payloadSchema
+                supportsCancellation = [bool]$registration.supportsCancellation
+                supportsProgress     = [bool]$registration.supportsProgress
+                isIdempotent         = [bool]$registration.isIdempotent
+                requiredCapabilities = @($registration.requiredCapabilities)
+                registeredAtUtc      = [string]$registration.registeredAtUtc
+            }
+        }
+    }
+
+    return @($registrations)
 }
 
 function Get-RenderKitJobById {
@@ -55,34 +173,6 @@ function Complete-RenderKitJob {
     Set-RenderKitJobStatus -JobId $JobId -Status Succeeded
     return Get-RenderKitJobById -JobId $JobId
 }
-
-function Fail-RenderKitJob {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$JobId,
-        [Parameter(Mandatory)]
-        [string]$ErrorMessage
-    )
-
-    $job = Get-RenderKitJobById -JobId $JobId
-    if (-not $job) {
-        throw "RenderKit job '$JobId' was not found."
-    }
-
-    if ([int]$job.attempts -lt [int]$job.maxAttempts) {
-        Set-RenderKitJobStatus -JobId $JobId -Status Queued
-    }
-    else {
-        Set-RenderKitJobStatus `
-            -JobId $JobId `
-            -Status Failed `
-            -ErrorMessage $ErrorMessage
-    }
-
-    return Get-RenderKitJobById -JobId $JobId
-}
-
 function Invoke-RenderKitJob {
     [CmdletBinding()]
     param(
@@ -107,7 +197,9 @@ function Invoke-RenderKitJob {
         return Get-RenderKitJobById -JobId $JobId
     }
 
-    Set-RenderKitJobStatus -JobId $JobId -Status Running
+    if ([string]$job.status -eq 'Queued') {
+        Set-RenderKitJobStatus -JobId $JobId -Status Running
+    }
     $runningJob = Get-RenderKitJobById -JobId $JobId
 
     try {
@@ -135,12 +227,55 @@ function Invoke-RenderKitNextQueuedJob {
     return Invoke-RenderKitJob -JobId ([string]$job[0].id)
 }
 
+function Invoke-RenderKitWorkerTick {
+    [CmdletBinding()]
+    param(
+        [string]$WorkerId,
+        [string]$JobType,
+        [string]$QueueName,
+        [ValidateRange(1, 86400)]
+        [int]$LeaseSeconds = 300
+    )
+
+    $normalizedWorkerId = New-RenderKitWorkerId -WorkerId $WorkerId
+    $recovery = Reset-RenderKitStaleRunningJob
+    $claimed = Start-RenderKitQueuedJobLease `
+        -WorkerId $normalizedWorkerId `
+        -JobType $JobType `
+        -QueueName $QueueName `
+        -LeaseSeconds $LeaseSeconds
+
+    if (-not $claimed) {
+        return [PSCustomObject]@{
+            WorkerId = $normalizedWorkerId
+            ClaimedJob = $null
+            ResultJob = $null
+            RecoveredJobIds = @($recovery.RecoveredJobIds)
+            Processed = $false
+        }
+    }
+
+    $result = Invoke-RenderKitJob -JobId ([string]$claimed.id)
+    return [PSCustomObject]@{
+        WorkerId = $normalizedWorkerId
+        ClaimedJob = $claimed
+        ResultJob = $result
+        RecoveredJobIds = @($recovery.RecoveredJobIds)
+        Processed = $true
+    }
+}
+
 function Initialize-RenderKitDefaultJobHandlers {
     [CmdletBinding()]
     param()
 
     Register-RenderKitJobHandler `
         -JobType 'ProjectLifecycleAutomation' `
+        -HandlerId 'RenderKit.ProjectLifecycleAutomation' `
+        -Version '1.0' `
+        -Description 'Safe placeholder for future project lifecycle automation.' `
+        -SupportsProgress `
+        -IsIdempotent `
         -Handler {
             param($Job)
             Write-RenderKitLog `

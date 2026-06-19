@@ -19,7 +19,7 @@ Describe 'RenderKit event service' {
     It 'creates an empty event store when none exists' {
         $store = Read-RenderKitEventStore
         $store.tool | Should -Be 'RenderKit'
-        $store.schemaVersion | Should -Be '1.0'
+        $store.schemaVersion | Should -Be '1.1'
         @($store.events).Count | Should -Be 0
     }
 
@@ -35,6 +35,56 @@ Describe 'RenderKit event service' {
         $pending = @(Get-RenderKitPendingDomainEvent)
         $pending.Count | Should -Be 1
         $pending[0].eventType | Should -Be 'ProjectLifecycleStatusChanged'
+        $pending[0].eventId | Should -Be $pending[0].id
+        $pending[0].eventSchemaVersion | Should -Be '1.0'
+        $pending[0].category | Should -Be 'Domain'
+        $pending[0].data.toStatus | Should -Be 'Active'
+    }
+
+    It 'normalizes legacy events into the vNext envelope' {
+        $legacy = [PSCustomObject]@{
+            id            = [guid]::NewGuid().ToString()
+            eventType     = 'LegacyEvent'
+            aggregateType = 'Project'
+            aggregateId   = 'project-legacy'
+            occurredAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+            correlationId = [guid]::NewGuid().ToString()
+            status        = 'Pending'
+            payload       = [PSCustomObject]@{ value = 1 }
+        }
+
+        $normalized = ConvertTo-RenderKitDomainEventVNext -Event $legacy
+
+        $normalized.eventId | Should -Be $legacy.id
+        $normalized.eventSchemaVersion | Should -Be '1.0'
+        $normalized.category | Should -Be 'Domain'
+        $normalized.retention | Should -Be 'Indefinite'
+        $normalized.data.value | Should -Be 1
+        $normalized.payload.value | Should -Be 1
+    }
+
+    It 'filters event lists by aggregate and category' {
+        Add-RenderKitDomainEvent -Event (
+            New-RenderKitDomainEvent `
+                -EventType 'RenderKitDiagnostic' `
+                -AggregateType 'System' `
+                -AggregateId 'renderkit' `
+                -Category Diagnostic
+        ) | Out-Null
+        Add-RenderKitDomainEvent -Event (
+            New-RenderKitDomainEvent `
+                -EventType 'ProjectLifecycleStatusChanged' `
+                -AggregateType 'Project' `
+                -AggregateId 'project-1'
+        ) | Out-Null
+
+        $events = @(Get-RenderKitDomainEventList `
+                -AggregateType Project `
+                -AggregateId 'project-1' `
+                -Category Domain)
+
+        $events.Count | Should -Be 1
+        $events[0].aggregateId | Should -Be 'project-1'
     }
 
     It 'filters pending domain events by type' {
@@ -69,6 +119,8 @@ Describe 'RenderKit event service' {
             -Status Processed
 
         @(Get-RenderKitPendingDomainEvent).Count | Should -Be 0
+        $stored = Get-RenderKitDomainEvent -EventId $event.eventId
+        $stored.processedAtUtc | Should -Not -BeNullOrEmpty
     }
 
     It 'emits project lifecycle events' {
@@ -90,6 +142,7 @@ Describe 'RenderKit event service' {
 
         $event = @(Get-RenderKitPendingDomainEvent)[0]
         $event.payload.toStatus | Should -Be 'Active'
+        $event.data.toStatus | Should -Be 'Active'
         $event.payload.source | Should -Be 'Test'
     }
 }
