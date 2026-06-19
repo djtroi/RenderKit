@@ -891,6 +891,7 @@ function New-RenderKitEngineProjectSummary {
         [Parameter(Mandatory)]
         [object]$RegistryEntry
     )
+
     $propertyNames = @($RegistryEntry.PSObject.Properties.Name)
     $metadataPath = $null
     $version = $null
@@ -910,7 +911,7 @@ function New-RenderKitEngineProjectSummary {
         name          = [string]$RegistryEntry.name
         rootPath      = [string]$RegistryEntry.rootPath
         metadataPath  = $metadataPath
-        version       = [string]$RegistryEntry.version
+        version       = $version
         exists        = [bool]$RegistryEntry.exists
         updatedAtUtc  = $updatedAtUtc
     }
@@ -942,8 +943,8 @@ function Get-RenderKitEngineProjectList {
         if (-not [string]::IsNullOrWhiteSpace($ProjectName)) {
             $projects = @($projects | Where-Object { [string]$_.name -eq $ProjectName })
         }
-        if ($null -ne $Exists -and $Exists.HasValue)  {
-            $projects = @($projects | Where-Object { [bool]$_.exists -eq [bool]$Exists.Value })
+        if ($PSBoundParameters.ContainsKey('Exists')) {
+            $projects = @($projects | Where-Object { [bool]$_.exists -eq [bool]$Exists })
         }
 
         return New-RenderKitResult -Data @($projects | Sort-Object name, rootPath) -OperationContext $context

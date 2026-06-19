@@ -320,12 +320,15 @@ function Initialize-RenderKitDefaultJobHandlers {
         -IsIdempotent `
         -Handler {
             param($Job)
-            $logger = Get-Command -Name Write-RenderKitLog -ErrorAction SilentlyContinue
-            if ($logger) {
-                Write-RenderKitLog `
-                    -Level Debug `
-                    -Message "Processed ProjectLifecycleAutomation job '$($Job.id)'."
-            }
+            # $logger = Get-Command -Name Write-RenderKitLog -ErrorAction SilentlyContinue
+            # if ($logger) {
+            #     Write-RenderKitLog `
+            #         -Level Debug `
+            #         -Message "Processed ProjectLifecycleAutomation job '$($Job.id)'."
+            # }
+            # Intentionally no-op until lifecycle automation is implemented.
+            # Keep the placeholder independent from optional logging helpers so
+            # it can run in focused tests and minimal host integrations.
         }
 }
 
