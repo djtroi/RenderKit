@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.0.0 - 2026-06-19
+
+### Major
+
+### Added
+- Added architecture documentation for project identity and registry, project lifecycle, domain events and jobs, artifact versioning, cross-platform storage, security baseline, and the phased implementation plan.
+- Added cross-platform user storage support and documentation for configuration, state, cache, and user data roots, including `RENDERKIT_HOME` overrides and legacy data preservation guidance.
+- Added atomic JSON persistence helpers with file locking, backup restoration support, validation hooks, and transaction-style updates for RenderKit state files.
+- Added a central artifact versioning catalog and compatibility service for project, registry, event, job, template, mapping, device, and configuration artifacts.
+- Added internal project registry and lifecycle services for tracking known projects, reconciling moved/missing project folders, validating lifecycle status transitions, and emitting lifecycle events.
+- Added internal domain-event storage, event-to-job automation subscriptions, durable job storage, job worker registration, and repair/health checks for RenderKit state.
+- Added host-facing engine contracts with actor and operation contexts, correlation/causation id handling, stable `RenderKitResult` envelopes, registered error codes, and a machine-readable engine contract snapshot for broker/Electron handoff.
+- Added engine facade operations for engine info/state, project read models, job creation/list/detail/cancellation/retry/progress/success/failure, event list/detail, event bridge invocation, job handler catalog, and worker tick orchestration.
+- Added JobStore v1.1 worker primitives for queue names, priority, actor context, ownership, leases, heartbeats, stale-running-job recovery, retries, structured progress, structured errors, and terminal results.
+- Added EventStore v1.1 fields for event id aliases, event schema version, category, retention, actor context, data/payload compatibility, processing attempts, structured last errors, and reserved integrity metadata.
+- Added safe job handler metadata catalogs with handler ids, versions, descriptions, payload schema versions, capabilities, idempotency, progress support, and cancellation support without exposing executable scriptblocks.
+- Added Pester coverage for storage, persistence, artifact versioning, project registry/lifecycle, repair, domain events, event-to-job automation, durable jobs, worker leases/heartbeat, handler catalog metadata, and engine facade contracts.
+
+### Changed
+- Changed JSON-reading and JSON-writing paths across storage, backup, device, mapping, template, project, export, and delivery services to use the new persistence helpers where appropriate.
+- Changed bundled artifact compatibility metadata so EventStore and JobStore now use current schema version `1.1` while retaining compatibility with readable `1.0` stores.
+- Changed project commands and import/export flows to update project registry entries and lifecycle state consistently through internal services.
+- Changed event and job documentation to describe the vNext envelopes, worker semantics, bridge behavior, and host-facing engine contracts.
+- Changed docs index pages to include storage, artifact versioning, project registry, project lifecycle, events, jobs, workers, automation, repair, and engine contracts.
+
+### Fixed
+- Fixed resilience of JSON state updates by introducing atomic write, lock, backup, and validation behavior for internal state files.
+- Fixed host-facing project detail lookups so project registry read failures return stable `RK_STORAGE_UNAVAILABLE` result envelopes instead of leaking raw exceptions.
+- Fixed PowerShell automatic-variable sensitivity in the engine project detail lookup by avoiding `$Matches`/`$matches` naming in new facade code.
+
+
 ## 0.3.9 - 2026-06-18
 
 ### Patch 
