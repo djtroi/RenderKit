@@ -1,0 +1,211 @@
+name: Quality Gate
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+permissions:
+  contents: read
+
+jobs:
+  pester:
+    name: Pester / ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: PowerShell 7 / Windows
+            os: windows-latest
+            shell: pwsh
+          - name: PowerShell 7 / Ubuntu
+            os: ubuntu-latest
+            shell: pwsh
+          - name: PowerShell 7 / macOS
+            os: macos-latest
+            shell: pwsh
+          - name: Windows PowerShell 5.1
+            os: windows-latest
+            shell: powershell
+
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: Install Pester
+        run: |
+          if ($PSVersionTable.PSEdition -eq 'Desktop') {
+              [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          }
+
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force
+
+      - name: Run Pester
+        run: |
+          Import-Module Pester -MinimumVersion 5.5.0
+
+          New-Item -ItemType Directory -Path 'artifacts/test-results' -Force | Out-Null
+
+          $configuration = New-PesterConfiguration
+          $configuration.Run.Path = './Tests'
+          $configuration.Run.PassThru = $true
+          $configuration.Output.Verbosity = 'Detailed'
+          $configuration.TestResult.Enabled = $true
+          $configuration.TestResult.OutputFormat = 'NUnitXml'
+          $configuration.TestResult.OutputPath = 'artifacts/test-results/pester-${{ matrix.os }}-${{ matrix.shell }}.xml'
+
+          $result = Invoke-Pester -Configuration $configuration
+          if ($result.FailedCount -gt 0) {
+              throw "$($result.FailedCount) Pester test(s) failed."
+          }
+
+      - name: Upload Pester results
+        if: always()
+        uses: actions/upload-artifact@main
+        with:
+          name: pester-results-${{ matrix.os }}-${{ matrix.shell }}
+          path: artifacts/test-results/*.xml
+          if-no-files-found: warn
+
+  psscriptanalyzer:
+    name: PSScriptAnalyzer
+    needs: pester
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: Run PSScriptAnalyzer
+        uses: microsoft/psscriptanalyzer-action@main
+        with:
+          path: ./
+          recurse: true
+          output: results.sarif
+
+      - name: Upload SARIF results file
+        if: always()
+        uses: github/codeql-action/upload-sarif@main
+        with:
+          sarif_file: results.sarif
+
+  build-package:
+    name: Build package
+    needs: psscriptanalyzer
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.build.outputs.VERSION }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@main
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build package
+        id: build
+        shell: pwsh
+        run: |
+          $result = & ./build/Build-RenderKitPackage.ps1 -RepositoryRoot $env:GITHUB_WORKSPACE
+          "VERSION=$($result.Version)" >> $env:GITHUB_OUTPUT
+
+      - name: Upload build diagnostics
+        if: failure()
+        uses: actions/upload-artifact@main
+        with:
+          name: RenderKit-build-diagnostics
+          path: |
+            artifacts/staging/**
+            artifacts/temp/**
+          if-no-files-found: warn
+
+      - name: Upload package
+        uses: actions/upload-artifact@main
+        with:
+          name: RenderKit-validation-package
+          path: artifacts/packages/*.nupkg
+          if-no-files-found: error
+
+  validate-powershell-7:
+    name: Package Validation / PowerShell 7 / PSResourceGet
+    needs: build-package
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: Download package
+        uses: actions/download-artifact@main
+        with:
+          name: RenderKit-validation-package
+          path: artifacts/packages
+
+      - name: Validate archive and module
+        shell: pwsh
+        run: |
+          $package = Get-Item ./artifacts/packages/*.nupkg
+          ./build/Test-RenderKitPackage.ps1 -PackagePath $package.FullName -ExpectedVersion '${{ needs.build-package.outputs.version }}'
+
+      - name: Validate local PSResourceGet installation
+        shell: pwsh
+        run: |
+          $package = Get-Item ./artifacts/packages/*.nupkg
+          ./build/Test-RenderKitLocalInstall.ps1 `
+            -PackagePath $package.FullName `
+            -Version '${{ needs.build-package.outputs.version }}' `
+            -PackageManager PSResourceGet
+
+  validate-windows-powershell-5:
+    name: Package Validation / Windows PowerShell 5.1 / PowerShellGet 2.2.5
+    needs: build-package
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: Download package
+        uses: actions/download-artifact@main
+        with:
+          name: RenderKit-validation-package
+          path: artifacts/packages
+
+      - name: Install supported legacy package manager
+        shell: powershell
+        run: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+          Install-Module -Name PowerShellGet -RequiredVersion 2.2.5 -Scope CurrentUser -Force -AllowClobber
+
+      - name: Validate archive and module
+        shell: powershell
+        run: |
+          $package = Get-Item ./artifacts/packages/*.nupkg
+          ./build/Test-RenderKitPackage.ps1 -PackagePath $package.FullName -ExpectedVersion '${{ needs.build-package.outputs.version }}'
+
+      - name: Validate local PowerShellGet installation
+        shell: powershell
+        run: |
+          Import-Module PowerShellGet -RequiredVersion 2.2.5 -Force
+          $package = Get-Item ./artifacts/packages/*.nupkg
+          ./build/Test-RenderKitLocalInstall.ps1 `
+            -PackagePath $package.FullName `
+            -Version '${{ needs.build-package.outputs.version }}' `
+            -PackageManager PowerShellGet
