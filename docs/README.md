@@ -31,6 +31,7 @@ Internal health checks are documented in [Repair and Health Checks](repair.md).
 
 - [`Set-ProjectRoot`](Set-ProjectRoot.md) – Configure the default project root
 - [`New-Project`](New-Project.md) – Create a project from a template
+- [`Get-Project`](Get-Project.md) – List projects known to RenderKit
 - [`Copy-Project`](Copy-Project.md) – Copy a project with a new identity
 - [`Rename-Project`](Rename-Project.md) – Rename a project while preserving its ID
 - [`Remove-Project`](Remove-Project.md) – Remove a project

@@ -30,6 +30,7 @@
         'Export-Project'
         'Copy-Project'
         'Send-Project'
+        'Get-Project'
     )
     CmdletsToExport = @()
     AliasesToExport = @(

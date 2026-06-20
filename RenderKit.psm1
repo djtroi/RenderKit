@@ -20,6 +20,7 @@ $script:RenderKitPublicFunctions = @(
     'Export-Project'
     'Copy-Project'
     'Send-Project'
+    'Get-Project'
 )
 $script:RenderKitPublicAliases = @(
     'projectroot'
