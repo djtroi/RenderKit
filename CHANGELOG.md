@@ -5,6 +5,7 @@
 ### Major
 
 ### Added
+- Added new Cmdlet: Get-Project. The command returns table-friendly project summary objects with these fields:
 - Added architecture documentation for project identity and registry, project lifecycle, domain events and jobs, artifact versioning, cross-platform storage, security baseline, and the phased implementation plan.
 - Added cross-platform user storage support and documentation for configuration, state, cache, and user data roots, including `RENDERKIT_HOME` overrides and legacy data preservation guidance.
 - Added atomic JSON persistence helpers with file locking, backup restoration support, validation hooks, and transaction-style updates for RenderKit state files.

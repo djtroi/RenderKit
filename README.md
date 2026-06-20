@@ -225,6 +225,7 @@ Key technical documents:
 
 - [`Set-ProjectRoot`](docs/Set-ProjectRoot.md)
 - [`New-Project`](docs/New-Project.md)
+- [`Get-Project`](docs/Get-Project.md)
 - [`Copy-Project`](docs/Copy-Project.md)
 - [`Rename-Project`](docs/Rename-Project.md)
 - [`Remove-Project`](docs/Remove-Project.md)
