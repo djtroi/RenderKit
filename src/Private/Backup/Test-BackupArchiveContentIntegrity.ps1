@@ -61,8 +61,20 @@ function Test-BackupArchiveContentIntegrity {
             -BasePath $archiveProjectRoot `
             -Algorithm $Algorithm
 
-        $sourcePaths = @($effectiveSourceIndex.Keys | Sort-Object)
-        $archivePaths = @($archiveIndex.Keys | Sort-Object)
+        # RenderKit logs remain active while the backup is running and are
+        # injected into a dedicated archive section after this comparison.
+        # Exclude only those mutable internal log files from the content hash
+        # comparison; all other project files remain integrity-checked.
+        $sourcePaths = @(
+            $effectiveSourceIndex.Keys |
+                Where-Object { $_ -notmatch '(^|/)\.renderkit/.*\.log$' } |
+                Sort-Object
+        )
+        $archivePaths = @(
+            $archiveIndex.Keys |
+                Where-Object { $_ -notmatch '(^|/)\.renderkit/.*\.log$' } |
+                Sort-Object
+        )
 
         $missingInArchive = @($sourcePaths | Where-Object { -not $archiveIndex.ContainsKey($_) })
         $extraInArchive = @($archivePaths | Where-Object { -not $effectiveSourceIndex.ContainsKey($_) })

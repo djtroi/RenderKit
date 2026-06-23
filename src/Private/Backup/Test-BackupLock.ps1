@@ -4,7 +4,7 @@ function Test-BackupLock {
         [Parameter(Mandatory)]
         [string]$ProjectRoot,
         [Parameter()]
-        [TimeSpan]$StaleThreshold = (New-TimeSpan -Hourse 24)
+        [TimeSpan]$StaleThreshold = (New-TimeSpan -Hours 24)
     )
 
     $lockPath = Get-BackupLockPath -ProjectRoot $ProjectRoot

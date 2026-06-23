@@ -96,7 +96,7 @@ https://github.com/djtroi/RenderKit
     $project = Get-RenderKitProject -ProjectName $ProjectName -Path $Path
     $projectRoot = [string]$project.RootPath
 
-    $rules = Get-CleanupRule -Profile $Preset
+    $rules = Get-CleanupRule -Preset $Preset
     $startedAt = Get-Date
     $archiveDescriptor = Resolve-BackupArchivePath `
         -Project $project `
