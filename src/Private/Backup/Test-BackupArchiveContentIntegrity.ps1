@@ -25,7 +25,53 @@ function Test-BackupArchiveContentIntegrity {
     New-Item -ItemType Directory -Path $extractRoot -Force | Out-Null
 
     try {
-        Expand-Archive -Path $ArchivePath -DestinationPath $extractRoot -Force
+        $extractRootPath = [System.IO.Path]::GetFullPath($extractRoot)
+        $extractRootPrefix = $extractRootPath.TrimEnd(
+            [System.IO.Path]::DirectorySeparatorChar,
+            [System.IO.Path]::AltDirectorySeparatorChar
+        ) + [System.IO.Path]::DirectorySeparatorChar
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
+        try {
+            foreach ($entry in $archive.Entries) {
+                $relativePath = $entry.FullName.Replace(
+                    '/',
+                    [System.IO.Path]::DirectorySeparatorChar)
+                $destinationPath = [System.IO.Path]::GetFullPath(
+                    (Join-Path $extractRootPath $relativePath))
+                if (-not $destinationPath.StartsWith(
+                        $extractRootPrefix,
+                        [System.StringComparison]::OrdinalIgnoreCase)) {
+                    throw (
+                        "Archive entry escapes the verification directory: " +
+                        $entry.FullName)
+                }
+
+                if ([string]::IsNullOrEmpty($entry.Name)) {
+                    New-Item `
+                        -ItemType Directory `
+                        -Path $destinationPath `
+                        -Force |
+                        Out-Null
+                    continue
+                }
+
+                $destinationDirectory = Split-Path `
+                    -Path $destinationPath `
+                    -Parent
+                New-Item `
+                    -ItemType Directory `
+                    -Path $destinationDirectory `
+                    -Force |
+                    Out-Null
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile(
+                    $entry,
+                    $destinationPath,
+                    $true)
+            }
+        }
+        finally {
+            $archive.Dispose()
+        }
 
         $projectLeafName = Split-Path -Path $ProjectPath -Leaf
         $candidateRoot = Join-Path $extractRoot $projectLeafName
