@@ -2,18 +2,9 @@ Describe 'Get-Project' {
     BeforeAll {
         $repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
         Import-Module (Join-Path $repositoryRoot 'RenderKit.psd1') -Force
-        $script:RenderKitModuleRoot = $repositoryRoot
-        . (Join-Path $repositoryRoot 'src/Private/Storage/RenderKit.StorageService.ps1')
-        . (Join-Path $repositoryRoot 'src/Private/Storage/RenderKit.PersistenceService.ps1')
-        . (Join-Path $repositoryRoot 'src/Private/Versioning/RenderKit.ArtifactVersionService.ps1')
-        . (Join-Path $repositoryRoot 'src/Private/Project/RenderKit.ProjectService.ps1')
-        . (Join-Path $repositoryRoot 'src/Private/Project/RenderKit.ProjectRegistryService.ps1')
-        . (Join-Path $repositoryRoot 'src/Public/Get-Project.ps1')
     }
 
     BeforeEach {
-        $script:RenderKitArtifactVersionCatalog = $null
-        $script:RenderKitArtifactMigrations = @{}
         $env:RENDERKIT_HOME = Join-Path $TestDrive 'renderkit-home'
         if (Test-Path -LiteralPath $env:RENDERKIT_HOME) {
             Remove-Item -LiteralPath $env:RENDERKIT_HOME -Recurse -Force
@@ -33,12 +24,17 @@ Describe 'Get-Project' {
         New-Item -ItemType Directory -Path $root | Out-Null
         $metadata = [PSCustomObject]@{ projectVersion = '2.5.0' }
 
-        Set-RenderKitProjectRegistryEntry `
-            -ProjectId 'known-project-1' `
-            -ProjectName 'KnownProject' `
-            -ProjectRoot $root `
-            -Metadata $metadata |
-            Out-Null
+        InModuleScope RenderKit -Parameters @{
+            Root = $root
+            Metadata = $metadata
+        } {
+            Set-RenderKitProjectRegistryEntry `
+                -ProjectId 'known-project-1' `
+                -ProjectName 'KnownProject' `
+                -ProjectRoot $Root `
+                -Metadata $Metadata |
+                Out-Null
+        }
 
         $project = Get-Project | Select-Object -First 1
 
@@ -54,18 +50,23 @@ Describe 'Get-Project' {
     It 'can return only currently available projects' {
         $availableRoot = Join-Path $TestDrive 'AvailableProject'
         New-Item -ItemType Directory -Path $availableRoot | Out-Null
-        Set-RenderKitProjectRegistryEntry `
-            -ProjectId 'available-project' `
-            -ProjectName 'AvailableProject' `
-            -ProjectRoot $availableRoot |
-            Out-Null
-
         $missingRoot = Join-Path $TestDrive 'MissingProject'
-        Set-RenderKitProjectRegistryEntry `
-            -ProjectId 'missing-project' `
-            -ProjectName 'MissingProject' `
-            -ProjectRoot $missingRoot |
-            Out-Null
+
+        InModuleScope RenderKit -Parameters @{
+            AvailableRoot = $availableRoot
+            MissingRoot = $missingRoot
+        } {
+            Set-RenderKitProjectRegistryEntry `
+                -ProjectId 'available-project' `
+                -ProjectName 'AvailableProject' `
+                -ProjectRoot $AvailableRoot |
+                Out-Null
+            Set-RenderKitProjectRegistryEntry `
+                -ProjectId 'missing-project' `
+                -ProjectName 'MissingProject' `
+                -ProjectRoot $MissingRoot |
+                Out-Null
+        }
 
         $projects = @(Get-Project -AvailableOnly)
 
@@ -76,11 +77,14 @@ Describe 'Get-Project' {
     It 'refreshes availability markers before listing projects' {
         $root = Join-Path $TestDrive 'RemovedProject'
         New-Item -ItemType Directory -Path $root | Out-Null
-        Set-RenderKitProjectRegistryEntry `
-            -ProjectId 'removed-project' `
-            -ProjectName 'RemovedProject' `
-            -ProjectRoot $root |
-            Out-Null
+
+        InModuleScope RenderKit -Parameters @{ Root = $root } {
+            Set-RenderKitProjectRegistryEntry `
+                -ProjectId 'removed-project' `
+                -ProjectName 'RemovedProject' `
+                -ProjectRoot $Root |
+                Out-Null
+        }
         Remove-Item -LiteralPath $root -Recurse -Force
 
         $project = Get-Project -Refresh | Select-Object -First 1
