@@ -10,6 +10,34 @@ Describe 'RenderKit project discovery service' {
         . (Join-Path $repositoryRoot 'src/Private/Project/RenderKit.ProjectSearchIndexService.ps1')
         . (Join-Path $repositoryRoot 'src/Private/Project/RenderKit.DiscoveredProjectStoreService.ps1')
         . (Join-Path $repositoryRoot 'src/Private/Project/RenderKit.ProjectDiscoveryService.ps1')
+
+        function script:New-TestRenderKitProjectFolder {
+            param(
+                [Parameter(Mandatory)]
+                [string]$ProjectRoot,
+                [Parameter(Mandatory)]
+                [string]$ProjectId,
+                [Parameter(Mandatory)]
+                [string]$ProjectName
+            )
+
+            New-Item -ItemType Directory `
+                -Path (Join-Path $ProjectRoot '.renderkit') `
+                -Force |
+                Out-Null
+            Write-RenderKitJsonFileAtomic `
+                -Path (Get-RenderKitProjectMetadataPath -ProjectRoot $ProjectRoot) `
+                -Depth 6 `
+                -Value ([PSCustomObject]@{
+                    tool = 'RenderKit'
+                    schemaVersion = '1.0'
+                    project = [PSCustomObject]@{
+                        id = $ProjectId
+                        name = $ProjectName
+                    }
+                }) |
+                Out-Null
+        }
     }
 
     BeforeEach {
@@ -25,35 +53,6 @@ Describe 'RenderKit project discovery service' {
     AfterEach {
         $env:RENDERKIT_HOME = $null
     }
-
-    function New-TestRenderKitProjectFolder {
-        param(
-            [Parameter(Mandatory)]
-            [string]$ProjectRoot,
-            [Parameter(Mandatory)]
-            [string]$ProjectId,
-            [Parameter(Mandatory)]
-            [string]$ProjectName
-        )
-
-        New-Item -ItemType Directory `
-            -Path (Join-Path $ProjectRoot '.renderkit') `
-            -Force |
-            Out-Null
-        Write-RenderKitJsonFileAtomic `
-            -Path (Get-RenderKitProjectMetadataPath -ProjectRoot $ProjectRoot) `
-            -Depth 6 `
-            -Value ([PSCustomObject]@{
-                tool = 'RenderKit'
-                schemaVersion = '1.0'
-                project = [PSCustomObject]@{
-                    id = $ProjectId
-                    name = $ProjectName
-                }
-            }) |
-            Out-Null
-    }
-
     It 'discovers valid projects from indexed roots' {
         $scanRoot = Join-Path $TestDrive 'ScanRoot'
         $projectRoot = Join-Path $scanRoot 'ClientA'
