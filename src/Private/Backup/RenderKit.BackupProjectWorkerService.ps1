@@ -41,20 +41,30 @@ function Invoke-BackupProjectJob {
             -Percent 100 |
             Out-Null
         [PSCustomObject]@{
-            encodedChunkCount = 0
-            mergedAssetCount  = 0
-            proxyAssetCount   = 0
-            previewAssetCount = 0
-            skipped           = $true
+            encodedChunkCount          = 0
+            mergedAssetCount           = 0
+            mergeValidationCount       = 0
+            mergeValidationFailedCount = 0
+            mergeValidations           = @()
+            proxyAssetCount            = 0
+            previewAssetCount          = 0
+            skipped                    = $true
         }
     }
 
     $resumeState.progress.currentPhase = 'EncodingComplete'
     $resumeState.progress.completedChunkCount = [int]$encodingResult.encodedChunkCount
+    $resumeState.progress.mergedAssetCount = [int]$encodingResult.mergedAssetCount
+    $resumeState.progress.validatedMergedAssetCount = [int]$encodingResult.mergeValidationCount
+    $resumeState.progress.failedMergeValidationCount = [int]$encodingResult.mergeValidationFailedCount
     $resumeState.progress.pendingChunkCount = [Math]::Max(
         0,
         [int]$resumeState.progress.pendingChunkCount - [int]$encodingResult.encodedChunkCount
     )
+    $resumeState | Add-Member `
+        -NotePropertyName mergeValidation `
+        -NotePropertyValue @($encodingResult.mergeValidations) `
+        -Force
     $resumeState.updatedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
     Save-BackupResumeState `
         -JobId ([string]$Job.id) `
@@ -66,15 +76,20 @@ function Invoke-BackupProjectJob {
         skipped           = [bool]$encodingResult.skipped
         encodedChunkCount = [int]$encodingResult.encodedChunkCount
         mergedAssetCount  = [int]$encodingResult.mergedAssetCount
+        mergeValidationCount = [int]$encodingResult.mergeValidationCount
+        mergeValidationFailedCount = [int]$encodingResult.mergeValidationFailedCount
+        mergeValidations = @($encodingResult.mergeValidations)
         proxyAssetCount   = [int]$encodingResult.proxyAssetCount
         previewAssetCount = [int]$encodingResult.previewAssetCount
         encodingPlan      = [PSCustomObject]@{
             profile      = $encodingPlan.profile.name
             commandCount = $encodingPlan.summary.commandCount
             mergeCount   = $encodingPlan.summary.mergeCount
+            mergeValidationCount = $encodingPlan.summary.mergeValidationCount
             proxyCommandCount = $encodingPlan.summary.proxyCommandCount
             previewCommandCount = $encodingPlan.summary.previewCommandCount
             ffmpeg       = $encodingPlan.ffmpeg
+            ffprobe      = $encodingPlan.ffprobe
         }
         resumeStatePath   = Get-BackupResumeStatePath -JobId ([string]$Job.id)
     }

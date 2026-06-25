@@ -529,6 +529,7 @@ https://github.com/djtroi/RenderKit
                 compressionPreset = $CompressionPreset
                 encoding        = $backupJobPayload.encoding
                 chunking         = $backupJobPayload.chunking
+                merge            = $backupJobPayload.merge
                 mediaAnalysis    = $backupJobPayload.mediaAnalysis
                 chunkPlan        = $backupJobPayload.chunkPlan
                 resume           = $backupJobPayload.resume

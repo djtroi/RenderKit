@@ -193,6 +193,18 @@ function New-BackupProjectJobPayload {
             state           = 'Planned'
             plannedChunkCount = [int]$chunkPlan.summary.chunkCount
         }
+        merge            = [PSCustomObject]@{
+            schemaVersion = '1.0'
+            strategy      = 'FfmpegConcatCopy'
+            state         = 'Planned'
+            validation    = [PSCustomObject]@{
+                enabled           = $probeTimedMedia
+                containerProbe    = 'ffprobe'
+                streamPolicy      = 'RequireExpectedPrimaryStreams'
+                syncPolicy        = 'DurationDriftWithinTolerance'
+                failureAction     = 'FailJobBeforeArchive'
+            }
+        }
         mediaAnalysis    = [PSCustomObject]@{
             schemaVersion = [string]$mediaAnalysis.schemaVersion
             probe         = $mediaAnalysis.probe

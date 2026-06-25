@@ -67,6 +67,15 @@ function New-BackupManifest {
                 strategy   = 'Disabled'
                 resumeMode = 'WholeArchive'
             }
+            merge         = [PSCustomObject]@{
+                strategy   = 'FfmpegConcatCopy'
+                validation = [PSCustomObject]@{
+                    enabled        = $false
+                    containerProbe = 'ffprobe'
+                    streamPolicy   = 'RequireExpectedPrimaryStreams'
+                    syncPolicy     = 'DurationDriftWithinTolerance'
+                }
+            }
             mediaAnalysis = [PSCustomObject]@{
                 summary = $null
             }
