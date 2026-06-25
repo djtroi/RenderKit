@@ -36,6 +36,20 @@ Describe 'RenderKit backup command contracts' {
         $command.Parameters.Keys | Should -Not -Contain 'Profile'
     }
 
+    It 'exposes the upgraded backup job planning parameters' {
+        $command = Get-Command -Module RenderKit -Name Backup-Project
+
+        $command.Parameters.Keys | Should -Contain 'Background'
+        $command.Parameters['Background'].Aliases | Should -Contain 'AsJob'
+        $command.Parameters.Keys | Should -Contain 'ConfigProfile'
+        $command.Parameters.Keys | Should -Contain 'ArchiveFormat'
+        $command.Parameters.Keys | Should -Contain 'CompressionMode'
+        $command.Parameters.Keys | Should -Contain 'CompressionPreset'
+        $command.Parameters.Keys | Should -Contain 'ChunkDurationSeconds'
+        $command.Parameters.Keys | Should -Contain 'StorageTier'
+        $command.Parameters.Keys | Should -Contain 'RequireIdle'
+    }
+
     It 'uses only parameters supported by Get-CleanupRule' {
         $cleanupCommandParameters = @(
             $module.Invoke({

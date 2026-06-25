@@ -65,11 +65,11 @@
             MaximumWritable = '1.0'
         }
         BackupManifest = @{
-            Current = '1.1'
+            Current = '2.0'
             MinimumReadable = '1.0'
-            MaximumReadable = '1.1'
-            MinimumWritable = '1.1'
-            MaximumWritable = '1.1'
+            MaximumReadable = '2.0'
+            MinimumWritable = '2.0'
+            MaximumWritable = '2.0'
         }
         ProjectManifest = @{
             Current = '1.0'
