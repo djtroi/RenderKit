@@ -205,6 +205,26 @@ function New-BackupProjectJobPayload {
                 failureAction     = 'FailJobBeforeArchive'
             }
         }
+        scheduler        = [PSCustomObject]@{
+            schemaVersion   = '1.0'
+            enabled         = $MaxParallelJobs -gt 1
+            mode            = if ($MaxParallelJobs -gt 1) { 'WorkerPool' } else { 'SingleWorker' }
+            maxParallelJobs = $MaxParallelJobs
+            queuePriority   = $Priority
+            policy          = [PSCustomObject]@{
+                primaryVideo = 'OneChunkAtATime'
+                secondaryMedia = 'ParallelWithinWorkerPool'
+                imagesAndPreviews = 'ParallelDerivativeLane'
+                checksums     = 'ParallelDiskReadLane'
+                overloadAction = 'ThrottleByLaneLimits'
+            }
+            resourceLimits  = [PSCustomObject]@{
+                maxCpuPercent = $MaxCpuPercent
+                maxGpuPercent = $MaxGpuPercent
+                diskPolicy    = 'LimitHeavyDiskStages'
+                requireIdle   = [bool]$RequireIdle
+            }
+        }
         mediaAnalysis    = [PSCustomObject]@{
             schemaVersion = [string]$mediaAnalysis.schemaVersion
             probe         = $mediaAnalysis.probe

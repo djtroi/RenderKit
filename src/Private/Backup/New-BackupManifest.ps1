@@ -76,6 +76,16 @@ function New-BackupManifest {
                     syncPolicy     = 'DurationDriftWithinTolerance'
                 }
             }
+            scheduler     = [PSCustomObject]@{
+                enabled         = $false
+                mode            = 'SingleWorker'
+                maxParallelJobs = 1
+                policy          = [PSCustomObject]@{
+                    primaryVideo = 'OneChunkAtATime'
+                    secondaryMedia = 'ParallelWithinWorkerPool'
+                    checksums     = 'ParallelDiskReadLane'
+                }
+            }
             mediaAnalysis = [PSCustomObject]@{
                 summary = $null
             }

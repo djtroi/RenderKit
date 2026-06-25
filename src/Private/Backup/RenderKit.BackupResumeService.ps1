@@ -68,9 +68,11 @@ function New-BackupResumeState {
             mergedAssetCount      = 0
             validatedMergedAssetCount = 0
             failedMergeValidationCount = 0
+            schedulerUsedParallel = $false
             passThroughFileCount  = if ($Payload.chunkPlan -and $Payload.chunkPlan.summary) { [int]$Payload.chunkPlan.summary.passThroughFileCount } else { 0 }
         }
         mergeValidation = @()
+        schedulerResult = $null
     }
 }
 

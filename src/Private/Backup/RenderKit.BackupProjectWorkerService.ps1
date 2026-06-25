@@ -48,6 +48,10 @@ function Invoke-BackupProjectJob {
             mergeValidations           = @()
             proxyAssetCount            = 0
             previewAssetCount          = 0
+            scheduler                  = [PSCustomObject]@{
+                usedParallel = $false
+                skipped      = $true
+            }
             skipped                    = $true
         }
     }
@@ -57,6 +61,7 @@ function Invoke-BackupProjectJob {
     $resumeState.progress.mergedAssetCount = [int]$encodingResult.mergedAssetCount
     $resumeState.progress.validatedMergedAssetCount = [int]$encodingResult.mergeValidationCount
     $resumeState.progress.failedMergeValidationCount = [int]$encodingResult.mergeValidationFailedCount
+    $resumeState.progress.schedulerUsedParallel = [bool]$encodingResult.scheduler.usedParallel
     $resumeState.progress.pendingChunkCount = [Math]::Max(
         0,
         [int]$resumeState.progress.pendingChunkCount - [int]$encodingResult.encodedChunkCount
@@ -64,6 +69,10 @@ function Invoke-BackupProjectJob {
     $resumeState | Add-Member `
         -NotePropertyName mergeValidation `
         -NotePropertyValue @($encodingResult.mergeValidations) `
+        -Force
+    $resumeState | Add-Member `
+        -NotePropertyName schedulerResult `
+        -NotePropertyValue $encodingResult.scheduler `
         -Force
     $resumeState.updatedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
     Save-BackupResumeState `
@@ -81,6 +90,7 @@ function Invoke-BackupProjectJob {
         mergeValidations = @($encodingResult.mergeValidations)
         proxyAssetCount   = [int]$encodingResult.proxyAssetCount
         previewAssetCount = [int]$encodingResult.previewAssetCount
+        scheduler        = $encodingResult.scheduler
         encodingPlan      = [PSCustomObject]@{
             profile      = $encodingPlan.profile.name
             commandCount = $encodingPlan.summary.commandCount
@@ -88,6 +98,7 @@ function Invoke-BackupProjectJob {
             mergeValidationCount = $encodingPlan.summary.mergeValidationCount
             proxyCommandCount = $encodingPlan.summary.proxyCommandCount
             previewCommandCount = $encodingPlan.summary.previewCommandCount
+            scheduler    = $encodingPlan.scheduler
             ffmpeg       = $encodingPlan.ffmpeg
             ffprobe      = $encodingPlan.ffprobe
         }

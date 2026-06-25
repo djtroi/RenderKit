@@ -64,6 +64,9 @@ Describe 'RenderKit BackupProject job planning' {
             -CreateProxy `
             -CreatePreview `
             -ChunkDurationSeconds 120 `
+            -MaxParallelJobs 4 `
+            -MaxCpuPercent 75 `
+            -MaxGpuPercent 80 `
             -RequireIdle `
             -StorageTier @{
                 Name = 'Fast SSD'
@@ -84,6 +87,10 @@ Describe 'RenderKit BackupProject job planning' {
         $result.Payload.merge.validation.enabled | Should -BeTrue
         $result.Payload.merge.validation.syncPolicy | Should -Be 'DurationDriftWithinTolerance'
         $result.Payload.chunking.durationSeconds | Should -Be 120
+        $result.Payload.scheduler.enabled | Should -BeTrue
+        $result.Payload.scheduler.maxParallelJobs | Should -Be 4
+        $result.Payload.scheduler.resourceLimits.maxCpuPercent | Should -Be 75
+        $result.Payload.scheduler.policy.primaryVideo | Should -Be 'OneChunkAtATime'
         $result.Payload.execution.requireIdle | Should -BeTrue
         $result.Payload.storageTiers[0].name | Should -Be 'Fast SSD'
         $result.Payload.mediaAnalysis.summary.mediaFileCount | Should -Be 1
@@ -332,6 +339,132 @@ Describe 'RenderKit BackupProject job planning' {
         $plan.previewCommands[0].arguments | Should -Contain 'fps=1/30,scale=960:-2'
     }
 
+    It 'plans scheduler lanes for controlled main video and parallel secondary media' {
+        $plan = InModuleScope RenderKit {
+            $payload = [PSCustomObject]@{
+                archive = [PSCustomObject]@{
+                    mode = 'TranscodeAndArchive'
+                    compressionPreset = 'Balanced'
+                }
+                encoding = [PSCustomObject]@{
+                    videoCodec = 'H265'
+                    encoderDevice = 'CPU'
+                    qualityPreset = 'Balanced'
+                    audioProfile = 'AAC_128'
+                    proxy = [PSCustomObject]@{ enabled = $false }
+                    preview = [PSCustomObject]@{ enabled = $false }
+                }
+                execution = [PSCustomObject]@{
+                    maxParallelJobs = 4
+                    requireIdle = $true
+                    allowOnBattery = $false
+                    resourceLimits = [PSCustomObject]@{
+                        maxCpuPercent = 75
+                        maxGpuPercent = 80
+                    }
+                }
+                mediaAnalysis = [PSCustomObject]@{
+                    files = @(
+                        [PSCustomObject]@{
+                            relativePath = 'Media/main.mp4'
+                            path = 'D:\Projects\ClientA\Media\main.mp4'
+                            mediaType = 'Video'
+                            metadata = [PSCustomObject]@{
+                                durationSeconds = 600.0
+                                videoStreams = @([PSCustomObject]@{ index = 0; codec = 'h264' })
+                                audioStreams = @([PSCustomObject]@{ index = 1; codec = 'aac' })
+                                hasVideo = $true
+                                hasAudio = $true
+                            }
+                        }
+                        [PSCustomObject]@{
+                            relativePath = 'Media/broll-a.mp4'
+                            path = 'D:\Projects\ClientA\Media\broll-a.mp4'
+                            mediaType = 'Video'
+                            metadata = [PSCustomObject]@{
+                                durationSeconds = 30.0
+                                videoStreams = @([PSCustomObject]@{ index = 0; codec = 'h264' })
+                                audioStreams = @()
+                                hasVideo = $true
+                                hasAudio = $false
+                            }
+                        }
+                    )
+                }
+                chunkPlan = [PSCustomObject]@{
+                    assets = @(
+                        [PSCustomObject]@{
+                            id = 'asset-main'
+                            relativePath = 'Media/main.mp4'
+                            path = 'D:\Projects\ClientA\Media\main.mp4'
+                            mediaType = 'Video'
+                            durationSeconds = 600.0
+                            sizeBytes = [int64]60000000000
+                            chunkable = $true
+                        }
+                        [PSCustomObject]@{
+                            id = 'asset-broll'
+                            relativePath = 'Media/broll-a.mp4'
+                            path = 'D:\Projects\ClientA\Media\broll-a.mp4'
+                            mediaType = 'Video'
+                            durationSeconds = 30.0
+                            sizeBytes = [int64]60000000
+                            chunkable = $true
+                        }
+                    )
+                    chunks = @(
+                        [PSCustomObject]@{
+                            id = 'chunk-main-000000'
+                            assetId = 'asset-main'
+                            relativePath = 'Media/main.mp4'
+                            index = 0
+                            startSeconds = 0.0
+                            durationSeconds = 60.0
+                        }
+                        [PSCustomObject]@{
+                            id = 'chunk-main-000001'
+                            assetId = 'asset-main'
+                            relativePath = 'Media/main.mp4'
+                            index = 1
+                            startSeconds = 60.0
+                            durationSeconds = 60.0
+                        }
+                        [PSCustomObject]@{
+                            id = 'chunk-broll-000000'
+                            assetId = 'asset-broll'
+                            relativePath = 'Media/broll-a.mp4'
+                            index = 0
+                            startSeconds = 0.0
+                            durationSeconds = 30.0
+                        }
+                    )
+                }
+            }
+            $job = [PSCustomObject]@{
+                id = 'job-scheduler-plan'
+                payload = $payload
+            }
+
+            New-BackupEncodingPlan -Job $job -Payload $payload
+        }
+        $mainCommands = @($plan.commands | Where-Object { $_.assetId -eq 'asset-main' })
+        $brollCommand = @($plan.commands | Where-Object { $_.assetId -eq 'asset-broll' })[0]
+
+        $plan.scheduler.enabled | Should -BeTrue
+        $plan.scheduler.primaryAssetId | Should -Be 'asset-main'
+        $plan.scheduler.workerPool.maxWorkers | Should -Be 4
+        $plan.scheduler.resourceLimits.maxCpuPercent | Should -Be 75
+        $plan.scheduler.resourceLimits.requireIdle | Should -BeTrue
+        $plan.scheduler.policy.primaryVideo | Should -Be 'OneChunkAtATime'
+        $mainCommands[0].scheduler.lane | Should -Be 'PrimaryVideo'
+        $mainCommands[0].scheduler.maxConcurrentPerAsset | Should -Be 1
+        $mainCommands[0].scheduler.controlledMainVideo | Should -BeTrue
+        $brollCommand.scheduler.lane | Should -Be 'SecondaryMedia'
+        $brollCommand.scheduler.priority | Should -BeLessThan $mainCommands[0].scheduler.priority
+        $plan.merges[0].scheduler.lane | Should -Be 'DiskMerge'
+        $plan.scheduler.lanes.Checksum.resourceClass | Should -Be 'DiskRead'
+    }
+
     It 'validates merged assets for container, streams, and sync drift' {
         $validation = InModuleScope RenderKit {
             $merge = [PSCustomObject]@{
@@ -540,6 +673,11 @@ Describe 'RenderKit BackupProject job planning' {
                             syncPolicy = 'DurationDriftWithinTolerance'
                         }
                     }
+                    scheduler = [PSCustomObject]@{
+                        enabled = $true
+                        mode = 'WorkerPool'
+                        maxParallelJobs = 4
+                    }
                 }) `
                 -StorageTiers @(
                     [PSCustomObject]@{
@@ -554,6 +692,7 @@ Describe 'RenderKit BackupProject job planning' {
         $manifest.pipeline.archiveFormat | Should -Be 'Zip'
         $manifest.pipeline.chunking.enabled | Should -BeTrue
         $manifest.pipeline.merge.validation.enabled | Should -BeTrue
+        $manifest.pipeline.scheduler.maxParallelJobs | Should -Be 4
         $manifest.storageTiers[0].name | Should -Be 'Primary'
         $manifest.safety.deletePolicy.mode | Should -Be 'KeepSource'
     }
