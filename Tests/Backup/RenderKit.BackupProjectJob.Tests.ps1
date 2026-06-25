@@ -96,6 +96,21 @@ Describe 'RenderKit BackupProject job planning' {
         $result.Payload.progress.statePath | Should -Be $result.Payload.resume.progressStatePath
         Test-Path -LiteralPath (Split-Path -Path $result.Payload.progress.statePath -Parent) |
             Should -BeTrue
+        $result.Payload.control.pause.enabled | Should -BeTrue
+        $result.Payload.control.resume.mode | Should -Be 'SkipCompletedChunksFromChunkIndex'
+        $result.Payload.control.cancel.mode | Should -Be 'OrderedStopActiveProcesses'
+        $result.Payload.control.retry.maxAttemptsPerChunk | Should -Be 3
+        Test-Path -LiteralPath $result.Payload.control.statePath |
+            Should -BeTrue
+        $result.Payload.background.enabled | Should -BeTrue
+        $result.Payload.background.queueName | Should -Be 'backup'
+        $result.Payload.background.worker.startCommand | Should -Be 'Start-RenderKitJobWorker'
+        $result.Payload.background.worker.statusCommand | Should -Be 'Get-RenderKitJobStatus'
+        $result.Payload.background.recovery.staleRunningJobMode | Should -Be 'RequeueAfterExpiredLease'
+        Test-Path -LiteralPath $result.Payload.background.worker.stateRoot |
+            Should -BeTrue
+        Test-Path -LiteralPath $result.Payload.background.worker.logRoot |
+            Should -BeTrue
         $result.Payload.execution.requireIdle | Should -BeTrue
         $result.Payload.storageTiers[0].name | Should -Be 'Fast SSD'
         $result.Payload.mediaAnalysis.summary.mediaFileCount | Should -Be 1
@@ -113,6 +128,69 @@ Describe 'RenderKit BackupProject job planning' {
             Test-Path -LiteralPath $jobs[0].payload.resume.statePath |
                 Should -BeTrue
         }
+    }
+
+    It 'records pause, resume, and cancel requests for a background BackupProject job' {
+        $projectParent = Join-Path $TestDrive 'control-projects'
+        $projectRoot = Join-Path $projectParent 'ControlProject'
+        $metadataRoot = Join-Path $projectRoot '.renderkit'
+        New-Item -ItemType Directory -Path $metadataRoot -Force | Out-Null
+        Set-Content `
+            -LiteralPath (Join-Path $projectRoot 'notes.txt') `
+            -Value 'notes' `
+            -Encoding UTF8
+        [PSCustomObject]@{
+            tool = 'RenderKit'
+            schemaVersion = '1.0'
+            project = [PSCustomObject]@{
+                id = 'control-project'
+                name = 'ControlProject'
+                createdAt = (Get-Date).ToString('o')
+            }
+            lifecycle = [PSCustomObject]@{
+                status = 'Draft'
+            }
+        } |
+            ConvertTo-Json -Depth 8 |
+            Set-Content `
+                -LiteralPath (Join-Path $metadataRoot 'project.json') `
+                -Encoding UTF8
+
+        $queued = Backup-Project `
+            -ProjectName ControlProject `
+            -Path $projectParent `
+            -Background `
+            -KeepSourceProject
+
+        $pause = Suspend-BackupProjectJob `
+            -JobId $queued.JobId `
+            -Reason 'test pause'
+        $pause.state | Should -Be 'PauseRequested'
+        $pause.reason | Should -Be 'test pause'
+
+        $resume = Resume-BackupProjectJob `
+            -JobId $queued.JobId `
+            -Reason 'test resume'
+        $resume.state | Should -Be 'ResumeRequested'
+        $resume.reason | Should -Be 'test resume'
+
+        $cancel = Stop-BackupProjectJob `
+            -JobId $queued.JobId `
+            -Reason 'test cancel'
+        $cancel.state | Should -Be 'CancelRequested'
+        $cancel.reason | Should -Be 'test cancel'
+
+        $controlState = Get-Content `
+            -LiteralPath $queued.Payload.control.statePath `
+            -Raw |
+            ConvertFrom-Json
+        $job = InModuleScope RenderKit -Parameters @{ JobId = $queued.JobId } {
+            Get-RenderKitJob -JobId $JobId
+        }
+
+        $controlState.state | Should -Be 'CancelRequested'
+        $job.status | Should -Be 'Cancelled'
+        $job.cancelRequestedAtUtc | Should -Not -BeNullOrEmpty
     }
 
     It 'analyzes project media files without requiring ffprobe' {
@@ -348,6 +426,123 @@ Describe 'RenderKit BackupProject job planning' {
         $plan.proxyCommands[0].arguments | Should -Contain '-progress'
         $plan.previewCommands[0].arguments | Should -Contain 'fps=1/30,scale=960:-2'
         $plan.previewCommands[0].arguments | Should -Contain '-progress'
+    }
+
+    It 'skips completed chunk-index entries when rebuilding an encoding plan' {
+        $encodedOutput = Join-Path $TestDrive 'already-encoded-chunk.mkv'
+        Set-Content -LiteralPath $encodedOutput -Value 'encoded' -Encoding UTF8
+
+        $plan = InModuleScope RenderKit -Parameters @{ OutputPath = $encodedOutput } {
+            $jobId = 'job-resume-plan'
+            Save-BackupChunkIndex `
+                -JobId $jobId `
+                -ChunkIndex ([PSCustomObject]@{
+                    entries = @(
+                        [PSCustomObject]@{
+                            chunkId = 'chunk-main-000000'
+                            resumeKey = 'chunk-main-000000'
+                            assetId = 'asset-main'
+                            relativePath = 'Media/main.mp4'
+                            index = 0
+                            state = 'Completed'
+                            attempts = 2
+                            outputPath = $OutputPath
+                            completedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+                        }
+                        [PSCustomObject]@{
+                            chunkId = 'chunk-main-000001'
+                            resumeKey = 'chunk-main-000001'
+                            assetId = 'asset-main'
+                            relativePath = 'Media/main.mp4'
+                            index = 1
+                            state = 'Pending'
+                            attempts = 0
+                            outputPath = $null
+                            completedAtUtc = $null
+                        }
+                    )
+                }) |
+                Out-Null
+
+            $payload = [PSCustomObject]@{
+                archive = [PSCustomObject]@{
+                    mode = 'TranscodeAndArchive'
+                    compressionPreset = 'Balanced'
+                }
+                control = [PSCustomObject]@{
+                    retry = [PSCustomObject]@{
+                        maxAttemptsPerChunk = 3
+                        retryDelaySeconds = 1
+                    }
+                }
+                encoding = [PSCustomObject]@{
+                    videoCodec = 'H265'
+                    encoderDevice = 'CPU'
+                    qualityPreset = 'Balanced'
+                    audioProfile = 'AAC_128'
+                    proxy = [PSCustomObject]@{ enabled = $false }
+                    preview = [PSCustomObject]@{ enabled = $false }
+                }
+                mediaAnalysis = [PSCustomObject]@{
+                    files = @(
+                        [PSCustomObject]@{
+                            relativePath = 'Media/main.mp4'
+                            path = 'D:\Projects\ClientA\Media\main.mp4'
+                            mediaType = 'Video'
+                            metadata = [PSCustomObject]@{
+                                durationSeconds = 90.0
+                                videoStreams = @([PSCustomObject]@{ index = 0; codec = 'h264' })
+                                audioStreams = @([PSCustomObject]@{ index = 1; codec = 'aac' })
+                                hasVideo = $true
+                                hasAudio = $true
+                            }
+                        }
+                    )
+                }
+                chunkPlan = [PSCustomObject]@{
+                    assets = @(
+                        [PSCustomObject]@{
+                            id = 'asset-main'
+                            relativePath = 'Media/main.mp4'
+                            path = 'D:\Projects\ClientA\Media\main.mp4'
+                            mediaType = 'Video'
+                        }
+                    )
+                    chunks = @(
+                        [PSCustomObject]@{
+                            id = 'chunk-main-000000'
+                            assetId = 'asset-main'
+                            relativePath = 'Media/main.mp4'
+                            index = 0
+                            startSeconds = 0.0
+                            durationSeconds = 60.0
+                        }
+                        [PSCustomObject]@{
+                            id = 'chunk-main-000001'
+                            assetId = 'asset-main'
+                            relativePath = 'Media/main.mp4'
+                            index = 1
+                            startSeconds = 60.0
+                            durationSeconds = 30.0
+                        }
+                    )
+                }
+            }
+
+            New-BackupEncodingPlan `
+                -Job ([PSCustomObject]@{
+                    id = $jobId
+                    payload = $payload
+                }) `
+                -Payload $payload
+        }
+
+        $plan.commands[0].state | Should -Be 'Completed'
+        $plan.commands[0].outputPath | Should -Be $encodedOutput
+        $plan.commands[0].control.attempts | Should -Be 2
+        $plan.commands[1].state | Should -Be 'Planned'
+        $plan.commands[1].control.maxAttempts | Should -Be 3
+        $plan.commands[1].control.retryable | Should -BeTrue
     }
 
     It 'plans scheduler lanes for controlled main video and parallel secondary media' {
@@ -750,6 +945,43 @@ Describe 'RenderKit BackupProject job planning' {
                         statePath = 'K:\State\progress.json'
                         metrics = @('StageName', 'EtaSeconds', 'Speed')
                     }
+                    control = [PSCustomObject]@{
+                        statePath = 'K:\State\control.json'
+                        pause = [PSCustomObject]@{
+                            enabled = $true
+                            mode = 'ProcessSuspendWhenSupported'
+                        }
+                        resume = [PSCustomObject]@{
+                            enabled = $true
+                            mode = 'SkipCompletedChunksFromChunkIndex'
+                        }
+                        cancel = [PSCustomObject]@{
+                            enabled = $true
+                            mode = 'OrderedStopActiveProcesses'
+                        }
+                        retry = [PSCustomObject]@{
+                            maxAttemptsPerChunk = 3
+                        }
+                    }
+                    background = [PSCustomObject]@{
+                        enabled = $true
+                        queueName = 'backup'
+                        worker = [PSCustomObject]@{
+                            mode = 'LocalWorker'
+                            startCommand = 'Start-RenderKitJobWorker'
+                            statusCommand = 'Get-RenderKitJobStatus'
+                            workerStatusCommand = 'Get-RenderKitJobWorkerStatus'
+                        }
+                        recovery = [PSCustomObject]@{
+                            leaseHeartbeat = 'ProgressExtendsLease'
+                            staleRunningJobMode = 'RequeueAfterExpiredLease'
+                            crashedWorkerState = 'DetectPreviousWorkerPid'
+                        }
+                        logs = [PSCustomObject]@{
+                            persistent = $true
+                            format = 'jsonl'
+                        }
+                    }
                 }) `
                 -StorageTiers @(
                     [PSCustomObject]@{
@@ -766,6 +998,11 @@ Describe 'RenderKit BackupProject job planning' {
         $manifest.pipeline.merge.validation.enabled | Should -BeTrue
         $manifest.pipeline.scheduler.maxParallelJobs | Should -Be 4
         $manifest.pipeline.progress.metrics | Should -Contain 'EtaSeconds'
+        $manifest.pipeline.control.resume.mode | Should -Be 'SkipCompletedChunksFromChunkIndex'
+        $manifest.pipeline.control.retry.maxAttemptsPerChunk | Should -Be 3
+        $manifest.pipeline.background.worker.startCommand | Should -Be 'Start-RenderKitJobWorker'
+        $manifest.pipeline.background.recovery.crashedWorkerState | Should -Be 'DetectPreviousWorkerPid'
+        $manifest.pipeline.background.logs.persistent | Should -BeTrue
         $manifest.storageTiers[0].name | Should -Be 'Primary'
         $manifest.safety.deletePolicy.mode | Should -Be 'KeepSource'
     }

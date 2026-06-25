@@ -68,6 +68,18 @@ Plans preview thumbnail generation for encoded assets.
 .PARAMETER ChunkDurationSeconds
 Target chunk duration used by the resumable media pipeline.
 
+.PARAMETER RequireIdle
+Only lets the background media worker run when the user has been idle long enough.
+
+.PARAMETER MinIdleMinutes
+Minimum user-idle duration required when `-RequireIdle` is used.
+
+.PARAMETER AllowedStartTime
+Optional local start time for background processing, formatted as HH:mm.
+
+.PARAMETER AllowedEndTime
+Optional local end time for background processing, formatted as HH:mm.
+
 .EXAMPLE
 Backup-Project -ProjectName "ClientA_2026"
 Backs up project `ClientA_2026` from the configured default project root.
@@ -137,7 +149,19 @@ https://github.com/djtroi/RenderKit
         [int]$MaxCpuPercent = 90,
         [ValidateRange(1, 100)]
         [int]$MaxGpuPercent = 95,
+        [ValidateRange(1, 100)]
+        [int]$MaxDiskActivePercent = 90,
+        [ValidateRange(1, 120)]
+        [int]$MaxTemperatureCelsius = 85,
         [switch]$RequireIdle,
+        [ValidateRange(0, 1440)]
+        [int]$MinIdleMinutes = 10,
+        [ValidatePattern('^\d{2}:\d{2}$')]
+        [string]$AllowedStartTime,
+        [ValidatePattern('^\d{2}:\d{2}$')]
+        [string]$AllowedEndTime,
+        [ValidateRange(1, 3600)]
+        [int]$SystemRulePollSeconds = 5,
         [switch]$AllowOnBattery,
         [switch]$DisableThermalThrottle,
         [string]$QueueName = 'backup',
@@ -211,7 +235,13 @@ https://github.com/djtroi/RenderKit
         -MaxParallelJobs $MaxParallelJobs `
         -MaxCpuPercent $MaxCpuPercent `
         -MaxGpuPercent $MaxGpuPercent `
+        -MaxDiskActivePercent $MaxDiskActivePercent `
+        -MaxTemperatureCelsius $MaxTemperatureCelsius `
         -RequireIdle:$RequireIdle `
+        -MinIdleMinutes $MinIdleMinutes `
+        -AllowedStartTime $AllowedStartTime `
+        -AllowedEndTime $AllowedEndTime `
+        -SystemRulePollSeconds $SystemRulePollSeconds `
         -AllowOnBattery:$AllowOnBattery `
         -DisableThermalThrottle:$DisableThermalThrottle `
         -QueueName $QueueName `
@@ -532,6 +562,8 @@ https://github.com/djtroi/RenderKit
                 merge            = $backupJobPayload.merge
                 scheduler        = $backupJobPayload.scheduler
                 progress         = $backupJobPayload.progress
+                control          = $backupJobPayload.control
+                background       = $backupJobPayload.background
                 mediaAnalysis    = $backupJobPayload.mediaAnalysis
                 chunkPlan        = $backupJobPayload.chunkPlan
                 resume           = $backupJobPayload.resume

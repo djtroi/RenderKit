@@ -1,70 +1,323 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
-<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="33" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2026-06-25" time="19:52:36">
-  <environment os-version="10.0.26200" clr-version="10.0.8" cwd="K:\Programming\RenderKit" user-domain="Troi-PC" user="Troi" machine-name="TROI-PC" nunit-version="2.5.8.0" platform="Microsoft Windows 11 Pro|C:\WINDOWS|\Device\Harddisk3\Partition2" />
+<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="134" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2026-06-25" time="20:22:19">
+  <environment cwd="K:\Programming\RenderKit" user-domain="Troi-PC" user="Troi" platform="Microsoft Windows 11 Pro|C:\WINDOWS|\Device\Harddisk3\Partition2" nunit-version="2.5.8.0" machine-name="TROI-PC" clr-version="10.0.8" os-version="10.0.26200" />
   <culture-info current-culture="de-DE" current-uiculture="de-DE" />
-  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="19.1292" asserts="0" description="Pester">
+  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="28.7673" asserts="0" description="Pester">
     <results>
-      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Backup\RenderKit.BackupCommandContract.Tests.ps1" executed="True" result="Success" success="True" time="5.1642" asserts="0" description="K:\Programming\RenderKit\Tests\Backup\RenderKit.BackupCommandContract.Tests.ps1">
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Automation\RenderKit.EventJobBridgeService.Tests.ps1" executed="True" result="Success" success="True" time="2.6015" asserts="0" description="K:\Programming\RenderKit\Tests\Automation\RenderKit.EventJobBridgeService.Tests.ps1">
         <results>
-          <test-suite type="TestFixture" name="RenderKit backup command contracts" executed="True" result="Success" success="True" time="2.7271" asserts="0" description="RenderKit backup command contracts">
+          <test-suite type="TestFixture" name="RenderKit event/job bridge service" executed="True" result="Success" success="True" time="1.8068" asserts="0" description="RenderKit event/job bridge service">
             <results>
-              <test-case description="exposes Preset as the cleanup selection parameter" name="RenderKit backup command contracts.exposes Preset as the cleanup selection parameter" time="0.2417" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="exposes the upgraded backup job planning parameters" name="RenderKit backup command contracts.exposes the upgraded backup job planning parameters" time="0.1397" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="uses only parameters supported by Get-CleanupRule" name="RenderKit backup command contracts.uses only parameters supported by Get-CleanupRule" time="0.3314" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="loads enabled lifecycle subscriptions" name="RenderKit event/job bridge service.loads enabled lifecycle subscriptions" time="0.3582" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="creates jobs for pending matching events" name="RenderKit event/job bridge service.creates jobs for pending matching events" time="0.6483" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="marks processed events as no longer pending" name="RenderKit event/job bridge service.marks processed events as no longer pending" time="0.241" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="does not duplicate jobs for the same trigger event" name="RenderKit event/job bridge service.does not duplicate jobs for the same trigger event" time="0.3732" asserts="0" success="True" result="Success" executed="True" />
             </results>
           </test-suite>
         </results>
       </test-suite>
-      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Backup\RenderKit.BackupProjectJob.Tests.ps1" executed="True" result="Success" success="True" time="9.4479" asserts="0" description="K:\Programming\RenderKit\Tests\Backup\RenderKit.BackupProjectJob.Tests.ps1">
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Backup\RenderKit.BackupCommandContract.Tests.ps1" executed="True" result="Success" success="True" time="1.6928" asserts="0" description="K:\Programming\RenderKit\Tests\Backup\RenderKit.BackupCommandContract.Tests.ps1">
         <results>
-          <test-suite type="TestFixture" name="RenderKit BackupProject job planning" executed="True" result="Success" success="True" time="9.0333" asserts="0" description="RenderKit BackupProject job planning">
+          <test-suite type="TestFixture" name="RenderKit backup command contracts" executed="True" result="Success" success="True" time="1.585" asserts="0" description="RenderKit backup command contracts">
             <results>
-              <test-case description="queues a background BackupProject job with chunking and storage tiers" name="RenderKit BackupProject job planning.queues a background BackupProject job with chunking and storage tiers" time="2.1491" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="analyzes project media files without requiring ffprobe" name="RenderKit BackupProject job planning.analyzes project media files without requiring ffprobe" time="0.0783" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="plans resumable time-range chunks for timed media" name="RenderKit BackupProject job planning.plans resumable time-range chunks for timed media" time="0.1549" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="snaps chunk boundaries to nearby keyframes when available" name="RenderKit BackupProject job planning.snaps chunk boundaries to nearby keyframes when available" time="0.0881" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="builds ffmpeg encode and merge plans for chunked assets" name="RenderKit BackupProject job planning.builds ffmpeg encode and merge plans for chunked assets" time="0.5515" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="plans scheduler lanes for controlled main video and parallel secondary media" name="RenderKit BackupProject job planning.plans scheduler lanes for controlled main video and parallel secondary media" time="0.4058" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="validates merged assets for container, streams, and sync drift" name="RenderKit BackupProject job planning.validates merged assets for container, streams, and sync drift" time="0.0861" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="maps codec and GPU selections to concrete ffmpeg encoders" name="RenderKit BackupProject job planning.maps codec and GPU selections to concrete ffmpeg encoders" time="0.0579" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="parses ffmpeg progress lines into percentages" name="RenderKit BackupProject job planning.parses ffmpeg progress lines into percentages" time="0.0885" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="builds structured progress snapshots with speed and ETA" name="RenderKit BackupProject job planning.builds structured progress snapshots with speed and ETA" time="0.1443" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="runs the BackupProject worker handler when no encoding is required" name="RenderKit BackupProject job planning.runs the BackupProject worker handler when no encoding is required" time="1.2552" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="creates a v2 backup manifest with pipeline metadata" name="RenderKit BackupProject job planning.creates a v2 backup manifest with pipeline metadata" time="0.0607" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="exposes Preset as the cleanup selection parameter" name="RenderKit backup command contracts.exposes Preset as the cleanup selection parameter" time="0.0456" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="exposes the upgraded backup job planning parameters" name="RenderKit backup command contracts.exposes the upgraded backup job planning parameters" time="0.0738" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="exposes backup job control commands" name="RenderKit backup command contracts.exposes backup job control commands" time="0.1968" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="uses only parameters supported by Get-CleanupRule" name="RenderKit backup command contracts.uses only parameters supported by Get-CleanupRule" time="0.0862" asserts="0" success="True" result="Success" executed="True" />
             </results>
           </test-suite>
         </results>
       </test-suite>
-      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Job\RenderKit.JobService.Tests.ps1" executed="True" result="Success" success="True" time="1.2425" asserts="0" description="K:\Programming\RenderKit\Tests\Job\RenderKit.JobService.Tests.ps1">
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Backup\RenderKit.BackupProjectJob.Tests.ps1" executed="True" result="Success" success="True" time="6.3479" asserts="0" description="K:\Programming\RenderKit\Tests\Backup\RenderKit.BackupProjectJob.Tests.ps1">
         <results>
-          <test-suite type="TestFixture" name="RenderKit job service" executed="True" result="Success" success="True" time="0.9777" asserts="0" description="RenderKit job service">
+          <test-suite type="TestFixture" name="RenderKit BackupProject job planning" executed="True" result="Success" success="True" time="6.2375" asserts="0" description="RenderKit BackupProject job planning">
             <results>
-              <test-case description="creates an empty job store when none exists" name="RenderKit job service.creates an empty job store when none exists" time="0.0194" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="adds queued jobs" name="RenderKit job service.adds queued jobs" time="0.1084" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="defines supported job statuses and transitions" name="RenderKit job service.defines supported job statuses and transitions" time="0.0356" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="filters queued jobs by type" name="RenderKit job service.filters queued jobs by type" time="0.1771" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="filters job lists by queue and correlation id" name="RenderKit job service.filters job lists by queue and correlation id" time="0.1933" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="normalizes legacy jobs into the vNext shape" name="RenderKit job service.normalizes legacy jobs into the vNext shape" time="0.0518" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="starts the oldest queued job" name="RenderKit job service.starts the oldest queued job" time="0.1448" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="marks jobs as failed with an error message" name="RenderKit job service.marks jobs as failed with an error message" time="0.1696" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="queues a background BackupProject job with chunking and storage tiers" name="RenderKit BackupProject job planning.queues a background BackupProject job with chunking and storage tiers" time="1.1675" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="records pause, resume, and cancel requests for a background BackupProject job" name="RenderKit BackupProject job planning.records pause, resume, and cancel requests for a background BackupProject job" time="0.7317" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="analyzes project media files without requiring ffprobe" name="RenderKit BackupProject job planning.analyzes project media files without requiring ffprobe" time="0.077" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="plans resumable time-range chunks for timed media" name="RenderKit BackupProject job planning.plans resumable time-range chunks for timed media" time="0.1148" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="snaps chunk boundaries to nearby keyframes when available" name="RenderKit BackupProject job planning.snaps chunk boundaries to nearby keyframes when available" time="0.055" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="builds ffmpeg encode and merge plans for chunked assets" name="RenderKit BackupProject job planning.builds ffmpeg encode and merge plans for chunked assets" time="0.509" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="skips completed chunk-index entries when rebuilding an encoding plan" name="RenderKit BackupProject job planning.skips completed chunk-index entries when rebuilding an encoding plan" time="0.3321" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="plans scheduler lanes for controlled main video and parallel secondary media" name="RenderKit BackupProject job planning.plans scheduler lanes for controlled main video and parallel secondary media" time="0.4402" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="validates merged assets for container, streams, and sync drift" name="RenderKit BackupProject job planning.validates merged assets for container, streams, and sync drift" time="0.1099" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="maps codec and GPU selections to concrete ffmpeg encoders" name="RenderKit BackupProject job planning.maps codec and GPU selections to concrete ffmpeg encoders" time="0.0358" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="parses ffmpeg progress lines into percentages" name="RenderKit BackupProject job planning.parses ffmpeg progress lines into percentages" time="0.0567" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="builds structured progress snapshots with speed and ETA" name="RenderKit BackupProject job planning.builds structured progress snapshots with speed and ETA" time="0.1061" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="runs the BackupProject worker handler when no encoding is required" name="RenderKit BackupProject job planning.runs the BackupProject worker handler when no encoding is required" time="1.2491" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="creates a v2 backup manifest with pipeline metadata" name="RenderKit BackupProject job planning.creates a v2 backup manifest with pipeline metadata" time="0.1053" asserts="0" success="True" result="Success" executed="True" />
             </results>
           </test-suite>
         </results>
       </test-suite>
-      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Job\RenderKit.JobWorkerService.Tests.ps1" executed="True" result="Success" success="True" time="3.2745" asserts="0" description="K:\Programming\RenderKit\Tests\Job\RenderKit.JobWorkerService.Tests.ps1">
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Engine\RenderKit.EngineContractService.Tests.ps1" executed="True" result="Success" success="True" time="0.3525" asserts="0" description="K:\Programming\RenderKit\Tests\Engine\RenderKit.EngineContractService.Tests.ps1">
         <results>
-          <test-suite type="TestFixture" name="RenderKit job worker service" executed="True" result="Success" success="True" time="3.1019" asserts="0" description="RenderKit job worker service">
+          <test-suite type="TestFixture" name="RenderKit engine contract service" executed="True" result="Success" success="True" time="0.2537" asserts="0" description="RenderKit engine contract service">
             <results>
-              <test-case description="registers and resolves job handlers" name="RenderKit job worker service.registers and resolves job handlers" time="0.0471" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="publishes safe handler catalog metadata without scriptblocks" name="RenderKit job worker service.publishes safe handler catalog metadata without scriptblocks" time="0.0857" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="runs a queued job successfully" name="RenderKit job worker service.runs a queued job successfully" time="0.2029" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="requeues failed jobs while retry attempts remain" name="RenderKit job worker service.requeues failed jobs while retry attempts remain" time="0.3505" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="marks failed jobs after max attempts" name="RenderKit job worker service.marks failed jobs after max attempts" time="0.8653" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="starts queued job leases with worker ownership and lease metadata" name="RenderKit job worker service.starts queued job leases with worker ownership and lease metadata" time="0.1649" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="renews heartbeats only for the owning worker" name="RenderKit job worker service.renews heartbeats only for the owning worker" time="0.3047" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="recovers stale running jobs back to the queue" name="RenderKit job worker service.recovers stale running jobs back to the queue" time="0.2449" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="runs a worker tick without double-counting attempts" name="RenderKit job worker service.runs a worker tick without double-counting attempts" time="0.3814" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="uses the default lifecycle automation handler" name="RenderKit job worker service.uses the default lifecycle automation handler" time="0.2947" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="creates normalized actor and operation contexts with correlation ids" name="RenderKit engine contract service.creates normalized actor and operation contexts with correlation ids" time="0.045" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="rejects malformed correlation and causation ids" name="RenderKit engine contract service.rejects malformed correlation and causation ids" time="0.057" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="creates success results with operation context metadata" name="RenderKit engine contract service.creates success results with operation context metadata" time="0.0333" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="creates failure results with registered error codes" name="RenderKit engine contract service.creates failure results with registered error codes" time="0.03" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="rejects unregistered error codes" name="RenderKit engine contract service.rejects unregistered error codes" time="0.0125" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="describes the broker-facing engine facade operations" name="RenderKit engine contract service.describes the broker-facing engine facade operations" time="0.0339" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="publishes stable error codes for broker contracts" name="RenderKit engine contract service.publishes stable error codes for broker contracts" time="0.0204" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Engine\RenderKit.EngineContractSnapshot.Tests.ps1" executed="True" result="Success" success="True" time="0.1988" asserts="0" description="K:\Programming\RenderKit\Tests\Engine\RenderKit.EngineContractSnapshot.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="RenderKit engine contract snapshot" executed="True" result="Success" success="True" time="0.1038" asserts="0" description="RenderKit engine contract snapshot">
+            <results>
+              <test-case description="returns a machine-readable host handoff contract" name="RenderKit engine contract snapshot.returns a machine-readable host handoff contract" time="0.0592" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Engine\RenderKit.EngineEventOperations.Tests.ps1" executed="True" result="Success" success="True" time="0.7072" asserts="0" description="K:\Programming\RenderKit\Tests\Engine\RenderKit.EngineEventOperations.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="RenderKit engine event operations" executed="True" result="Success" success="True" time="0.5972" asserts="0" description="RenderKit engine event operations">
+            <results>
+              <test-case description="returns event list results in a RenderKitResult envelope" name="RenderKit engine event operations.returns event list results in a RenderKitResult envelope" time="0.0861" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns event detail by event id alias" name="RenderKit engine event operations.returns event detail by event id alias" time="0.0808" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns a stable not-found error for missing event detail" name="RenderKit engine event operations.returns a stable not-found error for missing event detail" time="0.1128" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="requires an actor for event bridge invocation" name="RenderKit engine event operations.requires an actor for event bridge invocation" time="0.0247" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="invokes the event bridge and returns created job metadata" name="RenderKit engine event operations.invokes the event bridge and returns created job metadata" time="0.1887" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Engine\RenderKit.EngineJobOperations.Tests.ps1" executed="True" result="Success" success="True" time="1.0561" asserts="0" description="K:\Programming\RenderKit\Tests\Engine\RenderKit.EngineJobOperations.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="RenderKit engine job operations" executed="True" result="Success" success="True" time="0.9224" asserts="0" description="RenderKit engine job operations">
+            <results>
+              <test-case description="creates broker-facing jobs with actor and result metadata" name="RenderKit engine job operations.creates broker-facing jobs with actor and result metadata" time="0.0675" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="lists and returns details through result envelopes" name="RenderKit engine job operations.lists and returns details through result envelopes" time="0.0947" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns a not-found result for unknown job details" name="RenderKit engine job operations.returns a not-found result for unknown job details" time="0.0243" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="cancels queued jobs with actor context" name="RenderKit engine job operations.cancels queued jobs with actor context" time="0.1255" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="updates progress and marks running jobs as succeeded" name="RenderKit engine job operations.updates progress and marks running jobs as succeeded" time="0.3218" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="marks jobs as failed and retries failed jobs" name="RenderKit engine job operations.marks jobs as failed and retries failed jobs" time="0.2275" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Engine\RenderKit.EngineReadModelOperations.Tests.ps1" executed="True" result="Success" success="True" time="0.8503" asserts="0" description="K:\Programming\RenderKit\Tests\Engine\RenderKit.EngineReadModelOperations.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="RenderKit engine read model operations" executed="True" result="Success" success="True" time="0.7538" asserts="0" description="RenderKit engine read model operations">
+            <results>
+              <test-case description="returns engine info and facade metadata" name="RenderKit engine read model operations.returns engine info and facade metadata" time="0.0676" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns engine state health in a result envelope" name="RenderKit engine read model operations.returns engine state health in a result envelope" time="0.2082" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns GUI-ready project summaries" name="RenderKit engine read model operations.returns GUI-ready project summaries" time="0.1245" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns project detail with metadata when available" name="RenderKit engine read model operations.returns project detail with metadata when available" time="0.1349" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns not-found for missing project detail" name="RenderKit engine read model operations.returns not-found for missing project detail" time="0.0373" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Event\RenderKit.EventService.Tests.ps1" executed="True" result="Success" success="True" time="0.9" asserts="0" description="K:\Programming\RenderKit\Tests\Event\RenderKit.EventService.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="RenderKit event service" executed="True" result="Success" success="True" time="0.8012" asserts="0" description="RenderKit event service">
+            <results>
+              <test-case description="creates an empty event store when none exists" name="RenderKit event service.creates an empty event store when none exists" time="0.0279" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="appends pending domain events" name="RenderKit event service.appends pending domain events" time="0.0899" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="normalizes legacy events into the vNext envelope" name="RenderKit event service.normalizes legacy events into the vNext envelope" time="0.0298" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="filters event lists by aggregate and category" name="RenderKit event service.filters event lists by aggregate and category" time="0.18" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="filters pending domain events by type" name="RenderKit event service.filters pending domain events by type" time="0.1628" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="marks events as processed" name="RenderKit event service.marks events as processed" time="0.1484" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="emits project lifecycle events" name="RenderKit event service.emits project lifecycle events" time="0.0873" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Job\RenderKit.JobService.Tests.ps1" executed="True" result="Success" success="True" time="1.1251" asserts="0" description="K:\Programming\RenderKit\Tests\Job\RenderKit.JobService.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="RenderKit job service" executed="True" result="Success" success="True" time="1.005" asserts="0" description="RenderKit job service">
+            <results>
+              <test-case description="creates an empty job store when none exists" name="RenderKit job service.creates an empty job store when none exists" time="0.0325" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="adds queued jobs" name="RenderKit job service.adds queued jobs" time="0.0953" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="defines supported job statuses and transitions" name="RenderKit job service.defines supported job statuses and transitions" time="0.1246" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="filters queued jobs by type" name="RenderKit job service.filters queued jobs by type" time="0.1929" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="filters job lists by queue and correlation id" name="RenderKit job service.filters job lists by queue and correlation id" time="0.1681" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="normalizes legacy jobs into the vNext shape" name="RenderKit job service.normalizes legacy jobs into the vNext shape" time="0.0384" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="starts the oldest queued job" name="RenderKit job service.starts the oldest queued job" time="0.1457" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="marks jobs as failed with an error message" name="RenderKit job service.marks jobs as failed with an error message" time="0.1431" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Job\RenderKit.JobWorkerService.Tests.ps1" executed="True" result="Success" success="True" time="3.5448" asserts="0" description="K:\Programming\RenderKit\Tests\Job\RenderKit.JobWorkerService.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="RenderKit job worker service" executed="True" result="Success" success="True" time="3.4147" asserts="0" description="RenderKit job worker service">
+            <results>
+              <test-case description="registers and resolves job handlers" name="RenderKit job worker service.registers and resolves job handlers" time="0.0218" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="publishes safe handler catalog metadata without scriptblocks" name="RenderKit job worker service.publishes safe handler catalog metadata without scriptblocks" time="0.0451" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="runs a queued job successfully" name="RenderKit job worker service.runs a queued job successfully" time="0.3311" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="requeues failed jobs while retry attempts remain" name="RenderKit job worker service.requeues failed jobs while retry attempts remain" time="0.2987" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="marks failed jobs after max attempts" name="RenderKit job worker service.marks failed jobs after max attempts" time="0.6776" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="starts queued job leases with worker ownership and lease metadata" name="RenderKit job worker service.starts queued job leases with worker ownership and lease metadata" time="0.1433" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="renews heartbeats only for the owning worker" name="RenderKit job worker service.renews heartbeats only for the owning worker" time="0.2463" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="recovers stale running jobs back to the queue" name="RenderKit job worker service.recovers stale running jobs back to the queue" time="0.2418" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="runs a worker tick without double-counting attempts" name="RenderKit job worker service.runs a worker tick without double-counting attempts" time="0.2987" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="runs a local worker loop with persistent state and logs" name="RenderKit job worker service.runs a local worker loop with persistent state and logs" time="0.5873" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="detects a previous crashed local worker state" name="RenderKit job worker service.detects a previous crashed local worker state" time="0.1588" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="uses the default lifecycle automation handler" name="RenderKit job worker service.uses the default lifecycle automation handler" time="0.2518" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Maintenance\RenderKit.RepairService.Tests.ps1" executed="True" result="Success" success="True" time="0.7366" asserts="0" description="K:\Programming\RenderKit\Tests\Maintenance\RenderKit.RepairService.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="RenderKit repair service" executed="True" result="Success" success="True" time="0.6047" asserts="0" description="RenderKit repair service">
+            <results>
+              <test-case description="checks core storage and state stores" name="RenderKit repair service.checks core storage and state stores" time="0.1258" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="marks stale project registry entries during repair" name="RenderKit repair service.marks stale project registry entries during repair" time="0.2252" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="reports failed corrupted stores without restore mode" name="RenderKit repair service.reports failed corrupted stores without restore mode" time="0.1416" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Project\RenderKit.DiscoveredProjectStoreService.Tests.ps1" executed="True" result="Success" success="True" time="0.9121" asserts="0" description="K:\Programming\RenderKit\Tests\Project\RenderKit.DiscoveredProjectStoreService.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="RenderKit discovered project store service" executed="True" result="Success" success="True" time="0.8191" asserts="0" description="RenderKit discovered project store service">
+            <results>
+              <test-case description="creates an empty discovered project store when no store exists" name="RenderKit discovered project store service.creates an empty discovered project store when no store exists" time="0.0225" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="upserts a discovered project by id and root path" name="RenderKit discovered project store service.upserts a discovered project by id and root path" time="0.192" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="classifies projects outside the configured root as custom paths" name="RenderKit discovered project store service.classifies projects outside the configured root as custom paths" time="0.072" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="keeps duplicate project ids when the root path differs" name="RenderKit discovered project store service.keeps duplicate project ids when the root path differs" time="0.1558" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="prepares duplicate project id conflict details for future repair" name="RenderKit discovered project store service.prepares duplicate project id conflict details for future repair" time="0.2517" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Project\RenderKit.GetProject.Tests.ps1" executed="True" result="Success" success="True" time="1.4605" asserts="0" description="K:\Programming\RenderKit\Tests\Project\RenderKit.GetProject.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="Get-Project" executed="True" result="Success" success="True" time="1.3455" asserts="0" description="Get-Project">
+            <results>
+              <test-case description="exports the public discovered project list command" name="Get-Project.exports the public discovered project list command" time="0.0222" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns table-friendly discovered project summaries" name="Get-Project.returns table-friendly discovered project summaries" time="0.0935" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="can return only projects marked available in the overview" name="Get-Project.can return only projects marked available in the overview" time="0.1206" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="refreshes the discovered project overview from the search index" name="Get-Project.refreshes the discovered project overview from the search index" time="0.4442" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Project\RenderKit.ProjectDiscoveryService.Tests.ps1" executed="True" result="Success" success="True" time="1.0633" asserts="0" description="K:\Programming\RenderKit\Tests\Project\RenderKit.ProjectDiscoveryService.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="RenderKit project discovery service" executed="True" result="Success" success="True" time="0.9818" asserts="0" description="RenderKit project discovery service">
+            <results>
+              <test-case description="discovers valid projects from indexed roots" name="RenderKit project discovery service.discovers valid projects from indexed roots" time="0.3288" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="marks missing indexed roots as diagnostics" name="RenderKit project discovery service.marks missing indexed roots as diagnostics" time="0.1711" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="marks duplicate project ids as conflicts" name="RenderKit project discovery service.marks duplicate project ids as conflicts" time="0.3752" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Project\RenderKit.ProjectLifecycleService.Tests.ps1" executed="True" result="Success" success="True" time="0.2816" asserts="0" description="K:\Programming\RenderKit\Tests\Project\RenderKit.ProjectLifecycleService.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="RenderKit project lifecycle service" executed="True" result="Success" success="True" time="0.1976" asserts="0" description="RenderKit project lifecycle service">
+            <results>
+              <test-case description="creates new project metadata in Draft status" name="RenderKit project lifecycle service.creates new project metadata in Draft status" time="0.0214" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="allows Draft to Active and records history" name="RenderKit project lifecycle service.allows Draft to Active and records history" time="0.0257" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="treats same-status transitions as no-op" name="RenderKit project lifecycle service.treats same-status transitions as no-op" time="0.0336" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="blocks terminal cancelled projects from becoming active" name="RenderKit project lifecycle service.blocks terminal cancelled projects from becoming active" time="0.0385" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="blocks archived projects from becoming active" name="RenderKit project lifecycle service.blocks archived projects from becoming active" time="0.0116" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="allows delivered projects to move down to active" name="RenderKit project lifecycle service.allows delivered projects to move down to active" time="0.0051" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Project\RenderKit.ProjectRegistryService.Tests.ps1" executed="True" result="Success" success="True" time="0.6436" asserts="0" description="K:\Programming\RenderKit\Tests\Project\RenderKit.ProjectRegistryService.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="RenderKit project registry service" executed="True" result="Success" success="True" time="0.5193" asserts="0" description="RenderKit project registry service">
+            <results>
+              <test-case description="creates an empty registry when no registry exists" name="RenderKit project registry service.creates an empty registry when no registry exists" time="0.0299" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="upserts projects by id and root path" name="RenderKit project registry service.upserts projects by id and root path" time="0.1238" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="resolves a unique project by name" name="RenderKit project registry service.resolves a unique project by name" time="0.0716" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="does not resolve missing project folders" name="RenderKit project registry service.does not resolve missing project folders" time="0.0678" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="marks stale registry entries during repair" name="RenderKit project registry service.marks stale registry entries during repair" time="0.1252" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Project\RenderKit.ProjectSearchIndexService.Tests.ps1" executed="True" result="Success" success="True" time="0.5781" asserts="0" description="K:\Programming\RenderKit\Tests\Project\RenderKit.ProjectSearchIndexService.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="RenderKit project search index service" executed="True" result="Success" success="True" time="0.4526" asserts="0" description="RenderKit project search index service">
+            <results>
+              <test-case description="creates an empty index when no index exists" name="RenderKit project search index service.creates an empty index when no index exists" time="0.0203" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="upserts paths and keeps unique sources" name="RenderKit project search index service.upserts paths and keeps unique sources" time="0.1787" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="stores scan diagnostics for an indexed path" name="RenderKit project search index service.stores scan diagnostics for an indexed path" time="0.1194" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="creates a diagnostic entry for missing scan result paths" name="RenderKit project search index service.creates a diagnostic entry for missing scan result paths" time="0.0721" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Public\New-Project.Tests.ps1" executed="True" result="Success" success="True" time="1.1396" asserts="0" description="K:\Programming\RenderKit\Tests\Public\New-Project.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="New-Project discovery integration" executed="True" result="Success" success="True" time="0.4828" asserts="0" description="New-Project discovery integration">
+            <results>
+              <test-case description="indexes absolute project paths and stores the discovered project" name="New-Project discovery integration.indexes absolute project paths and stores the discovered project" time="0.4185" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Public\Set-ProjectRoot.Tests.ps1" executed="True" result="Success" success="True" time="0.4929" asserts="0" description="K:\Programming\RenderKit\Tests\Public\Set-ProjectRoot.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="Set-ProjectRoot search index integration" executed="True" result="Success" success="True" time="0.3318" asserts="0" description="Set-ProjectRoot search index integration">
+            <results>
+              <test-case description="indexes the newly configured project root" name="Set-ProjectRoot search index integration.indexes the newly configured project root" time="0.0941" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="indexes the previous and new project roots when the root changes" name="Set-ProjectRoot search index integration.indexes the previous and new project roots when the root changes" time="0.2062" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Storage\RenderKit.PersistenceService.Tests.ps1" executed="True" result="Success" success="True" time="0.8002" asserts="0" description="K:\Programming\RenderKit\Tests\Storage\RenderKit.PersistenceService.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="RenderKit JSON persistence service" executed="True" result="Success" success="True" time="0.6886" asserts="0" description="RenderKit JSON persistence service">
+            <results>
+              <test-case description="writes UTF-8 JSON and reads it back" name="RenderKit JSON persistence service.writes UTF-8 JSON and reads it back" time="0.0377" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="preserves the previous valid file as a backup" name="RenderKit JSON persistence service.preserves the previous valid file as a backup" time="0.0649" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="does not replace the current file when validation fails" name="RenderKit JSON persistence service.does not replace the current file when validation fails" time="0.0684" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="times out while another handle owns the file lock" name="RenderKit JSON persistence service.times out while another handle owns the file lock" time="0.1744" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="updates the latest value inside one locked transaction" name="RenderKit JSON persistence service.updates the latest value inside one locked transaction" time="0.0667" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="creates a missing file from the transaction default value" name="RenderKit JSON persistence service.creates a missing file from the transaction default value" time="0.0356" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="restores the last backup without replacing the backup" name="RenderKit JSON persistence service.restores the last backup without replacing the backup" time="0.0975" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="does not replace a valid backup with a corrupt current file" name="RenderKit JSON persistence service.does not replace a valid backup with a corrupt current file" time="0.0916" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="rejects files larger than the configured read limit" name="RenderKit JSON persistence service.rejects files larger than the configured read limit" time="0.023" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns null for an allowed missing file" name="RenderKit JSON persistence service.returns null for an allowed missing file" time="0.0164" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Storage\RenderKit.StorageService.Tests.ps1" executed="True" result="Success" success="True" time="1.0114" asserts="0" description="K:\Programming\RenderKit\Tests\Storage\RenderKit.StorageService.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="RenderKit cross-platform storage service" executed="True" result="Success" success="True" time="0.9175" asserts="0" description="RenderKit cross-platform storage service">
+            <results>
+              <test-case description="isolates all semantic roots below RENDERKIT_HOME" name="RenderKit cross-platform storage service.isolates all semantic roots below RENDERKIT_HOME" time="0.207" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="creates a requested semantic root only when Ensure is used" name="RenderKit cross-platform storage service.creates a requested semantic root only when Ensure is used" time="0.0341" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="does not create the configuration directory when only resolving its path" name="RenderKit cross-platform storage service.does not create the configuration directory when only resolving its path" time="0.0326" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="uses XDG roots on Linux" name="RenderKit cross-platform storage service.uses XDG roots on Linux" time="0.1039" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="uses native macOS locations when XDG variables are absent" name="RenderKit cross-platform storage service.uses native macOS locations when XDG variables are absent" time="0.075" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="uses roaming and local application data on Windows" name="RenderKit cross-platform storage service.uses roaming and local application data on Windows" time="0.0483" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="copies a legacy file only when the destination does not exist" name="RenderKit cross-platform storage service.copies a legacy file only when the destination does not exist" time="0.0755" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="migrates the legacy device whitelist into state storage" name="RenderKit cross-platform storage service.migrates the legacy device whitelist into state storage" time="0.0978" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="stores config, devices, templates, and mappings by semantic kind" name="RenderKit cross-platform storage service.stores config, devices, templates, and mappings by semantic kind" time="0.0728" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="resolves user template and mapping file paths with json extensions" name="RenderKit cross-platform storage service.resolves user template and mapping file paths with json extensions" time="0.0986" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="resolves bundled template and mapping roots from module resources" name="RenderKit cross-platform storage service.resolves bundled template and mapping roots from module resources" time="0.0384" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Versioning\RenderKit.ArtifactVersionService.Tests.ps1" executed="True" result="Success" success="True" time="0.2704" asserts="0" description="K:\Programming\RenderKit\Tests\Versioning\RenderKit.ArtifactVersionService.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="RenderKit artifact version service" executed="True" result="Success" success="True" time="0.1687" asserts="0" description="RenderKit artifact version service">
+            <results>
+              <test-case description="loads the central version policy" name="RenderKit artifact version service.loads the central version policy" time="0.023" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="treats artifact type names case-insensitively" name="RenderKit artifact version service.treats artifact type names case-insensitively" time="0.0079" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="reports current, upgradeable, old, and future versions explicitly" name="RenderKit artifact version service.reports current, upgradeable, old, and future versions explicitly" time="0.0185" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="rejects malformed and unknown version requests" name="RenderKit artifact version service.rejects malformed and unknown version requests" time="0.0266" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="finds the shortest registered forward migration path" name="RenderKit artifact version service.finds the shortest registered forward migration path" time="0.0445" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="returns no path when no migration chain is registered" name="RenderKit artifact version service.returns no path when no migration chain is registered" time="0.0168" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="rejects backward migration registrations" name="RenderKit artifact version service.rejects backward migration registrations" time="0.0126" asserts="0" success="True" result="Success" executed="True" />
             </results>
           </test-suite>
         </results>

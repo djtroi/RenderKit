@@ -8,6 +8,7 @@ Describe 'RenderKit job worker service' {
         . (Join-Path $repositoryRoot 'src/Private/Logging/Write-RenderKitLog.ps1')
         . (Join-Path $repositoryRoot 'src/Private/Job/RenderKit.JobService.ps1')
         . (Join-Path $repositoryRoot 'src/Private/Job/RenderKit.JobWorkerService.ps1')
+        . (Join-Path $repositoryRoot 'src/Private/Job/RenderKit.WorkerDaemonService.ps1')
         . (Join-Path $repositoryRoot 'src/Private/Engine/RenderKit.EngineContractService.ps1')
     }
     BeforeEach {
@@ -176,6 +177,63 @@ Describe 'RenderKit job worker service' {
         $tick.ClaimedJob.ownerWorkerId | Should -Be 'worker-1'
         $tick.ResultJob.status | Should -Be 'Succeeded'
         [int]$tick.ResultJob.attempts | Should -Be 1
+    }
+
+    It 'runs a local worker loop with persistent state and logs' {
+        Register-RenderKitJobHandler `
+            -JobType 'DaemonJob' `
+            -Handler { param($Job) $true }
+        $job = Add-RenderKitJob -Job (
+            New-RenderKitJob `
+                -JobType 'DaemonJob' `
+                -QueueName 'background'
+        )
+
+        $result = Invoke-RenderKitLocalWorkerLoop `
+            -WorkerId 'worker-background' `
+            -JobType 'DaemonJob' `
+            -QueueName 'background' `
+            -RunOnce
+        $storedJob = Get-RenderKitJob -JobId $job.id
+        $workerState = Read-RenderKitWorkerState -WorkerId 'worker-background'
+        $workerStatus = Get-RenderKitWorkerStatusSnapshot `
+            -State $workerState `
+            -IncludeLogs
+        $jobStatus = New-RenderKitJobStatusSnapshot `
+            -Job $storedJob `
+            -IncludeLogs
+
+        $result.status | Should -Be 'Stopped'
+        $result.processedCount | Should -Be 1
+        Test-Path -LiteralPath $result.statePath | Should -BeTrue
+        Test-Path -LiteralPath $result.logPath | Should -BeTrue
+        $storedJob.status | Should -Be 'Succeeded'
+        $storedJob.lastWorkerId | Should -Be 'worker-background'
+        $workerStatus.status | Should -Be 'Stopped'
+        @($workerStatus.logs).Count | Should -BeGreaterThan 0
+        $jobStatus.worker.lastWorkerId | Should -Be 'worker-background'
+        $jobStatus.logs -join "`n" | Should -Match 'Processed job'
+    }
+
+    It 'detects a previous crashed local worker state' {
+        $state = New-RenderKitWorkerState `
+            -WorkerId 'worker-crash' `
+            -JobType 'CrashJob' `
+            -QueueName 'background' `
+            -Status Running
+        $state.processId = [int]::MaxValue
+        Save-RenderKitWorkerState -State $state | Out-Null
+
+        $recovery = Register-RenderKitWorkerCrashIfNeeded `
+            -WorkerId 'worker-crash' `
+            -JobType 'CrashJob' `
+            -QueueName 'background'
+        $detectedState = Read-RenderKitWorkerState -WorkerId 'worker-crash'
+
+        $recovery.crashDetected | Should -BeTrue
+        $detectedState.status | Should -Be 'CrashDetected'
+        $detectedState.lastError.message | Should -Be 'Previous worker process is no longer alive.'
+        Test-Path -LiteralPath $detectedState.logPath | Should -BeTrue
     }
 
     It 'uses the default lifecycle automation handler' {

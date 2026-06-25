@@ -246,9 +246,17 @@ function Invoke-RenderKitJob {
 
     try {
         & $handler $runningJob | Out-Null
+        $currentJob = Get-RenderKitJobById -JobId $JobId
+        if ($currentJob -and [string]$currentJob.status -eq 'Cancelled') {
+            return $currentJob
+        }
         return Complete-RenderKitJob -JobId $JobId
     }
     catch {
+        $currentJob = Get-RenderKitJobById -JobId $JobId
+        if ($currentJob -and [string]$currentJob.status -eq 'Cancelled') {
+            return $currentJob
+        }
         return Fail-RenderKitJob `
             -JobId $JobId `
             -ErrorMessage $_.Exception.Message
