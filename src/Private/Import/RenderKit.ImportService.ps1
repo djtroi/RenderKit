@@ -2692,3 +2692,40 @@ function Write-RenderKitImportRevisionLog {
     Write-RenderKitLog -Level Info -Message "Phase 5 revision log written: '$logPath'."
     return $logPath
 }
+
+function ConvertTo-RenderKitImportUserPath {
+    [CmdletBinding()]
+    param(
+        [AllowNull()][string]$Path
+    )
+
+    if ($null -eq $Path) {
+        return $Path
+    }
+
+    $trimmedPath = $Path.Trim()
+    if ($trimmedPath.Length -ge 2) {
+        $firstCharacter = $trimmedPath[0]
+        $lastCharacter = $trimmedPath[$trimmedPath.Length -1]
+        if (($firstCharacter -eq '"' -and $lastCharacter -eq '"') -or
+            ($firstCharacter -eq "'" -and $lastCharacter -eq "'")) {
+                return $trimmedPath.Substring(1, $trimmedPath.Length -2)
+    }
+}
+
+return $trimmedPath
+}
+
+function Test-RenderKitImportArchivePath {
+    [CmdletBinding()]
+    param(
+        [AllowNull()][string]$Path
+    )
+
+    if([string]::IsNullOrWhiteSpace($Path)) { return $false }
+
+    $extension = [System.IO.Path]::GetExtension($Path)
+    if ($extension -notin @('.rkit', '.rkitpkg')) { return $false }
+
+    return (Test-Path -LiteralPath $Path -PathType Leaf)
+}

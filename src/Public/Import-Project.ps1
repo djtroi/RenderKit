@@ -14,11 +14,22 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
         [ValidateSet('Error', 'Skip', 'Overwrite')][string]$ConflictAction = 'Error'
     )
 
+    $Path = ConvertTo-RenderKitImportUserPath -Path $Path
+    $DestinationRoot = ConvertTo-RenderKitImportUserPath -Path $DestinationRoot
+
+    if ((Test-RenderKitImportArchivePath -Path $DestinationRoot) -and -not (Test-RenderKitImportArchivePath -Path $Path)) {
+        $originalPath = $Path
+        $Path = $DestinationRoot
+        $DestinationRoot = $originalPath
+    }
+
     $resolvedArchivePath = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).ProviderPath
+    
     if (-not (Test-Path -LiteralPath $DestinationRoot -PathType Container)) {
         New-Item -ItemType Directory -Path $DestinationRoot -Force | Out-Null
     }
 
+    $resolvedDestinationRoot = (Resolve-Path -LiteralPath $DestinationRoot -ErrorAction Stop).ProviderPath
     $manifest = Read-RenderKitProjectArchiveManifest -Path $resolvedArchivePath
     if ($manifest.RenderKitProjectManifest.schemaVersion -ne '1.0') {
         throw "Unsupported RenderKit project manifest schema version '$($manifest.RenderKitProjectManifest.schemaVersion)'."
@@ -30,7 +41,8 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
     }
     if ([string]::IsNullOrWhiteSpace($ProjectName)) { throw 'Project name could not be resolved from manifest.' }
 
-    $targetRoot = Join-Path -Path $DestinationRoot -ChildPath $ProjectName
+    $targetRoot = Join-Path -Path $resolvedDestinationRoot -ChildPath $ProjectName
+
     if ((Test-Path -LiteralPath $targetRoot) -and $ConflictAction -eq 'Error') {
         throw "Target project '$targetRoot' already exists. Use -ConflictAction Skip or Overwrite."
     }
