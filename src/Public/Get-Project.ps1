@@ -83,6 +83,6 @@ Remove-Project
         }
     }
 
-    return $projectSummaries | Format-Table -AutoSize -Property Name, Version, Available, ValidationStatus, ConflictStatus, UpdatedAtUtc
+    return $projectSummaries # | Format-Table -AutoSize -Property Name, Version, Available, ValidationStatus, ConflictStatus, UpdatedAtUtc
 
 }
