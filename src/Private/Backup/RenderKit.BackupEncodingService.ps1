@@ -313,6 +313,150 @@ function Get-BackupPreviewAssetPattern {
     return Join-Path -Path $previewRoot -ChildPath ("frame-%05d.{0}" -f $Format.TrimStart('.'))
 }
 
+function Get-BackupPlanAsset {
+    [CmdletBinding()]
+    param(
+        [object]$Payload,
+        [Parameter(Mandatory)]
+        [string]$AssetId
+    )
+
+    if (-not $Payload -or -not $Payload.chunkPlan -or -not $Payload.chunkPlan.assets) {
+        return $null
+    }
+
+    return @($Payload.chunkPlan.assets |
+        Where-Object { [string]$_.id -eq $AssetId } |
+        Select-Object -First 1)
+}
+
+function Get-BackupPlanSourceFile {
+    [CmdletBinding()]
+    param(
+        [object]$Payload,
+        [object]$Asset,
+        [string]$RelativePath,
+        [string]$InputPath
+    )
+
+    if (-not $Payload -or -not $Payload.mediaAnalysis -or -not $Payload.mediaAnalysis.files) {
+        return $null
+    }
+
+    $assetRelativePath = if ($Asset -and $Asset.PSObject.Properties.Name -contains 'relativePath') {
+        [string]$Asset.relativePath
+    }
+    else {
+        $null
+    }
+    $assetPath = if ($Asset -and $Asset.PSObject.Properties.Name -contains 'path') {
+        [string]$Asset.path
+    }
+    else {
+        $null
+    }
+
+    return @($Payload.mediaAnalysis.files |
+        Where-Object {
+            ([string]$_.relativePath -eq $RelativePath) -or
+            (-not [string]::IsNullOrWhiteSpace($assetRelativePath) -and [string]$_.relativePath -eq $assetRelativePath) -or
+            (-not [string]::IsNullOrWhiteSpace($InputPath) -and [string]$_.path -eq $InputPath) -or
+            (-not [string]::IsNullOrWhiteSpace($assetPath) -and [string]$_.path -eq $assetPath)
+        } |
+        Select-Object -First 1)
+}
+
+function Get-BackupMetadataStreamList {
+    [CmdletBinding()]
+    param(
+        [object]$Metadata,
+        [ValidateSet('videoStreams', 'audioStreams')]
+        [string]$PropertyName
+    )
+
+    if (-not $Metadata -or -not ($Metadata.PSObject.Properties.Name -contains $PropertyName) -or -not $Metadata.$PropertyName) {
+        return @()
+    }
+
+    return @($Metadata.$PropertyName)
+}
+
+function New-BackupMergeValidationExpectation {
+    [CmdletBinding()]
+    param(
+        [object]$Payload,
+        [Parameter(Mandatory)]
+        [string]$AssetId,
+        [Parameter(Mandatory)]
+        [object[]]$Commands,
+        [Parameter(Mandatory)]
+        [object]$Profile
+    )
+
+    $orderedCommands = @($Commands | Sort-Object index)
+    $expectedDuration = 0.0
+    foreach ($command in @($orderedCommands)) {
+        $expectedDuration += [double]$command.durationSeconds
+    }
+    $expectedDuration = [Math]::Round($expectedDuration, 3)
+
+    $firstCommand = @($orderedCommands | Select-Object -First 1)
+    $relativePath = if ($firstCommand.Count -gt 0) { [string]$firstCommand[0].relativePath } else { $null }
+    $inputPath = if ($firstCommand.Count -gt 0) { [string]$firstCommand[0].inputPath } else { $null }
+    $asset = Get-BackupPlanAsset -Payload $Payload -AssetId $AssetId
+    $sourceFile = Get-BackupPlanSourceFile `
+        -Payload $Payload `
+        -Asset $asset `
+        -RelativePath $relativePath `
+        -InputPath $inputPath
+    $metadata = if ($sourceFile -and $sourceFile.metadata) { $sourceFile.metadata } else { $null }
+    $videoStreams = @(Get-BackupMetadataStreamList -Metadata $metadata -PropertyName videoStreams)
+    $audioStreams = @(Get-BackupMetadataStreamList -Metadata $metadata -PropertyName audioStreams)
+    $mediaType = if ($asset -and $asset.PSObject.Properties.Name -contains 'mediaType' -and $asset.mediaType) {
+        [string]$asset.mediaType
+    }
+    elseif ($sourceFile -and $sourceFile.PSObject.Properties.Name -contains 'mediaType') {
+        [string]$sourceFile.mediaType
+    }
+    else {
+        $null
+    }
+    $sourceHasVideo = ($mediaType -eq 'Video') -or @($videoStreams).Count -gt 0 -or ($metadata -and [bool]$metadata.hasVideo)
+    $sourceHasAudio = ($mediaType -eq 'Audio') -or @($audioStreams).Count -gt 0 -or ($metadata -and [bool]$metadata.hasAudio)
+
+    $audioDriftSeconds = 0.0
+    foreach ($command in @($orderedCommands)) {
+        if ($command.PSObject.Properties.Name -contains 'audioSync' -and $command.audioSync) {
+            $audioDriftSeconds += ([double]$command.audioSync.maxDriftMilliseconds / 1000.0)
+        }
+    }
+
+    $durationTolerance = [Math]::Max(1.0, [Math]::Min(5.0, [double]$expectedDuration * 0.002))
+    $durationTolerance = [Math]::Max($durationTolerance, $audioDriftSeconds + 0.25)
+
+    return [PSCustomObject]@{
+        schemaVersion            = '1.0'
+        required                 = $true
+        assetId                  = $AssetId
+        relativePath             = $relativePath
+        expectedDurationSeconds  = $expectedDuration
+        durationToleranceSeconds = [Math]::Round($durationTolerance, 3)
+        expectedVideo            = [bool]$sourceHasVideo
+        expectedAudio            = [bool]$sourceHasAudio
+        expectedVideoCodec       = [string]$Profile.videoCodec
+        expectedAudioProfile     = [string]$Profile.audioProfile
+        containerPolicy          = 'FfprobeReadableContainer'
+        streamPolicy             = 'RequireExpectedPrimaryStreams'
+        syncPolicy               = 'DurationDriftWithinTolerance'
+        source                   = [PSCustomObject]@{
+            mediaType        = $mediaType
+            durationSeconds  = if ($sourceFile -and $sourceFile.metadata) { $sourceFile.metadata.durationSeconds } else { $null }
+            videoStreamCount = @($videoStreams).Count
+            audioStreamCount = @($audioStreams).Count
+        }
+    }
+}
+
 function New-BackupFfmpegChunkArguments {
     [CmdletBinding()]
     param(
@@ -379,6 +523,7 @@ function New-BackupEncodingPlan {
         -QualityPreset ([string]$encoding.qualityPreset) `
         -AudioProfile ([string]$encoding.audioProfile)
     $ffmpeg = Get-BackupFfmpegCommand
+    $ffprobe = Get-BackupFfprobeCommand
     $commands = New-Object System.Collections.Generic.List[object]
     $merges = New-Object System.Collections.Generic.List[object]
     $proxyCommands = New-Object System.Collections.Generic.List[object]
@@ -412,6 +557,7 @@ function New-BackupEncodingPlan {
             inputPath       = [string]$chunk.path
             outputPath      = $outputPath
             executable      = if ($ffmpeg) { [string]$ffmpeg.Source } else { 'ffmpeg' }
+            audioSync       = if ($chunk.PSObject.Properties.Name -contains 'audioSync') { $chunk.audioSync } else { $null }
             arguments       = @(New-BackupFfmpegChunkArguments `
                     -Chunk $chunk `
                     -Profile $profile `
@@ -433,6 +579,11 @@ function New-BackupEncodingPlan {
         $concatListPath = Join-Path `
             -Path (Get-BackupJobStateRoot -JobId ([string]$Job.id)) `
             -ChildPath ("concat-{0}.txt" -f $assetId)
+        $mergeValidation = New-BackupMergeValidationExpectation `
+            -Payload $Payload `
+            -AssetId $assetId `
+            -Commands @($group.Group) `
+            -Profile $profile
 
         $merges.Add([PSCustomObject]@{
             id             = "merge-$assetId"
@@ -444,6 +595,7 @@ function New-BackupEncodingPlan {
             outputPath     = $mergeOutput
             executable     = if ($ffmpeg) { [string]$ffmpeg.Source } else { 'ffmpeg' }
             arguments      = @('-hide_banner', '-y', '-f', 'concat', '-safe', '0', '-i', $concatListPath, '-c', 'copy', $mergeOutput)
+            validation     = $mergeValidation
             state          = 'Planned'
         })
     }
@@ -508,14 +660,20 @@ function New-BackupEncodingPlan {
             available = $null -ne $ffmpeg
             path      = if ($ffmpeg) { [string]$ffmpeg.Source } else { $null }
         }
+        ffprobe       = [PSCustomObject]@{
+            available = $null -ne $ffprobe
+            path      = if ($ffprobe) { [string]$ffprobe.Source } else { $null }
+        }
         profile       = $profile
         encoding      = $encoding
         summary       = [PSCustomObject]@{
             commandCount        = [int]$commands.Count
             mergeCount          = [int]$merges.Count
+            mergeValidationCount = [int]$merges.Count
             proxyCommandCount   = [int]$proxyCommands.Count
             previewCommandCount = [int]$previewCommands.Count
-            requiresFfmpeg      = ([int]$commands.Count + [int]$proxyCommands.Count + [int]$previewCommands.Count) -gt 0
+            requiresFfmpeg      = ([int]$commands.Count + [int]$merges.Count + [int]$proxyCommands.Count + [int]$previewCommands.Count) -gt 0
+            requiresFfprobe     = [int]$merges.Count -gt 0
         }
         commands      = @($commands.ToArray())
         merges        = @($merges.ToArray())
@@ -588,6 +746,140 @@ function Write-BackupConcatList {
         -Encoding UTF8
 }
 
+function Test-BackupMergeProbeMetadata {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$MergeCommand,
+        [Parameter(Mandatory)]
+        [object]$Metadata
+    )
+
+    $validation = $MergeCommand.validation
+    $failures = New-Object System.Collections.Generic.List[string]
+    $videoStreams = @(Get-BackupMetadataStreamList -Metadata $Metadata -PropertyName videoStreams)
+    $audioStreams = @(Get-BackupMetadataStreamList -Metadata $Metadata -PropertyName audioStreams)
+    $format = if ($Metadata -and $Metadata.PSObject.Properties.Name -contains 'format') {
+        [string]$Metadata.format
+    }
+    else {
+        $null
+    }
+    $actualDuration = if ($Metadata -and $Metadata.PSObject.Properties.Name -contains 'durationSeconds' -and $null -ne $Metadata.durationSeconds) {
+        [double]$Metadata.durationSeconds
+    }
+    else {
+        $null
+    }
+    $expectedDuration = if ($validation -and $validation.PSObject.Properties.Name -contains 'expectedDurationSeconds' -and $null -ne $validation.expectedDurationSeconds) {
+        [double]$validation.expectedDurationSeconds
+    }
+    else {
+        $null
+    }
+    $durationTolerance = if ($validation -and $validation.PSObject.Properties.Name -contains 'durationToleranceSeconds' -and $null -ne $validation.durationToleranceSeconds) {
+        [double]$validation.durationToleranceSeconds
+    }
+    else {
+        1.0
+    }
+    $durationDrift = $null
+
+    if ([string]::IsNullOrWhiteSpace($format)) {
+        $failures.Add('container format was not reported by ffprobe.')
+    }
+    if ($null -ne $expectedDuration -and $expectedDuration -gt 0) {
+        if ($null -eq $actualDuration) {
+            $failures.Add('merged duration was not reported by ffprobe.')
+        }
+        else {
+            $durationDrift = [Math]::Round(($actualDuration - $expectedDuration), 3)
+            if ([Math]::Abs([double]$durationDrift) -gt $durationTolerance) {
+                $failures.Add(
+                    "duration drift $durationDrift seconds exceeds tolerance $durationTolerance seconds."
+                )
+            }
+        }
+    }
+
+    $expectedVideo = $validation -and
+        $validation.PSObject.Properties.Name -contains 'expectedVideo' -and
+        [bool]$validation.expectedVideo
+    $expectedAudio = $validation -and
+        $validation.PSObject.Properties.Name -contains 'expectedAudio' -and
+        [bool]$validation.expectedAudio
+
+    if ($expectedVideo -and @($videoStreams).Count -eq 0) {
+        $failures.Add('expected video stream is missing.')
+    }
+    if ($expectedAudio -and @($audioStreams).Count -eq 0) {
+        $failures.Add('expected audio stream is missing.')
+    }
+
+    if ($failures.Count -gt 0) {
+        throw "Merged asset validation failed for '$($MergeCommand.assetId)': $($failures -join ' ')"
+    }
+
+    return [PSCustomObject]@{
+        assetId     = [string]$MergeCommand.assetId
+        outputPath  = [string]$MergeCommand.outputPath
+        succeeded   = $true
+        checkedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+        container   = [PSCustomObject]@{
+            status = 'Passed'
+            format = $format
+        }
+        sync        = [PSCustomObject]@{
+            status                   = 'Passed'
+            expectedDurationSeconds  = $expectedDuration
+            actualDurationSeconds    = $actualDuration
+            durationDriftSeconds     = $durationDrift
+            durationToleranceSeconds = $durationTolerance
+        }
+        streams     = [PSCustomObject]@{
+            status        = 'Passed'
+            expectedVideo = [bool]$expectedVideo
+            expectedAudio = [bool]$expectedAudio
+            videoCount    = @($videoStreams).Count
+            audioCount    = @($audioStreams).Count
+            video         = @($videoStreams)
+            audio         = @($audioStreams)
+        }
+    }
+}
+
+function Test-BackupMergedAsset {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$MergeCommand,
+        [Parameter(Mandatory)]
+        [object]$FfprobeCommand
+    )
+
+    if (-not (Test-Path -LiteralPath ([string]$MergeCommand.outputPath) -PathType Leaf)) {
+        throw "Merged asset '$($MergeCommand.outputPath)' was not created."
+    }
+    if (-not $FfprobeCommand -or [string]::IsNullOrWhiteSpace([string]$FfprobeCommand.Source)) {
+        throw 'ffprobe executable was not found.'
+    }
+    if (-not (Test-Path -LiteralPath ([string]$FfprobeCommand.Source) -PathType Leaf)) {
+        throw "ffprobe executable '$($FfprobeCommand.Source)' was not found."
+    }
+
+    $probe = Invoke-BackupFfprobe `
+        -Path ([string]$MergeCommand.outputPath) `
+        -Command $FfprobeCommand
+    if (-not [bool]$probe.succeeded) {
+        throw "Merged asset validation failed for '$($MergeCommand.assetId)': $($probe.error)"
+    }
+
+    $metadata = ConvertTo-BackupMediaProbeMetadata -ProbeData $probe.data
+    return Test-BackupMergeProbeMetadata `
+        -MergeCommand $MergeCommand `
+        -Metadata $metadata
+}
+
 function Invoke-BackupFfmpegCommand {
     [CmdletBinding()]
     param(
@@ -629,16 +921,22 @@ function Invoke-BackupEncodingPlan {
             -Percent 100 |
             Out-Null
         return [PSCustomObject]@{
-            encodedChunkCount = 0
-            mergedAssetCount  = 0
-            proxyAssetCount   = 0
-            previewAssetCount = 0
-            skipped           = $true
+            encodedChunkCount          = 0
+            mergedAssetCount           = 0
+            mergeValidationCount       = 0
+            mergeValidationFailedCount = 0
+            mergeValidations           = @()
+            proxyAssetCount            = 0
+            previewAssetCount          = 0
+            skipped                    = $true
         }
     }
 
     if (-not [bool]$Plan.ffmpeg.available) {
         throw 'ffmpeg was not found. Install ffmpeg or run the backup without TranscodeAndArchive mode.'
+    }
+    if ([bool]$Plan.summary.requiresFfprobe -and -not [bool]$Plan.ffprobe.available) {
+        throw 'ffprobe was not found. Install ffprobe to validate merged backup media.'
     }
 
     $completed = 0
@@ -679,9 +977,49 @@ function Invoke-BackupEncodingPlan {
             Out-Null
     }
 
+    $mergeValidations = New-Object System.Collections.Generic.List[object]
+    $ffprobeCommand = if ([bool]$Plan.summary.requiresFfprobe) {
+        [PSCustomObject]@{ Source = [string]$Plan.ffprobe.path }
+    }
+    else {
+        $null
+    }
+    $mergeTotal = @($Plan.merges).Count
+    $mergeCompleted = 0
     foreach ($merge in @($Plan.merges)) {
+        Update-RenderKitJobProgress `
+            -JobId ([string]$Job.id) `
+            -Phase 'Merging' `
+            -Message ("Merging asset {0}/{1}: {2}" -f ($mergeCompleted + 1), $mergeTotal, [string]$merge.assetId) `
+            -Current $mergeCompleted `
+            -Total $mergeTotal |
+            Out-Null
+
         Write-BackupConcatList -MergeCommand $merge
         Invoke-BackupFfmpegCommand -Command $merge -JobId ([string]$Job.id) |
+            Out-Null
+
+        Update-RenderKitJobProgress `
+            -JobId ([string]$Job.id) `
+            -Phase 'ValidatingMerge' `
+            -Message ("Validating merged asset {0}/{1}: {2}" -f ($mergeCompleted + 1), $mergeTotal, [string]$merge.assetId) `
+            -Current $mergeCompleted `
+            -Total $mergeTotal |
+            Out-Null
+
+        $mergeValidations.Add(
+            (Test-BackupMergedAsset `
+                -MergeCommand $merge `
+                -FfprobeCommand $ffprobeCommand)
+        )
+        $mergeCompleted++
+
+        Update-RenderKitJobProgress `
+            -JobId ([string]$Job.id) `
+            -Phase 'MergeValidated' `
+            -Message ("Validated merged asset {0}/{1}: {2}" -f $mergeCompleted, $mergeTotal, [string]$merge.assetId) `
+            -Current $mergeCompleted `
+            -Total $mergeTotal |
             Out-Null
     }
 
@@ -696,10 +1034,13 @@ function Invoke-BackupEncodingPlan {
     }
 
     return [PSCustomObject]@{
-        encodedChunkCount = $completed
-        mergedAssetCount  = @($Plan.merges).Count
-        proxyAssetCount   = @($Plan.proxyCommands).Count
-        previewAssetCount = @($Plan.previewCommands).Count
-        skipped           = $false
+        encodedChunkCount          = $completed
+        mergedAssetCount           = @($Plan.merges).Count
+        mergeValidationCount       = @($mergeValidations.ToArray()).Count
+        mergeValidationFailedCount = 0
+        mergeValidations           = @($mergeValidations.ToArray())
+        proxyAssetCount            = @($Plan.proxyCommands).Count
+        previewAssetCount          = @($Plan.previewCommands).Count
+        skipped                    = $false
     }
 }

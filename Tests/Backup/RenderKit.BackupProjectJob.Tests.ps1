@@ -81,6 +81,8 @@ Describe 'RenderKit BackupProject job planning' {
         $result.Payload.encoding.proxy.enabled | Should -BeTrue
         $result.Payload.encoding.preview.enabled | Should -BeTrue
         $result.Payload.chunking.enabled | Should -BeTrue
+        $result.Payload.merge.validation.enabled | Should -BeTrue
+        $result.Payload.merge.validation.syncPolicy | Should -Be 'DurationDriftWithinTolerance'
         $result.Payload.chunking.durationSeconds | Should -Be 120
         $result.Payload.execution.requireIdle | Should -BeTrue
         $result.Payload.storageTiers[0].name | Should -Be 'Fast SSD'
@@ -235,11 +237,40 @@ Describe 'RenderKit BackupProject job planning' {
                     proxy = [PSCustomObject]@{ enabled = $true; height = 720 }
                     preview = [PSCustomObject]@{ enabled = $true; format = 'jpg'; intervalSeconds = 30; width = 960 }
                 }
+                mediaAnalysis = [PSCustomObject]@{
+                    files = @(
+                        [PSCustomObject]@{
+                            relativePath = 'Media/main.mp4'
+                            path = 'D:\Projects\ClientA\Media\main.mp4'
+                            mediaType = 'Video'
+                            metadata = [PSCustomObject]@{
+                                durationSeconds = 90.0
+                                format = 'mov,mp4,m4a,3gp,3g2,mj2'
+                                videoStreams = @(
+                                    [PSCustomObject]@{
+                                        index = 0
+                                        codec = 'h264'
+                                    }
+                                )
+                                audioStreams = @(
+                                    [PSCustomObject]@{
+                                        index = 1
+                                        codec = 'aac'
+                                    }
+                                )
+                                hasVideo = $true
+                                hasAudio = $true
+                            }
+                        }
+                    )
+                }
                 chunkPlan = [PSCustomObject]@{
                     assets = @(
                         [PSCustomObject]@{
                             id = 'asset-main'
+                            relativePath = 'Media/main.mp4'
                             path = 'D:\Projects\ClientA\Media\main.mp4'
+                            mediaType = 'Video'
                         }
                     )
                     chunks = @(
@@ -250,6 +281,9 @@ Describe 'RenderKit BackupProject job planning' {
                             index = 0
                             startSeconds = 0.0
                             durationSeconds = 60.0
+                            audioSync = [PSCustomObject]@{
+                                maxDriftMilliseconds = 50
+                            }
                         }
                         [PSCustomObject]@{
                             id = 'chunk-main-000001'
@@ -258,6 +292,9 @@ Describe 'RenderKit BackupProject job planning' {
                             index = 1
                             startSeconds = 60.0
                             durationSeconds = 30.0
+                            audioSync = [PSCustomObject]@{
+                                maxDriftMilliseconds = 50
+                            }
                         }
                     )
                 }
@@ -277,6 +314,8 @@ Describe 'RenderKit BackupProject job planning' {
         $plan.profile.audioProfile | Should -Be 'AAC_192'
         $plan.summary.commandCount | Should -Be 2
         $plan.summary.mergeCount | Should -Be 1
+        $plan.summary.mergeValidationCount | Should -Be 1
+        $plan.summary.requiresFfprobe | Should -BeTrue
         $plan.summary.proxyCommandCount | Should -Be 1
         $plan.summary.previewCommandCount | Should -Be 1
         $plan.commands[0].arguments | Should -Contain '-progress'
@@ -285,8 +324,97 @@ Describe 'RenderKit BackupProject job planning' {
         $plan.commands[0].arguments | Should -Contain '192k'
         $plan.commands[0].outputPath | Should -Match 'encoded'
         $plan.merges[0].arguments | Should -Contain 'concat'
+        $plan.merges[0].validation.expectedDurationSeconds | Should -Be 90
+        $plan.merges[0].validation.expectedVideo | Should -BeTrue
+        $plan.merges[0].validation.expectedAudio | Should -BeTrue
+        $plan.merges[0].validation.syncPolicy | Should -Be 'DurationDriftWithinTolerance'
         $plan.proxyCommands[0].arguments | Should -Contain 'libx264'
         $plan.previewCommands[0].arguments | Should -Contain 'fps=1/30,scale=960:-2'
+    }
+
+    It 'validates merged assets for container, streams, and sync drift' {
+        $validation = InModuleScope RenderKit {
+            $merge = [PSCustomObject]@{
+                assetId = 'asset-main'
+                outputPath = 'D:\Backups\asset-main.mkv'
+                validation = [PSCustomObject]@{
+                    expectedDurationSeconds = 90.0
+                    durationToleranceSeconds = 1.0
+                    expectedVideo = $true
+                    expectedAudio = $true
+                }
+            }
+            $metadata = [PSCustomObject]@{
+                durationSeconds = 90.02
+                format = 'matroska,webm'
+                videoStreams = @(
+                    [PSCustomObject]@{
+                        index = 0
+                        codec = 'hevc'
+                    }
+                )
+                audioStreams = @(
+                    [PSCustomObject]@{
+                        index = 1
+                        codec = 'aac'
+                    }
+                )
+                hasVideo = $true
+                hasAudio = $true
+            }
+
+            Test-BackupMergeProbeMetadata `
+                -MergeCommand $merge `
+                -Metadata $metadata
+        }
+        $failureMessage = InModuleScope RenderKit {
+            $merge = [PSCustomObject]@{
+                assetId = 'asset-main'
+                outputPath = 'D:\Backups\asset-main.mkv'
+                validation = [PSCustomObject]@{
+                    expectedDurationSeconds = 90.0
+                    durationToleranceSeconds = 1.0
+                    expectedVideo = $true
+                    expectedAudio = $true
+                }
+            }
+            $metadata = [PSCustomObject]@{
+                durationSeconds = 95.0
+                format = 'matroska,webm'
+                videoStreams = @(
+                    [PSCustomObject]@{
+                        index = 0
+                        codec = 'hevc'
+                    }
+                )
+                audioStreams = @(
+                    [PSCustomObject]@{
+                        index = 1
+                        codec = 'aac'
+                    }
+                )
+                hasVideo = $true
+                hasAudio = $true
+            }
+
+            try {
+                Test-BackupMergeProbeMetadata `
+                    -MergeCommand $merge `
+                    -Metadata $metadata |
+                    Out-Null
+                $null
+            }
+            catch {
+                $_.Exception.Message
+            }
+        }
+
+        $validation.succeeded | Should -BeTrue
+        $validation.container.status | Should -Be 'Passed'
+        $validation.sync.durationDriftSeconds | Should -Be 0.02
+        $validation.streams.videoCount | Should -Be 1
+        $validation.streams.audioCount | Should -Be 1
+        $failureMessage | Should -Match 'duration drift'
     }
 
     It 'maps codec and GPU selections to concrete ffmpeg encoders' {
@@ -405,6 +533,13 @@ Describe 'RenderKit BackupProject job planning' {
                         enabled = $true
                         durationSeconds = 600
                     }
+                    merge = [PSCustomObject]@{
+                        strategy = 'FfmpegConcatCopy'
+                        validation = [PSCustomObject]@{
+                            enabled = $true
+                            syncPolicy = 'DurationDriftWithinTolerance'
+                        }
+                    }
                 }) `
                 -StorageTiers @(
                     [PSCustomObject]@{
@@ -418,6 +553,7 @@ Describe 'RenderKit BackupProject job planning' {
         $manifest.profile.configProfile | Should -Be 'legacy'
         $manifest.pipeline.archiveFormat | Should -Be 'Zip'
         $manifest.pipeline.chunking.enabled | Should -BeTrue
+        $manifest.pipeline.merge.validation.enabled | Should -BeTrue
         $manifest.storageTiers[0].name | Should -Be 'Primary'
         $manifest.safety.deletePolicy.mode | Should -Be 'KeepSource'
     }

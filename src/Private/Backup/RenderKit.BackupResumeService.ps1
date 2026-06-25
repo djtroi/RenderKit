@@ -65,8 +65,12 @@ function New-BackupResumeState {
             completedChunkCount   = 0
             failedChunkCount      = 0
             pendingChunkCount     = if ($Payload.chunkPlan -and $Payload.chunkPlan.summary) { [int]$Payload.chunkPlan.summary.pendingChunkCount } else { 0 }
+            mergedAssetCount      = 0
+            validatedMergedAssetCount = 0
+            failedMergeValidationCount = 0
             passThroughFileCount  = if ($Payload.chunkPlan -and $Payload.chunkPlan.summary) { [int]$Payload.chunkPlan.summary.passThroughFileCount } else { 0 }
         }
+        mergeValidation = @()
     }
 }
 
