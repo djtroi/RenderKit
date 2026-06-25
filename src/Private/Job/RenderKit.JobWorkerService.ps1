@@ -330,6 +330,25 @@ function Initialize-RenderKitDefaultJobHandlers {
             # Keep the placeholder independent from optional logging helpers so
             # it can run in focused tests and minimal host integrations.
         }
+
+    Register-RenderKitJobHandler `
+        -JobType 'BackupProject' `
+        -HandlerId 'RenderKit.BackupProject' `
+        -Version '1.0' `
+        -Description 'Plans and executes the resumable Backup-Project worker pipeline.' `
+        -SupportsProgress `
+        -SupportsCancellation `
+        -IsIdempotent `
+        -RequiredCapabilities @('local-files', 'ffmpeg-optional') `
+        -Handler {
+            param($Job)
+
+            $result = Invoke-BackupProjectJob -Job $Job
+            Set-RenderKitJobResult `
+                -JobId ([string]$Job.id) `
+                -Result $result |
+                Out-Null
+        }
 }
 
 Initialize-RenderKitDefaultJobHandlers

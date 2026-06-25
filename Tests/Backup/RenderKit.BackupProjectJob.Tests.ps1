@@ -161,6 +161,121 @@ Describe 'RenderKit BackupProject job planning' {
         $chunkPlan.chunks[0].resumeKey | Should -Not -BeNullOrEmpty
     }
 
+    It 'builds ffmpeg encode and merge plans for chunked assets' {
+        $plan = InModuleScope RenderKit {
+            $payload = [PSCustomObject]@{
+                archive = [PSCustomObject]@{
+                    mode = 'TranscodeAndArchive'
+                    compressionPreset = 'Balanced'
+                }
+                chunkPlan = [PSCustomObject]@{
+                    assets = @(
+                        [PSCustomObject]@{
+                            id = 'asset-main'
+                            path = 'D:\Projects\ClientA\Media\main.mp4'
+                        }
+                    )
+                    chunks = @(
+                        [PSCustomObject]@{
+                            id = 'chunk-main-000000'
+                            assetId = 'asset-main'
+                            relativePath = 'Media/main.mp4'
+                            index = 0
+                            startSeconds = 0.0
+                            durationSeconds = 60.0
+                        }
+                        [PSCustomObject]@{
+                            id = 'chunk-main-000001'
+                            assetId = 'asset-main'
+                            relativePath = 'Media/main.mp4'
+                            index = 1
+                            startSeconds = 60.0
+                            durationSeconds = 30.0
+                        }
+                    )
+                }
+            }
+            $job = [PSCustomObject]@{
+                id = 'job-encode-plan'
+                payload = $payload
+            }
+
+            New-BackupEncodingPlan -Job $job -Payload $payload
+        }
+
+        $plan.profile.name | Should -Be 'Balanced'
+        $plan.summary.commandCount | Should -Be 2
+        $plan.summary.mergeCount | Should -Be 1
+        $plan.commands[0].arguments | Should -Contain '-progress'
+        $plan.commands[0].arguments | Should -Contain 'pipe:1'
+        $plan.commands[0].outputPath | Should -Match 'encoded'
+        $plan.merges[0].arguments | Should -Contain 'concat'
+    }
+
+    It 'parses ffmpeg progress lines into percentages' {
+        $progress = InModuleScope RenderKit {
+            ConvertFrom-BackupFfmpegProgressLine `
+                -Line 'out_time_us=30000000' `
+                -DurationSeconds 60
+        }
+        $terminal = InModuleScope RenderKit {
+            ConvertFrom-BackupFfmpegProgressLine `
+                -Line 'progress=end' `
+                -DurationSeconds 60
+        }
+
+        $progress.seconds | Should -Be 30
+        $progress.percent | Should -Be 50
+        $terminal.isTerminal | Should -BeTrue
+    }
+
+    It 'runs the BackupProject worker handler when no encoding is required' {
+        $projectParent = Join-Path $TestDrive 'worker-projects'
+        $projectRoot = Join-Path $projectParent 'WorkerProject'
+        $metadataRoot = Join-Path $projectRoot '.renderkit'
+        New-Item -ItemType Directory -Path $metadataRoot -Force | Out-Null
+        Set-Content `
+            -LiteralPath (Join-Path $projectRoot 'notes.txt') `
+            -Value 'notes' `
+            -Encoding UTF8
+        [PSCustomObject]@{
+            tool = 'RenderKit'
+            schemaVersion = '1.0'
+            project = [PSCustomObject]@{
+                id = 'worker-project'
+                name = 'WorkerProject'
+                createdAt = (Get-Date).ToString('o')
+            }
+            lifecycle = [PSCustomObject]@{
+                status = 'Draft'
+            }
+        } |
+            ConvertTo-Json -Depth 8 |
+            Set-Content `
+                -LiteralPath (Join-Path $metadataRoot 'project.json') `
+                -Encoding UTF8
+
+        $queued = Backup-Project `
+            -ProjectName WorkerProject `
+            -Path $projectParent `
+            -Background `
+            -KeepSourceProject
+
+        $completed = InModuleScope RenderKit -Parameters @{ JobId = $queued.JobId } {
+            Invoke-RenderKitJob -JobId $JobId
+        }
+        $resumeState = Get-Content `
+            -LiteralPath $queued.Payload.resume.statePath `
+            -Raw |
+            ConvertFrom-Json
+
+        $completed.status | Should -Be 'Succeeded'
+        $completed.result.phase | Should -Be 'Encoding'
+        $completed.result.skipped | Should -BeTrue
+        $completed.result.encodedChunkCount | Should -Be 0
+        $resumeState.progress.currentPhase | Should -Be 'EncodingComplete'
+    }
+
     It 'creates a v2 backup manifest with pipeline metadata' {
         $manifest = InModuleScope RenderKit {
             New-BackupManifest `
