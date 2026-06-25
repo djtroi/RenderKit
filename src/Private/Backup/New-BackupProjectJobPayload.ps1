@@ -233,6 +233,14 @@ function New-BackupProjectJob {
         $resumeStatePath = Get-BackupResumeStatePath -JobId ([string]$job.id)
         $Payload.resume.jobId = [string]$job.id
         $Payload.resume.statePath = $resumeStatePath
+        if ($Payload.chunkPlan -and $Payload.chunkPlan.index) {
+            $Payload.chunkPlan.index.jobId = [string]$job.id
+            $Payload.chunkPlan.index.statePath = Get-BackupChunkIndexPath -JobId ([string]$job.id)
+            Save-BackupChunkIndex `
+                -JobId ([string]$job.id) `
+                -ChunkIndex $Payload.chunkPlan.index |
+                Out-Null
+        }
         $job.payload = $Payload
 
         Save-BackupResumeState `
