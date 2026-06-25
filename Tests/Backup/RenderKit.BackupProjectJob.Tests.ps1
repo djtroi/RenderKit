@@ -77,6 +77,8 @@ Describe 'RenderKit BackupProject job planning' {
         $result.Payload.resume.jobId | Should -Be $result.JobId
         Test-Path -LiteralPath $result.Payload.resume.statePath |
             Should -BeTrue
+        Test-Path -LiteralPath $result.Payload.chunkPlan.index.statePath |
+            Should -BeTrue
 
         InModuleScope RenderKit {
             $jobs = @((Read-RenderKitJobStore).jobs)
@@ -159,6 +161,52 @@ Describe 'RenderKit BackupProject job planning' {
         $chunkPlan.chunks[1].startSeconds | Should -Be 60
         $chunkPlan.chunks[2].durationSeconds | Should -Be 5
         $chunkPlan.chunks[0].resumeKey | Should -Not -BeNullOrEmpty
+        $chunkPlan.segmentation.boundaryStrategy |
+            Should -Be 'KeyframeAwareWithEstimatedFallback'
+        $chunkPlan.index.entries.Count | Should -Be 3
+        $chunkPlan.chunks[0].audioSync.actionOnDrift |
+            Should -Be 'FailChunkAndRetry'
+        $chunkPlan.chunks[0].gop.strategy |
+            Should -Be 'ReencodeWithBoundaryKeyframes'
+    }
+
+    It 'snaps chunk boundaries to nearby keyframes when available' {
+        $chunkPlan = InModuleScope RenderKit {
+            $analysis = [PSCustomObject]@{
+                files = @(
+                    [PSCustomObject]@{
+                        relativePath = 'Media/main.mp4'
+                        path = 'D:\Projects\ClientA\Media\main.mp4'
+                        mediaType = 'Video'
+                        sizeBytes = [int64]60000000000
+                        isChunkable = $true
+                        metadata = [PSCustomObject]@{
+                            durationSeconds = 125.0
+                            keyframes = @(0.0, 58.0, 120.0, 125.0)
+                        }
+                    }
+                )
+            }
+
+            New-BackupChunkPlan `
+                -MediaAnalysis $analysis `
+                -ChunkDurationSeconds 60 `
+                -Enabled
+        }
+
+        $chunkPlan.strategy | Should -Be 'KeyframeAwareTimeRange'
+        $chunkPlan.assets[0].segmentation.mode |
+            Should -Be 'KeyframeAwareTimeRange'
+        $chunkPlan.assets[0].segmentation.gopStrategy |
+            Should -Be 'SnapBoundariesToKeyframes'
+        $chunkPlan.summary.chunkCount | Should -Be 3
+        $chunkPlan.chunks[1].startSeconds | Should -Be 58
+        $chunkPlan.chunks[1].segment.startBoundarySource |
+            Should -Be 'Keyframe'
+        $chunkPlan.chunks[1].segment.startKeyframeAligned |
+            Should -BeTrue
+        $chunkPlan.chunks[1].durationSeconds | Should -Be 62
+        $chunkPlan.index.entries[1].startSeconds | Should -Be 58
     }
 
     It 'builds ffmpeg encode and merge plans for chunked assets' {
