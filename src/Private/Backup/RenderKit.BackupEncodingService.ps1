@@ -16,50 +16,227 @@ function ConvertTo-BackupInvariantNumber {
     return $Value.ToString('0.###', [System.Globalization.CultureInfo]::InvariantCulture)
 }
 
-function Get-BackupEncodingProfile {
+function Resolve-BackupVideoCodec {
     [CmdletBinding()]
     param(
+        [ValidateSet('Auto', 'H264', 'H265', 'AV1')]
+        [string]$VideoCodec = 'Auto',
         [ValidateSet('Fastest', 'Balanced', 'Smallest', 'Lossless')]
         [string]$CompressionPreset = 'Balanced'
     )
 
+    if ($VideoCodec -ne 'Auto') {
+        return $VideoCodec
+    }
+
     switch ($CompressionPreset) {
-        'Fastest' {
-            return [PSCustomObject]@{
-                name       = 'Fastest'
-                container  = 'mp4'
-                videoCodec = 'libx265'
-                videoArgs  = @('-c:v', 'libx265', '-preset', 'ultrafast', '-crf', '28')
-                audioArgs  = @('-c:a', 'aac', '-b:a', '160k')
-            }
+        'Fastest' { return 'H264' }
+        'Smallest' { return 'AV1' }
+        default { return 'H265' }
+    }
+}
+
+function Get-BackupCpuEncoderName {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('H264', 'H265', 'AV1')]
+        [string]$VideoCodec
+    )
+
+    switch ($VideoCodec) {
+        'H264' { return 'libx264' }
+        'H265' { return 'libx265' }
+        'AV1' { return 'libsvtav1' }
+    }
+}
+
+function Get-BackupHardwareEncoderName {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('H264', 'H265', 'AV1')]
+        [string]$VideoCodec,
+        [Parameter(Mandatory)]
+        [ValidateSet('Nvidia', 'IntelQuickSync', 'AMD')]
+        [string]$EncoderDevice
+    )
+
+    $map = @{
+        Nvidia = @{
+            H264 = 'h264_nvenc'
+            H265 = 'hevc_nvenc'
+            AV1  = 'av1_nvenc'
         }
-        'Smallest' {
-            return [PSCustomObject]@{
-                name       = 'Smallest'
-                container  = 'mkv'
-                videoCodec = 'libsvtav1'
-                videoArgs  = @('-c:v', 'libsvtav1', '-crf', '38', '-preset', '8')
-                audioArgs  = @('-c:a', 'libopus', '-b:a', '96k')
-            }
+        IntelQuickSync = @{
+            H264 = 'h264_qsv'
+            H265 = 'hevc_qsv'
+            AV1  = 'av1_qsv'
         }
-        'Lossless' {
-            return [PSCustomObject]@{
-                name       = 'Lossless'
-                container  = 'mkv'
-                videoCodec = 'ffv1'
-                videoArgs  = @('-c:v', 'ffv1', '-level', '3')
-                audioArgs  = @('-c:a', 'flac')
+        AMD = @{
+            H264 = 'h264_amf'
+            H265 = 'hevc_amf'
+            AV1  = 'av1_amf'
+        }
+    }
+
+    return [string]$map[$EncoderDevice][$VideoCodec]
+}
+
+function Get-BackupQualityValue {
+    [CmdletBinding()]
+    param(
+        [ValidateSet('Draft', 'Balanced', 'High', 'Smallest', 'Lossless')]
+        [string]$QualityPreset = 'Balanced',
+        [Parameter(Mandatory)]
+        [ValidateSet('H264', 'H265', 'AV1')]
+        [string]$VideoCodec
+    )
+
+    if ($QualityPreset -eq 'Lossless') {
+        return 0
+    }
+
+    switch ($VideoCodec) {
+        'AV1' {
+            switch ($QualityPreset) {
+                'Draft' { return 40 }
+                'High' { return 26 }
+                'Smallest' { return 42 }
+                default { return 34 }
             }
         }
         default {
-            return [PSCustomObject]@{
-                name       = 'Balanced'
-                container  = 'mp4'
-                videoCodec = 'libx265'
-                videoArgs  = @('-c:v', 'libx265', '-preset', 'medium', '-crf', '24')
-                audioArgs  = @('-c:a', 'aac', '-b:a', '128k')
+            switch ($QualityPreset) {
+                'Draft' { return 30 }
+                'High' { return 20 }
+                'Smallest' { return 32 }
+                default { return 24 }
             }
         }
+    }
+}
+
+function Resolve-BackupAudioProfile {
+    [CmdletBinding()]
+    param(
+        [ValidateSet('Auto', 'AAC_128', 'AAC_192', 'Opus_96', 'Opus_128', 'Copy', 'Lossless')]
+        [string]$AudioProfile = 'Auto',
+        [ValidateSet('H264', 'H265', 'AV1')]
+        [string]$VideoCodec = 'H265',
+        [ValidateSet('Draft', 'Balanced', 'High', 'Smallest', 'Lossless')]
+        [string]$QualityPreset = 'Balanced'
+    )
+
+    if ($AudioProfile -ne 'Auto') {
+        return $AudioProfile
+    }
+    if ($QualityPreset -eq 'Lossless') {
+        return 'Lossless'
+    }
+    if ($VideoCodec -eq 'AV1') {
+        return 'Opus_96'
+    }
+    if ($QualityPreset -eq 'High') {
+        return 'AAC_192'
+    }
+    return 'AAC_128'
+}
+
+function Get-BackupAudioArgs {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('AAC_128', 'AAC_192', 'Opus_96', 'Opus_128', 'Copy', 'Lossless')]
+        [string]$AudioProfile
+    )
+
+    switch ($AudioProfile) {
+        'AAC_192' { return @('-c:a', 'aac', '-b:a', '192k') }
+        'Opus_96' { return @('-c:a', 'libopus', '-b:a', '96k') }
+        'Opus_128' { return @('-c:a', 'libopus', '-b:a', '128k') }
+        'Copy' { return @('-c:a', 'copy') }
+        'Lossless' { return @('-c:a', 'flac') }
+        default { return @('-c:a', 'aac', '-b:a', '128k') }
+    }
+}
+
+function Get-BackupEncodingProfile {
+    [CmdletBinding()]
+    param(
+        [ValidateSet('Fastest', 'Balanced', 'Smallest', 'Lossless')]
+        [string]$CompressionPreset = 'Balanced',
+        [ValidateSet('Auto', 'H264', 'H265', 'AV1')]
+        [string]$VideoCodec = 'Auto',
+        [ValidateSet('Auto', 'CPU', 'Nvidia', 'IntelQuickSync', 'AMD')]
+        [string]$EncoderDevice = 'Auto',
+        [ValidateSet('Draft', 'Balanced', 'High', 'Smallest', 'Lossless')]
+        [string]$QualityPreset = 'Balanced',
+        [ValidateSet('Auto', 'AAC_128', 'AAC_192', 'Opus_96', 'Opus_128', 'Copy', 'Lossless')]
+        [string]$AudioProfile = 'Auto'
+    )
+
+    $resolvedCodec = Resolve-BackupVideoCodec `
+        -VideoCodec $VideoCodec `
+        -CompressionPreset $CompressionPreset
+    $resolvedDevice = if ($EncoderDevice -eq 'Auto') { 'CPU' } else { $EncoderDevice }
+    $resolvedAudioProfile = Resolve-BackupAudioProfile `
+        -AudioProfile $AudioProfile `
+        -VideoCodec $resolvedCodec `
+        -QualityPreset $QualityPreset
+    $qualityValue = Get-BackupQualityValue `
+        -QualityPreset $QualityPreset `
+        -VideoCodec $resolvedCodec
+
+    $encoderName = if ($resolvedDevice -eq 'CPU') {
+        Get-BackupCpuEncoderName -VideoCodec $resolvedCodec
+    }
+    else {
+        Get-BackupHardwareEncoderName `
+            -VideoCodec $resolvedCodec `
+            -EncoderDevice $resolvedDevice
+    }
+
+    $container = if ($resolvedCodec -eq 'AV1' -or $resolvedAudioProfile -like 'Opus*' -or $resolvedAudioProfile -eq 'Lossless') {
+        'mkv'
+    }
+    else {
+        'mp4'
+    }
+
+    $videoArgs = if ($resolvedDevice -eq 'CPU') {
+        switch ($resolvedCodec) {
+            'H264' {
+                if ($QualityPreset -eq 'Lossless') {
+                    @('-c:v', $encoderName, '-preset', 'medium', '-crf', '0')
+                }
+                else {
+                    @('-c:v', $encoderName, '-preset', 'medium', '-crf', [string]$qualityValue)
+                }
+            }
+            'H265' {
+                @('-c:v', $encoderName, '-preset', 'medium', '-crf', [string]$qualityValue)
+            }
+            'AV1' {
+                @('-c:v', $encoderName, '-crf', [string]$qualityValue, '-preset', '8')
+            }
+        }
+    }
+    else {
+        @('-c:v', $encoderName, '-cq:v', [string]$qualityValue)
+    }
+
+    return [PSCustomObject]@{
+        name            = "{0}-{1}-{2}" -f $resolvedCodec, $resolvedDevice, $QualityPreset
+        container       = $container
+        videoCodec      = $resolvedCodec
+        encoderDevice   = $resolvedDevice
+        encoderName     = $encoderName
+        qualityPreset   = $QualityPreset
+        qualityValue    = $qualityValue
+        audioProfile    = $resolvedAudioProfile
+        videoArgs       = @($videoArgs)
+        audioArgs       = @(Get-BackupAudioArgs -AudioProfile $resolvedAudioProfile)
     }
 }
 
@@ -99,6 +276,41 @@ function Get-BackupMergedAssetPath {
     )
 
     return Join-Path -Path $mergeRoot -ChildPath ("{0}.{1}" -f $AssetId, $Extension.TrimStart('.'))
+}
+
+function Get-BackupProxyAssetPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$JobId,
+        [Parameter(Mandatory)]
+        [string]$AssetId
+    )
+
+    $proxyRoot = New-RenderKitStorageDirectory -Path (
+        Join-Path -Path (Get-BackupJobStateRoot -JobId $JobId) -ChildPath 'proxies'
+    )
+
+    return Join-Path -Path $proxyRoot -ChildPath ("{0}.proxy.mp4" -f $AssetId)
+}
+
+function Get-BackupPreviewAssetPattern {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$JobId,
+        [Parameter(Mandatory)]
+        [string]$AssetId,
+        [string]$Format = 'jpg'
+    )
+
+    $previewRoot = New-RenderKitStorageDirectory -Path (
+        Join-Path -Path (
+            Join-Path -Path (Get-BackupJobStateRoot -JobId $JobId) -ChildPath 'previews'
+        ) -ChildPath $AssetId
+    )
+
+    return Join-Path -Path $previewRoot -ChildPath ("frame-%05d.{0}" -f $Format.TrimStart('.'))
 }
 
 function New-BackupFfmpegChunkArguments {
@@ -146,10 +358,31 @@ function New-BackupEncodingPlan {
         $Payload = $Job.payload
     }
 
-    $profile = Get-BackupEncodingProfile -CompressionPreset ([string]$Payload.archive.compressionPreset)
+    $encoding = if ($Payload.PSObject.Properties.Name -contains 'encoding' -and $Payload.encoding) {
+        $Payload.encoding
+    }
+    else {
+        [PSCustomObject]@{
+            videoCodec    = 'Auto'
+            encoderDevice = 'Auto'
+            qualityPreset = 'Balanced'
+            audioProfile  = 'Auto'
+            proxy         = [PSCustomObject]@{ enabled = $false }
+            preview       = [PSCustomObject]@{ enabled = $false }
+        }
+    }
+
+    $profile = Get-BackupEncodingProfile `
+        -CompressionPreset ([string]$Payload.archive.compressionPreset) `
+        -VideoCodec ([string]$encoding.videoCodec) `
+        -EncoderDevice ([string]$encoding.encoderDevice) `
+        -QualityPreset ([string]$encoding.qualityPreset) `
+        -AudioProfile ([string]$encoding.audioProfile)
     $ffmpeg = Get-BackupFfmpegCommand
     $commands = New-Object System.Collections.Generic.List[object]
     $merges = New-Object System.Collections.Generic.List[object]
+    $proxyCommands = New-Object System.Collections.Generic.List[object]
+    $previewCommands = New-Object System.Collections.Generic.List[object]
     $chunks = @()
     if ($Payload.chunkPlan -and $Payload.chunkPlan.chunks) {
         $chunks = @($Payload.chunkPlan.chunks)
@@ -215,6 +448,59 @@ function New-BackupEncodingPlan {
         })
     }
 
+    foreach ($merge in @($merges.ToArray())) {
+        if ($encoding.proxy -and [bool]$encoding.proxy.enabled) {
+            $proxyHeight = if ($encoding.proxy.height) { [int]$encoding.proxy.height } else { 720 }
+            $proxyOutputPath = Get-BackupProxyAssetPath `
+                -JobId ([string]$Job.id) `
+                -AssetId ([string]$merge.assetId)
+            $proxyCommands.Add([PSCustomObject]@{
+                id         = "proxy-$($merge.assetId)"
+                type       = 'CreateProxy'
+                assetId    = [string]$merge.assetId
+                inputPath  = [string]$merge.outputPath
+                outputPath = $proxyOutputPath
+                executable = if ($ffmpeg) { [string]$ffmpeg.Source } else { 'ffmpeg' }
+                arguments  = @(
+                    '-hide_banner', '-y',
+                    '-i', [string]$merge.outputPath,
+                    '-vf', ("scale=-2:{0}" -f $proxyHeight),
+                    '-c:v', 'libx264',
+                    '-preset', 'veryfast',
+                    '-crf', '30',
+                    '-an',
+                    $proxyOutputPath
+                )
+                state      = 'Planned'
+            })
+        }
+
+        if ($encoding.preview -and [bool]$encoding.preview.enabled) {
+            $previewFormat = if ($encoding.preview.format) { [string]$encoding.preview.format } else { 'jpg' }
+            $previewInterval = if ($encoding.preview.intervalSeconds) { [int]$encoding.preview.intervalSeconds } else { 60 }
+            $previewWidth = if ($encoding.preview.width) { [int]$encoding.preview.width } else { 1280 }
+            $previewPattern = Get-BackupPreviewAssetPattern `
+                -JobId ([string]$Job.id) `
+                -AssetId ([string]$merge.assetId) `
+                -Format $previewFormat
+            $previewCommands.Add([PSCustomObject]@{
+                id         = "preview-$($merge.assetId)"
+                type       = 'CreatePreview'
+                assetId    = [string]$merge.assetId
+                inputPath  = [string]$merge.outputPath
+                outputPath = $previewPattern
+                executable = if ($ffmpeg) { [string]$ffmpeg.Source } else { 'ffmpeg' }
+                arguments  = @(
+                    '-hide_banner', '-y',
+                    '-i', [string]$merge.outputPath,
+                    '-vf', ("fps=1/{0},scale={1}:-2" -f $previewInterval, $previewWidth),
+                    $previewPattern
+                )
+                state      = 'Planned'
+            })
+        }
+    }
+
     return [PSCustomObject]@{
         schemaVersion = '1.0'
         mode          = [string]$Payload.archive.mode
@@ -223,13 +509,18 @@ function New-BackupEncodingPlan {
             path      = if ($ffmpeg) { [string]$ffmpeg.Source } else { $null }
         }
         profile       = $profile
+        encoding      = $encoding
         summary       = [PSCustomObject]@{
-            commandCount  = [int]$commands.Count
-            mergeCount    = [int]$merges.Count
-            requiresFfmpeg = [int]$commands.Count -gt 0
+            commandCount        = [int]$commands.Count
+            mergeCount          = [int]$merges.Count
+            proxyCommandCount   = [int]$proxyCommands.Count
+            previewCommandCount = [int]$previewCommands.Count
+            requiresFfmpeg      = ([int]$commands.Count + [int]$proxyCommands.Count + [int]$previewCommands.Count) -gt 0
         }
         commands      = @($commands.ToArray())
         merges        = @($merges.ToArray())
+        proxyCommands = @($proxyCommands.ToArray())
+        previewCommands = @($previewCommands.ToArray())
     }
 }
 
@@ -340,6 +631,8 @@ function Invoke-BackupEncodingPlan {
         return [PSCustomObject]@{
             encodedChunkCount = 0
             mergedAssetCount  = 0
+            proxyAssetCount   = 0
+            previewAssetCount = 0
             skipped           = $true
         }
     }
@@ -392,9 +685,21 @@ function Invoke-BackupEncodingPlan {
             Out-Null
     }
 
+    foreach ($proxyCommand in @($Plan.proxyCommands)) {
+        Invoke-BackupFfmpegCommand -Command $proxyCommand -JobId ([string]$Job.id) |
+            Out-Null
+    }
+
+    foreach ($previewCommand in @($Plan.previewCommands)) {
+        Invoke-BackupFfmpegCommand -Command $previewCommand -JobId ([string]$Job.id) |
+            Out-Null
+    }
+
     return [PSCustomObject]@{
         encodedChunkCount = $completed
         mergedAssetCount  = @($Plan.merges).Count
+        proxyAssetCount   = @($Plan.proxyCommands).Count
+        previewAssetCount = @($Plan.previewCommands).Count
         skipped           = $false
     }
 }

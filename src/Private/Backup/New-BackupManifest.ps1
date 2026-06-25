@@ -54,6 +54,14 @@ function New-BackupManifest {
     if (-not $Pipeline) {
         $Pipeline = [PSCustomObject]@{
             archiveFormat = 'Zip'
+            encoding      = [PSCustomObject]@{
+                videoCodec    = 'Auto'
+                encoderDevice = 'Auto'
+                qualityPreset = 'Balanced'
+                audioProfile  = 'Auto'
+                proxy         = [PSCustomObject]@{ enabled = $false }
+                preview       = [PSCustomObject]@{ enabled = $false }
+            }
             chunking      = [PSCustomObject]@{
                 enabled    = $false
                 strategy   = 'Disabled'
