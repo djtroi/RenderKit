@@ -59,6 +59,15 @@ function New-BackupManifest {
                 strategy   = 'Disabled'
                 resumeMode = 'WholeArchive'
             }
+            mediaAnalysis = [PSCustomObject]@{
+                summary = $null
+            }
+            chunkPlan = [PSCustomObject]@{
+                summary = $null
+            }
+            resume = [PSCustomObject]@{
+                statePath = $null
+            }
         }
     }
     if (-not $StorageTiers) {
