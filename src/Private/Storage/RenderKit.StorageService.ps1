@@ -438,6 +438,49 @@ function Get-RenderKitUserMappingsRoot {
     return New-RenderKitStorageDirectory -Path $path
 }
 
+function Get-RenderKitUserMappingPath {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$MappingId
+    )
+
+    $normalizedName = [IO.Path]::GetFileNameWithoutExtension($MappingId)
+    if ([string]::IsNullOrWhiteSpace($normalizedName)) {
+        throw 'Mapping id must not be empty.'
+    }
+
+    return Join-Path `
+        -Path (Get-RenderKitUserMappingsRoot) `
+        -ChildPath "$normalizedName.json"
+}
+
+function Get-RenderKitSystemMappingsRoot {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param()
+
+    return Get-RenderKitModuleResourceRoot -RelativePath 'Resources/Mappings'
+}
+
+function Get-RenderKitSystemMappingPath {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$MappingId
+    )
+
+    $normalizedName = [IO.Path]::GetFileNameWithoutExtension($MappingId)
+    if ([string]::IsNullOrWhiteSpace($normalizedName)) {
+        throw 'Mapping id must not be empty.'
+    }
+
+    return Join-Path `
+        -Path (Get-RenderKitSystemMappingsRoot) `
+        -ChildPath "$normalizedName.json"
+}
 
 function Get-RenderKitModuleResourceRoot {
     [CmdletBinding()]
@@ -448,9 +491,13 @@ function Get-RenderKitModuleResourceRoot {
     )
 
     $candidateBasePaths = New-Object System.Collections.Generic.List[string]
-    if (-not [string]::IsNullOrWhiteSpace([string]$script:RenderKitModuleRoot)) {
-        $candidateBasePaths.Add([string]$script:RenderKitModuleRoot)
-    }
+    $moduleRootVariable = Get-Variable `
+        -Name RenderKitModuleRoot `
+        -Scope Script `
+        -ErrorAction SilentlyContinue
+    if ($moduleRootVariable -and
+        -not [string]::IsNullOrWhiteSpace([string]$moduleRootVariable.Value)) {
+        $candidateBasePaths.Add([string]$moduleRootVariable.Value)
 
     $fallbackBasePath = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     if (-not $candidateBasePaths.Contains($fallbackBasePath)) {
