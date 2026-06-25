@@ -10,9 +10,10 @@ function Invoke-BackupProjectJob {
         throw "BackupProject job '$($Job.id)' does not contain a payload."
     }
 
-    Update-RenderKitJobProgress `
-        -JobId ([string]$Job.id) `
-        -Phase 'PlanningEncoding' `
+    Update-BackupJobProgressSnapshot `
+        -Job $Job `
+        -StageName 'PlanningEncoding' `
+        -StageDisplayName 'Planning encoding' `
         -Message 'Planning backup encoding stage.' `
         -Current 0 `
         -Total 1 `
@@ -32,9 +33,10 @@ function Invoke-BackupProjectJob {
         Invoke-BackupEncodingPlan -Job $Job -Plan $encodingPlan
     }
     else {
-        Update-RenderKitJobProgress `
-            -JobId ([string]$Job.id) `
-            -Phase 'EncodingSkipped' `
+        Update-BackupJobProgressSnapshot `
+            -Job $Job `
+            -StageName 'EncodingSkipped' `
+            -StageDisplayName 'Encoding skipped' `
             -Message "Encoding skipped for archive mode '$($payload.archive.mode)'." `
             -Current 0 `
             -Total 0 `
@@ -62,6 +64,24 @@ function Invoke-BackupProjectJob {
     $resumeState.progress.validatedMergedAssetCount = [int]$encodingResult.mergeValidationCount
     $resumeState.progress.failedMergeValidationCount = [int]$encodingResult.mergeValidationFailedCount
     $resumeState.progress.schedulerUsedParallel = [bool]$encodingResult.scheduler.usedParallel
+    $progressStatePath = Get-BackupProgressStatePath -JobId ([string]$Job.id)
+    $resumeState.progress.statePath = $progressStatePath
+    if (Test-Path -LiteralPath $progressStatePath -PathType Leaf) {
+        $resumeState.progressSnapshot = Get-Content `
+            -LiteralPath $progressStatePath `
+            -Raw |
+            ConvertFrom-Json
+        $resumeState.progress.currentStageName = [string]$resumeState.progressSnapshot.stage.name
+        $resumeState.progress.currentStageDisplayName = [string]$resumeState.progressSnapshot.stage.displayName
+        $resumeState.progress.overallPercent = $resumeState.progressSnapshot.overall.percent
+        $resumeState.progress.etaSeconds = $resumeState.progressSnapshot.overall.etaSeconds
+        $resumeState.progress.speedText = $resumeState.progressSnapshot.overall.speedText
+        $resumeState.progress.currentCommandId = $resumeState.progressSnapshot.current.commandId
+        $resumeState.progress.currentChunkId = $resumeState.progressSnapshot.current.chunkId
+        $resumeState.progress.currentAssetId = $resumeState.progressSnapshot.current.assetId
+        $resumeState.progress.currentRelativePath = $resumeState.progressSnapshot.current.relativePath
+        $resumeState.progress.currentStagePercent = $resumeState.progressSnapshot.current.percent
+    }
     $resumeState.progress.pendingChunkCount = [Math]::Max(
         0,
         [int]$resumeState.progress.pendingChunkCount - [int]$encodingResult.encodedChunkCount

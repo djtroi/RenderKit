@@ -38,6 +38,17 @@ function Get-BackupChunkIndexPath {
     return Join-Path -Path (Get-BackupJobStateRoot -JobId $JobId) -ChildPath 'chunk-index.json'
 }
 
+function Get-BackupProgressStatePath {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$JobId
+    )
+
+    return Join-Path -Path (Get-BackupJobStateRoot -JobId $JobId) -ChildPath 'progress.json'
+}
+
 function New-BackupResumeState {
     [CmdletBinding()]
     param(
@@ -60,7 +71,20 @@ function New-BackupResumeState {
         chunkPlan     = $Payload.chunkPlan
         chunkIndex    = if ($Payload.chunkPlan -and $Payload.chunkPlan.index) { $Payload.chunkPlan.index } else { $null }
         progress      = [PSCustomObject]@{
+            schemaVersion         = '1.0'
+            statePath             = if ($Payload.resume -and $Payload.resume.progressStatePath) { [string]$Payload.resume.progressStatePath } else { $null }
             currentPhase          = 'Planned'
+            currentStageName      = 'Planned'
+            currentStageDisplayName = 'Planned'
+            currentCommandId      = $null
+            currentChunkId        = $null
+            currentAssetId        = $null
+            currentRelativePath   = $null
+            currentStagePercent   = 0.0
+            overallPercent        = 0.0
+            etaSeconds            = $null
+            speed                 = $null
+            speedText             = $null
             lastCompletedChunkId  = $null
             completedChunkCount   = 0
             failedChunkCount      = 0
@@ -73,6 +97,7 @@ function New-BackupResumeState {
         }
         mergeValidation = @()
         schedulerResult = $null
+        progressSnapshot = $null
     }
 }
 
@@ -105,6 +130,25 @@ function Save-BackupResumeState {
     )
 
     $path = Get-BackupResumeStatePath -JobId $JobId
+    Write-RenderKitJsonFileAtomic `
+        -Value $State `
+        -Path $path `
+        -Depth 50 |
+        Out-Null
+
+    return $path
+}
+
+function Save-BackupProgressState {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$JobId,
+        [Parameter(Mandatory)]
+        [object]$State
+    )
+
+    $path = Get-BackupProgressStatePath -JobId $JobId
     Write-RenderKitJsonFileAtomic `
         -Value $State `
         -Path $path `

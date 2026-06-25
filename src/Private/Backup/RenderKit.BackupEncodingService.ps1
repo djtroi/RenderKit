@@ -740,6 +740,390 @@ function New-BackupSchedulerPlan {
     }
 }
 
+function Get-BackupCommandProgressStage {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Command
+    )
+
+    switch ([string]$Command.type) {
+        'EncodeChunk' {
+            return [PSCustomObject]@{
+                name        = 'Encoding'
+                displayName = 'Encoding chunk'
+                kind        = 'FfmpegTimedMedia'
+                unit        = 'MediaTime'
+            }
+        }
+        'MergeAssetChunks' {
+            return [PSCustomObject]@{
+                name        = 'Merging'
+                displayName = 'Merging chunks'
+                kind        = 'FfmpegContainer'
+                unit        = 'Asset'
+            }
+        }
+        'CreateProxy' {
+            return [PSCustomObject]@{
+                name        = 'CreatingProxy'
+                displayName = 'Creating proxy'
+                kind        = 'FfmpegTimedMedia'
+                unit        = 'Asset'
+            }
+        }
+        'CreatePreview' {
+            return [PSCustomObject]@{
+                name        = 'CreatingPreview'
+                displayName = 'Creating preview'
+                kind        = 'FfmpegTimedMedia'
+                unit        = 'Asset'
+            }
+        }
+        default {
+            return [PSCustomObject]@{
+                name        = 'Running'
+                displayName = 'Running command'
+                kind        = 'Command'
+                unit        = 'Item'
+            }
+        }
+    }
+}
+
+function Get-BackupCommandProgressLogPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$JobId,
+        [Parameter(Mandatory)]
+        [string]$CommandId
+    )
+
+    $progressRoot = New-RenderKitStorageDirectory -Path (
+        Join-Path -Path (Get-BackupJobStateRoot -JobId $JobId) -ChildPath 'progress'
+    )
+
+    return Join-Path -Path $progressRoot -ChildPath ("{0}.ffprogress.log" -f $CommandId)
+}
+
+function Set-BackupCommandProgressMetadata {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$JobId,
+        [object[]]$Commands
+    )
+
+    foreach ($command in @($Commands)) {
+        $stage = Get-BackupCommandProgressStage -Command $command
+        $logPath = Get-BackupCommandProgressLogPath `
+            -JobId $JobId `
+            -CommandId ([string]$command.id)
+        $command | Add-Member `
+            -NotePropertyName progress `
+            -NotePropertyValue ([PSCustomObject]@{
+                schemaVersion   = '1.0'
+                stageName       = [string]$stage.name
+                stageDisplayName = [string]$stage.displayName
+                stageKind       = [string]$stage.kind
+                unit            = [string]$stage.unit
+                logPath         = $logPath
+                supportsFfmpegProgress = [string]$stage.kind -like 'Ffmpeg*'
+                state           = 'Planned'
+            }) `
+            -Force
+    }
+}
+
+function ConvertTo-BackupSpeedText {
+    [CmdletBinding()]
+    param(
+        [Nullable[double]]$SpeedX,
+        [Nullable[double]]$BytesPerSecond
+    )
+
+    if ($null -ne $SpeedX) {
+        return (([double]$SpeedX).ToString('0.00', [System.Globalization.CultureInfo]::InvariantCulture) + 'x')
+    }
+    if ($null -ne $BytesPerSecond) {
+        if ($BytesPerSecond -ge 1GB) {
+            return ((([double]$BytesPerSecond / 1GB).ToString('0.00', [System.Globalization.CultureInfo]::InvariantCulture)) + ' GB/s')
+        }
+        if ($BytesPerSecond -ge 1MB) {
+            return ((([double]$BytesPerSecond / 1MB).ToString('0.00', [System.Globalization.CultureInfo]::InvariantCulture)) + ' MB/s')
+        }
+        if ($BytesPerSecond -ge 1KB) {
+            return ((([double]$BytesPerSecond / 1KB).ToString('0.00', [System.Globalization.CultureInfo]::InvariantCulture)) + ' KB/s')
+        }
+        return (([double]$BytesPerSecond).ToString('0', [System.Globalization.CultureInfo]::InvariantCulture) + ' B/s')
+    }
+
+    return $null
+}
+
+function Update-BackupFfmpegProgressAccumulator {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$State,
+        [Parameter(Mandatory)]
+        [string]$Line,
+        [Nullable[double]]$DurationSeconds
+    )
+
+    $parsed = ConvertFrom-BackupFfmpegProgressLine `
+        -Line $Line `
+        -DurationSeconds $DurationSeconds
+    if (-not $parsed) {
+        return $null
+    }
+
+    $State[$parsed.key] = $parsed.value
+    if ($null -ne $parsed.seconds) {
+        $State.outTimeSeconds = [double]$parsed.seconds
+    }
+    if ($null -ne $parsed.percent) {
+        $State.percent = [double]$parsed.percent
+    }
+
+    if ($parsed.key -eq 'speed') {
+        $speedText = ([string]$parsed.value).Trim()
+        $speedNumber = 0.0
+        if ($speedText.EndsWith('x')) {
+            $speedText = $speedText.Substring(0, $speedText.Length - 1)
+        }
+        if ([double]::TryParse(
+                $speedText,
+                [System.Globalization.NumberStyles]::Float,
+                [System.Globalization.CultureInfo]::InvariantCulture,
+                [ref]$speedNumber)) {
+            $State.speedX = [double]$speedNumber
+        }
+    }
+    elseif ($parsed.key -eq 'total_size') {
+        $size = [int64]0
+        if ([int64]::TryParse([string]$parsed.value, [ref]$size)) {
+            $State.totalSizeBytes = [int64]$size
+        }
+    }
+    elseif ($parsed.key -eq 'bitrate') {
+        $State.bitrate = [string]$parsed.value
+    }
+
+    $etaSeconds = $null
+    if ($null -ne $DurationSeconds -and
+        $DurationSeconds -gt 0 -and
+        $State.ContainsKey('outTimeSeconds') -and
+        $State.ContainsKey('speedX') -and
+        [double]$State.speedX -gt 0) {
+        $remainingMediaSeconds = [Math]::Max(0, [double]$DurationSeconds - [double]$State.outTimeSeconds)
+        $etaSeconds = [Math]::Round($remainingMediaSeconds / [double]$State.speedX, 1)
+    }
+
+    return [PSCustomObject]@{
+        key             = [string]$parsed.key
+        value           = [string]$parsed.value
+        seconds         = if ($State.ContainsKey('outTimeSeconds')) { [double]$State.outTimeSeconds } else { $null }
+        durationSeconds = $DurationSeconds
+        percent         = if ($State.ContainsKey('percent')) { [double]$State.percent } else { $null }
+        speedX          = if ($State.ContainsKey('speedX')) { [double]$State.speedX } else { $null }
+        speedText       = if ($State.ContainsKey('speedX')) { ConvertTo-BackupSpeedText -SpeedX ([double]$State.speedX) } else { $null }
+        etaSeconds      = $etaSeconds
+        totalSizeBytes  = if ($State.ContainsKey('totalSizeBytes')) { [int64]$State.totalSizeBytes } else { $null }
+        bitrate         = if ($State.ContainsKey('bitrate')) { [string]$State.bitrate } else { $null }
+        isTerminal      = [bool]$parsed.isTerminal
+    }
+}
+
+function Read-BackupFfmpegProgressLogSnapshot {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Command
+    )
+
+    if (-not $Command.progress -or
+        -not [bool]$Command.progress.supportsFfmpegProgress -or
+        [string]::IsNullOrWhiteSpace([string]$Command.progress.logPath) -or
+        -not (Test-Path -LiteralPath ([string]$Command.progress.logPath) -PathType Leaf)) {
+        return $null
+    }
+
+    $state = @{}
+    $snapshot = $null
+    foreach ($line in @(Get-Content -LiteralPath ([string]$Command.progress.logPath) -ErrorAction SilentlyContinue)) {
+        $current = Update-BackupFfmpegProgressAccumulator `
+            -State $state `
+            -Line ([string]$line) `
+            -DurationSeconds ([double]$Command.durationSeconds)
+        if ($current) {
+            $snapshot = $current
+        }
+    }
+
+    return $snapshot
+}
+
+function New-BackupCopyProgressSnapshot {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [int64]$BytesCompleted,
+        [Parameter(Mandatory)]
+        [int64]$BytesTotal,
+        [datetime]$StartedAtUtc = (Get-Date).ToUniversalTime()
+    )
+
+    $elapsedSeconds = [Math]::Max(0.001, ((Get-Date).ToUniversalTime() - $StartedAtUtc).TotalSeconds)
+    $bytesPerSecond = [double]$BytesCompleted / $elapsedSeconds
+    $percent = if ($BytesTotal -gt 0) {
+        [Math]::Min(100, [Math]::Round(([double]$BytesCompleted / [double]$BytesTotal) * 100, 2))
+    }
+    else {
+        $null
+    }
+    $etaSeconds = if ($BytesTotal -gt 0 -and $bytesPerSecond -gt 0) {
+        [Math]::Round(([double]($BytesTotal - $BytesCompleted) / $bytesPerSecond), 1)
+    }
+    else {
+        $null
+    }
+
+    return [PSCustomObject]@{
+        bytesCompleted = [int64]$BytesCompleted
+        bytesTotal     = [int64]$BytesTotal
+        percent        = $percent
+        bytesPerSecond = $bytesPerSecond
+        speedText      = ConvertTo-BackupSpeedText -BytesPerSecond $bytesPerSecond
+        etaSeconds     = $etaSeconds
+    }
+}
+
+function New-BackupProgressSnapshot {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$JobId,
+        [Parameter(Mandatory)]
+        [string]$StageName,
+        [string]$StageDisplayName,
+        [string]$Message,
+        [object]$Command,
+        [int]$Current = 0,
+        [int]$Total = 0,
+        [Nullable[double]]$Percent,
+        [object]$FfmpegProgress,
+        [object]$CopyProgress,
+        [object[]]$RunningCommands = @()
+    )
+
+    if ($null -eq $Percent -and $Total -gt 0) {
+        $Percent = [Math]::Round(([double]$Current / [double]$Total) * 100, 2)
+    }
+    if ([string]::IsNullOrWhiteSpace($StageDisplayName)) {
+        $StageDisplayName = $StageName
+    }
+    $activeCommands = @($RunningCommands | ForEach-Object {
+            [PSCustomObject]@{
+                id           = [string]$_.id
+                type         = [string]$_.type
+                assetId      = [string]$_.assetId
+                chunkId      = [string]$_.chunkId
+                relativePath = [string]$_.relativePath
+                lane         = if ($_.scheduler) { [string]$_.scheduler.lane } else { $null }
+            }
+        })
+
+    return [PSCustomObject]@{
+        schemaVersion = '1.0'
+        jobId         = $JobId
+        updatedAtUtc  = (Get-Date).ToUniversalTime().ToString('o')
+        stage         = [PSCustomObject]@{
+            name        = $StageName
+            displayName = $StageDisplayName
+            message     = $Message
+        }
+        overall      = [PSCustomObject]@{
+            current    = $Current
+            total      = $Total
+            percent    = $Percent
+            etaSeconds = if ($FfmpegProgress -and $null -ne $FfmpegProgress.etaSeconds) { $FfmpegProgress.etaSeconds } elseif ($CopyProgress) { $CopyProgress.etaSeconds } else { $null }
+            speedText  = if ($FfmpegProgress -and $FfmpegProgress.speedText) { [string]$FfmpegProgress.speedText } elseif ($CopyProgress) { [string]$CopyProgress.speedText } else { $null }
+        }
+        current      = [PSCustomObject]@{
+            commandId       = if ($Command) { [string]$Command.id } else { $null }
+            commandType     = if ($Command) { [string]$Command.type } else { $null }
+            assetId         = if ($Command) { [string]$Command.assetId } else { $null }
+            chunkId         = if ($Command) { [string]$Command.chunkId } else { $null }
+            relativePath    = if ($Command) { [string]$Command.relativePath } else { $null }
+            chunkIndex      = if ($Command -and $Command.PSObject.Properties.Name -contains 'index') { [int]$Command.index } else { $null }
+            percent         = if ($FfmpegProgress -and $null -ne $FfmpegProgress.percent) { $FfmpegProgress.percent } elseif ($CopyProgress) { $CopyProgress.percent } else { $null }
+            mediaTimeSeconds = if ($FfmpegProgress) { $FfmpegProgress.seconds } else { $null }
+            durationSeconds = if ($FfmpegProgress) { $FfmpegProgress.durationSeconds } elseif ($Command -and $Command.PSObject.Properties.Name -contains 'durationSeconds') { $Command.durationSeconds } else { $null }
+            etaSeconds      = if ($FfmpegProgress) { $FfmpegProgress.etaSeconds } elseif ($CopyProgress) { $CopyProgress.etaSeconds } else { $null }
+            speedX          = if ($FfmpegProgress) { $FfmpegProgress.speedX } else { $null }
+            speedText       = if ($FfmpegProgress -and $FfmpegProgress.speedText) { [string]$FfmpegProgress.speedText } elseif ($CopyProgress) { [string]$CopyProgress.speedText } else { $null }
+            bytesCompleted  = if ($CopyProgress) { $CopyProgress.bytesCompleted } else { $null }
+            bytesTotal      = if ($CopyProgress) { $CopyProgress.bytesTotal } else { $null }
+        }
+        chunks       = [PSCustomObject]@{
+            completed = $Current
+            total     = $Total
+            active    = @($activeCommands)
+        }
+        copy         = $CopyProgress
+    }
+}
+
+function Update-BackupJobProgressSnapshot {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Job,
+        [Parameter(Mandatory)]
+        [string]$StageName,
+        [string]$StageDisplayName,
+        [string]$Message,
+        [object]$Command,
+        [int]$Current = 0,
+        [int]$Total = 0,
+        [Nullable[double]]$Percent,
+        [object]$FfmpegProgress,
+        [object]$CopyProgress,
+        [object[]]$RunningCommands = @()
+    )
+
+    $snapshot = New-BackupProgressSnapshot `
+        -JobId ([string]$Job.id) `
+        -StageName $StageName `
+        -StageDisplayName $StageDisplayName `
+        -Message $Message `
+        -Command $Command `
+        -Current $Current `
+        -Total $Total `
+        -Percent $Percent `
+        -FfmpegProgress $FfmpegProgress `
+        -CopyProgress $CopyProgress `
+        -RunningCommands $RunningCommands
+
+    Save-BackupProgressState `
+        -JobId ([string]$Job.id) `
+        -State $snapshot |
+        Out-Null
+
+    Update-RenderKitJobProgress `
+        -JobId ([string]$Job.id) `
+        -Phase $StageName `
+        -Message $Message `
+        -Current $Current `
+        -Total $Total `
+        -Percent $snapshot.overall.percent |
+        Out-Null
+
+    return $snapshot
+}
+
 function New-BackupFfmpegChunkArguments {
     [CmdletBinding()]
     param(
@@ -876,8 +1260,9 @@ function New-BackupEncodingPlan {
             inputPaths     = @($group.Group | Sort-Object index | ForEach-Object { [string]$_.outputPath })
             concatListPath = $concatListPath
             outputPath     = $mergeOutput
+            durationSeconds = [double]$mergeValidation.expectedDurationSeconds
             executable     = if ($ffmpeg) { [string]$ffmpeg.Source } else { 'ffmpeg' }
-            arguments      = @('-hide_banner', '-y', '-f', 'concat', '-safe', '0', '-i', $concatListPath, '-c', 'copy', $mergeOutput)
+            arguments      = @('-hide_banner', '-y', '-f', 'concat', '-safe', '0', '-i', $concatListPath, '-c', 'copy', '-progress', 'pipe:1', '-nostats', $mergeOutput)
             validation     = $mergeValidation
             state          = 'Planned'
         })
@@ -895,6 +1280,7 @@ function New-BackupEncodingPlan {
                 assetId    = [string]$merge.assetId
                 inputPath  = [string]$merge.outputPath
                 outputPath = $proxyOutputPath
+                durationSeconds = [double]$merge.validation.expectedDurationSeconds
                 executable = if ($ffmpeg) { [string]$ffmpeg.Source } else { 'ffmpeg' }
                 arguments  = @(
                     '-hide_banner', '-y',
@@ -904,6 +1290,8 @@ function New-BackupEncodingPlan {
                     '-preset', 'veryfast',
                     '-crf', '30',
                     '-an',
+                    '-progress', 'pipe:1',
+                    '-nostats',
                     $proxyOutputPath
                 )
                 state      = 'Planned'
@@ -924,11 +1312,14 @@ function New-BackupEncodingPlan {
                 assetId    = [string]$merge.assetId
                 inputPath  = [string]$merge.outputPath
                 outputPath = $previewPattern
+                durationSeconds = [double]$merge.validation.expectedDurationSeconds
                 executable = if ($ffmpeg) { [string]$ffmpeg.Source } else { 'ffmpeg' }
                 arguments  = @(
                     '-hide_banner', '-y',
                     '-i', [string]$merge.outputPath,
                     '-vf', ("fps=1/{0},scale={1}:-2" -f $previewInterval, $previewWidth),
+                    '-progress', 'pipe:1',
+                    '-nostats',
                     $previewPattern
                 )
                 state      = 'Planned'
@@ -943,6 +1334,9 @@ function New-BackupEncodingPlan {
         -Merges @($merges.ToArray()) `
         -ProxyCommands @($proxyCommands.ToArray()) `
         -PreviewCommands @($previewCommands.ToArray())
+    Set-BackupCommandProgressMetadata `
+        -JobId ([string]$Job.id) `
+        -Commands (@($commands.ToArray()) + @($merges.ToArray()) + @($proxyCommands.ToArray()) + @($previewCommands.ToArray()))
 
     return [PSCustomObject]@{
         schemaVersion = '1.0'
@@ -1275,29 +1669,36 @@ function Invoke-BackupScheduledCommandSerial {
         [string]$Command.id
     }
 
-    Update-RenderKitJobProgress `
-        -JobId ([string]$Job.id) `
-        -Phase $Phase `
+    Update-BackupJobProgressSnapshot `
+        -Job $Job `
+        -StageName $Phase `
+        -StageDisplayName $MessageVerb `
         -Message ("{0} {1}/{2}: {3}" -f $MessageVerb, ($Completed + 1), $Total, $targetName) `
+        -Command $Command `
         -Current $Completed `
         -Total $Total |
         Out-Null
 
+    $ffmpegProgressState = @{}
     Invoke-BackupFfmpegCommand -Command $Command -JobId ([string]$Job.id) |
         ForEach-Object {
             if ($ParseProgress) {
-                $progress = ConvertFrom-BackupFfmpegProgressLine `
+                $progress = Update-BackupFfmpegProgressAccumulator `
+                    -State $ffmpegProgressState `
                     -Line ([string]$_) `
                     -DurationSeconds ([double]$Command.durationSeconds)
                 if ($progress -and $null -ne $progress.percent) {
                     $overall = [Math]::Round(((($Completed + ($progress.percent / 100.0)) / $Total) * 100), 2)
-                    Update-RenderKitJobProgress `
-                        -JobId ([string]$Job.id) `
-                        -Phase $Phase `
+                    Update-BackupJobProgressSnapshot `
+                        -Job $Job `
+                        -StageName $Phase `
+                        -StageDisplayName $MessageVerb `
                         -Message ("{0} {1}/{2}: {3}" -f $MessageVerb, ($Completed + 1), $Total, $targetName) `
+                        -Command $Command `
                         -Current $Completed `
                         -Total $Total `
-                        -Percent $overall |
+                        -Percent $overall `
+                        -FfmpegProgress $progress |
                         Out-Null
                 }
             }
@@ -1317,7 +1718,29 @@ function Start-BackupScheduledThreadJob {
         -ScriptBlock {
             param($ScheduledCommand)
 
-            $lines = & ([string]$ScheduledCommand.executable) @($ScheduledCommand.arguments) 2>$null
+            $progressLogPath = if ($ScheduledCommand.progress -and $ScheduledCommand.progress.logPath) {
+                [string]$ScheduledCommand.progress.logPath
+            }
+            else {
+                $null
+            }
+            if (-not [string]::IsNullOrWhiteSpace($progressLogPath)) {
+                $progressFolder = Split-Path -Path $progressLogPath -Parent
+                if (-not [string]::IsNullOrWhiteSpace($progressFolder) -and
+                    -not (Test-Path -LiteralPath $progressFolder -PathType Container)) {
+                    New-Item -ItemType Directory -Path $progressFolder -Force | Out-Null
+                }
+                Set-Content -LiteralPath $progressLogPath -Value @() -Encoding UTF8
+            }
+
+            $lines = & ([string]$ScheduledCommand.executable) @($ScheduledCommand.arguments) 2>$null |
+                ForEach-Object {
+                    $line = [string]$_
+                    if (-not [string]::IsNullOrWhiteSpace($progressLogPath)) {
+                        Add-Content -LiteralPath $progressLogPath -Value $line -Encoding UTF8
+                    }
+                    $line
+                }
             [PSCustomObject]@{
                 commandId = [string]$ScheduledCommand.id
                 exitCode  = [int]$LASTEXITCODE
@@ -1370,9 +1793,10 @@ function Invoke-BackupScheduledCommandBatch {
                 -MessageVerb $MessageVerb `
                 -ParseProgress:$ParseProgress
             $completed++
-            Update-RenderKitJobProgress `
-                -JobId ([string]$Job.id) `
-                -Phase $Phase `
+            Update-BackupJobProgressSnapshot `
+                -Job $Job `
+                -StageName $Phase `
+                -StageDisplayName $MessageVerb `
                 -Message ("{0} complete {1}/{2}" -f $MessageVerb, $completed, $total) `
                 -Current $completed `
                 -Total $total |
@@ -1409,12 +1833,15 @@ function Invoke-BackupScheduledCommandBatch {
                 job     = $startedJob
                 command = $next
             }
-            Update-RenderKitJobProgress `
-                -JobId ([string]$Job.id) `
-                -Phase $Phase `
+            Update-BackupJobProgressSnapshot `
+                -Job $Job `
+                -StageName $Phase `
+                -StageDisplayName $MessageVerb `
                 -Message ("{0} running {1}/{2} with {3} worker(s)" -f $MessageVerb, $completedParallel, $total, $running.Count) `
+                -Command $next `
                 -Current $completedParallel `
-                -Total $total |
+                -Total $total `
+                -RunningCommands @($running.Values | ForEach-Object { $_.command }) |
                 Out-Null
         }
 
@@ -1422,7 +1849,40 @@ function Invoke-BackupScheduledCommandBatch {
             throw "No schedulable backup command was found for phase '$Phase'."
         }
 
-        $finishedJob = Wait-Job -Job @($running.Values | ForEach-Object { $_.job }) -Any
+        $finishedJob = Wait-Job -Job @($running.Values | ForEach-Object { $_.job }) -Any -Timeout 1
+        if (-not $finishedJob) {
+            $runningCommands = @($running.Values | ForEach-Object { $_.command })
+            $activeProgress = @($runningCommands |
+                ForEach-Object { Read-BackupFfmpegProgressLogSnapshot -Command $_ } |
+                Where-Object { $null -ne $_ })
+            $activeProgressFraction = 0.0
+            foreach ($progress in @($activeProgress)) {
+                if ($null -ne $progress.percent) {
+                    $activeProgressFraction += ([double]$progress.percent / 100.0)
+                }
+            }
+            $overallPercent = if ($total -gt 0) {
+                [Math]::Round(((($completedParallel + $activeProgressFraction) / $total) * 100), 2)
+            }
+            else {
+                $null
+            }
+            $currentCommand = @($runningCommands | Select-Object -First 1)
+            $currentProgress = @($activeProgress | Select-Object -First 1)
+            Update-BackupJobProgressSnapshot `
+                -Job $Job `
+                -StageName $Phase `
+                -StageDisplayName $MessageVerb `
+                -Message ("{0} running {1}/{2} with {3} worker(s)" -f $MessageVerb, $completedParallel, $total, $running.Count) `
+                -Command $(if ($currentCommand.Count -gt 0) { $currentCommand[0] } else { $null }) `
+                -Current $completedParallel `
+                -Total $total `
+                -Percent $overallPercent `
+                -FfmpegProgress $(if ($currentProgress.Count -gt 0) { $currentProgress[0] } else { $null }) `
+                -RunningCommands $runningCommands |
+                Out-Null
+            continue
+        }
         foreach ($jobHandle in @($finishedJob)) {
             $key = [string]$jobHandle.Id
             $entry = $running[$key]
@@ -1435,13 +1895,16 @@ function Invoke-BackupScheduledCommandBatch {
             }
 
             $completedParallel++
-            Update-RenderKitJobProgress `
-                -JobId ([string]$Job.id) `
-                -Phase $Phase `
+            Update-BackupJobProgressSnapshot `
+                -Job $Job `
+                -StageName $Phase `
+                -StageDisplayName $MessageVerb `
                 -Message ("{0} complete {1}/{2}" -f $MessageVerb, $completedParallel, $total) `
+                -Command $entry.command `
                 -Current $completedParallel `
                 -Total $total `
-                -Percent ([Math]::Round(([double]$completedParallel / [double]$total) * 100, 2)) |
+                -Percent ([Math]::Round(([double]$completedParallel / [double]$total) * 100, 2)) `
+                -RunningCommands @($running.Values | ForEach-Object { $_.command }) |
                 Out-Null
         }
     }
@@ -1465,9 +1928,10 @@ function Invoke-BackupEncodingPlan {
 
     $total = [int]$Plan.summary.commandCount
     if ($total -eq 0) {
-        Update-RenderKitJobProgress `
-            -JobId ([string]$Job.id) `
-            -Phase 'EncodingSkipped' `
+        Update-BackupJobProgressSnapshot `
+            -Job $Job `
+            -StageName 'EncodingSkipped' `
+            -StageDisplayName 'Encoding skipped' `
             -Message 'No chunkable media requires encoding.' `
             -Current 0 `
             -Total 0 `
@@ -1525,10 +1989,12 @@ function Invoke-BackupEncodingPlan {
         -MessageVerb 'Merging asset'
 
     foreach ($merge in @(Sort-BackupScheduledCommand -Commands @($Plan.merges))) {
-        Update-RenderKitJobProgress `
-            -JobId ([string]$Job.id) `
-            -Phase 'ValidatingMerge' `
+        Update-BackupJobProgressSnapshot `
+            -Job $Job `
+            -StageName 'ValidatingMerge' `
+            -StageDisplayName 'Validating merged asset' `
             -Message ("Validating merged asset {0}/{1}: {2}" -f ($mergeCompleted + 1), $mergeTotal, [string]$merge.assetId) `
+            -Command $merge `
             -Current $mergeCompleted `
             -Total $mergeTotal |
             Out-Null
@@ -1540,10 +2006,12 @@ function Invoke-BackupEncodingPlan {
         )
         $mergeCompleted++
 
-        Update-RenderKitJobProgress `
-            -JobId ([string]$Job.id) `
-            -Phase 'MergeValidated' `
+        Update-BackupJobProgressSnapshot `
+            -Job $Job `
+            -StageName 'MergeValidated' `
+            -StageDisplayName 'Merged asset validated' `
             -Message ("Validated merged asset {0}/{1}: {2}" -f $mergeCompleted, $mergeTotal, [string]$merge.assetId) `
+            -Command $merge `
             -Current $mergeCompleted `
             -Total $mergeTotal |
             Out-Null
