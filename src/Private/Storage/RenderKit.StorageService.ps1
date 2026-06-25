@@ -498,7 +498,7 @@ function Get-RenderKitModuleResourceRoot {
     if ($moduleRootVariable -and
         -not [string]::IsNullOrWhiteSpace([string]$moduleRootVariable.Value)) {
         $candidateBasePaths.Add([string]$moduleRootVariable.Value)
-
+        }
     $fallbackBasePath = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     if (-not $candidateBasePaths.Contains($fallbackBasePath)) {
         $candidateBasePaths.Add($fallbackBasePath)
