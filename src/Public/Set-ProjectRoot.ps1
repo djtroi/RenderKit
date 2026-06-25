@@ -49,10 +49,16 @@ https://github.com/djtroi/RenderKit
 
     $resolvedPath = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).ProviderPath
     $configPath = Get-RenderKitConfigPath -SkipLegacyMigration
+    $config = Get-RenderKitConfig
+    $previousProjectRoot = $null
+    if ($config -and
+        ($config.PSObject.Properties.Name -contains 'DefaultProjectPath') -and
+        -not [string]::IsNullOrWhiteSpace([string]$config.DefaultProjectPath)) {
+        $previousProjectRoot = [string]$config.DefaultProjectPath
+    }
 
     if ($PSCmdlet.ShouldProcess($configPath, 'Write RenderKit config')) {
         $configPath = Get-RenderKitConfigPath -EnsureParent
-        $config = Get-RenderKitConfig
         if (-not $config) {
             $config = [PSCustomObject]@{}
         }
@@ -69,6 +75,27 @@ https://github.com/djtroi/RenderKit
         $config |
             ConvertTo-Json -Depth 5 |
             Set-Content -LiteralPath $configPath -Encoding UTF8
+
+        if (-not [string]::IsNullOrWhiteSpace($previousProjectRoot) -and
+            [System.IO.Path]::GetFullPath($previousProjectRoot) -ne
+            [System.IO.Path]::GetFullPath($resolvedPath)) {
+            Set-RenderKitProjectSearchIndexEntry `
+                -Path $previousProjectRoot `
+                -Kind 'PreviousProjectRoot' `
+                -Source 'SetProjectRoot' `
+                -Priority 70 `
+                -Recursive $true `
+                -ReplacePriority |
+                Out-Null
+        }
+
+        Set-RenderKitProjectSearchIndexEntry `
+            -Path $resolvedPath `
+            -Kind 'CurrentProjectRoot' `
+            -Source 'SetProjectRoot' `
+            -Priority 100 `
+            -Recursive $true |
+            Out-Null
 
         Write-RenderKitLog -Level Info -Message "Default project root set to '$resolvedPath'."
         Write-Output "Project root set to: $resolvedPath"

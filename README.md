@@ -34,7 +34,8 @@ Use it to:
 - scan, filter, classify, and transfer media into the right destinations;
 - copy, rename, remove, import, export, and send projects;
 - back up projects with manifests, integrity checks, and archive workflows;
-- keep local RenderKit state in platform-appropriate user storage with versioned artifacts.
+- keep local RenderKit state in platform-appropriate user storage with versioned artifacts;
+- list discovered projects quickly and refresh the overview from indexed search roots when needed. 
 
 ## Quickstart
 
@@ -181,6 +182,8 @@ Add-RenderKitDeliverableToTemplate -TemplateName "client-delivery" -Id "review" 
 - **Export and delivery formats** including manifest-only `.rkit`, self-contained `.rkitpkg`, folder deliveries, ZIP deliveries, and manifest outputs.
 - **Cross-platform user storage** for configuration, state, cache, and user data roots, including `RENDERKIT_HOME` overrides.
 - **Atomic JSON persistence** with locking, backup restoration, validation hooks, and transaction-style state updates.
+- **Versioned internal artifacts** for project, registry, discovery, search-index, event, job, template, mapping, device, and configratuion data.
+- **Internal project registry, discovery, and lifecycle services** for known project tracking, indexed project discovery, duplicate-id conflict preparation, moved/missing project reconciliation, status transitions, and lifecycle events. 
 - **Versioned internal artifacts** for project, registry, event, job, template, mapping, device, and configuration data.
 - **Internal project registry and lifecycle services** for known project tracking, moved/missing project reconciliation, status transitions, and lifecycle events.
 - **Domain events, durable jobs, automation, and worker primitives** for future host integrations and asynchronous workflows.
@@ -204,7 +207,7 @@ Detailed usage documentation is available in [`docs/README.md`](docs/README.md).
 - a guided first-run workflow;
 - one consistently structured Markdown reference page per implemented public function;
 - parameter, safety, output, and usage guidance for every documented command;
-- technical documentation for storage, artifact versioning, project registry, project lifecycle, events, jobs, workers, automation, repair checks, and engine contracts.
+- technical documentation for storage, artifact versioning, project registry, project discovery, project lifecycle, events, jobs, workers, automation, repair checks, and engine contracts.
 
 Key technical documents:
 

@@ -5,6 +5,8 @@
 ### Major
 
 ### Added
+- Added internal project search index and discovered-project overview state for fast `Get-Project`reads and indexed discovery refreshes.
+- Added internal project discovery that scans indexed roots for `.renderkit`markers, validates metadata, updates discovery diagnostics, and prepares duplicate-project-id conflict details for future repair workflows
 - Added new Cmdlet: Get-Project. The command returns table-friendly project summary objects with these fields:
 - Added architecture documentation for project identity and registry, project lifecycle, domain events and jobs, artifact versioning, cross-platform storage, security baseline, and the phased implementation plan.
 - Added cross-platform user storage support and documentation for configuration, state, cache, and user data roots, including `RENDERKIT_HOME` overrides and legacy data preservation guidance.
@@ -20,6 +22,8 @@
 - Added Pester coverage for storage, persistence, artifact versioning, project registry/lifecycle, repair, domain events, event-to-job automation, durable jobs, worker leases/heartbeat, handler catalog metadata, and engine facade contracts.
 
 ### Changed
+- Changed `Get-Project`to read `DiscoveredProjects.json`by default and to run internal indexed discovery only when `-Refresh`is supplied.
+- Changed `Set-ProjectRoot`and `New-Project`to feed the project search index so current roots, previous roots, explicit absolute project paths, and parant folders can be discovered efficiently.
 - Changed JSON-reading and JSON-writing paths across storage, backup, device, mapping, template, project, export, and delivery services to use the new persistence helpers where appropriate.
 - Changed bundled artifact compatibility metadata so EventStore and JobStore now use current schema version `1.1` while retaining compatibility with readable `1.0` stores.
 - Changed project commands and import/export flows to update project registry entries and lifecycle state consistently through internal services.
