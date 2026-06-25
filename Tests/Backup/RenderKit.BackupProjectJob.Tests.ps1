@@ -27,6 +27,11 @@ Describe 'RenderKit BackupProject job planning' {
         $projectRoot = Join-Path $projectParent 'SmokeProject'
         $metadataRoot = Join-Path $projectRoot '.renderkit'
         New-Item -ItemType Directory -Path $metadataRoot -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $projectRoot 'Media') -Force | Out-Null
+        Set-Content `
+            -LiteralPath (Join-Path $projectRoot 'Media\clip.mp4') `
+            -Value 'placeholder' `
+            -Encoding UTF8
         [PSCustomObject]@{
             tool = 'RenderKit'
             schemaVersion = '1.0'
@@ -68,13 +73,92 @@ Describe 'RenderKit BackupProject job planning' {
         $result.Payload.chunking.durationSeconds | Should -Be 120
         $result.Payload.execution.requireIdle | Should -BeTrue
         $result.Payload.storageTiers[0].name | Should -Be 'Fast SSD'
+        $result.Payload.mediaAnalysis.summary.mediaFileCount | Should -Be 1
+        $result.Payload.resume.jobId | Should -Be $result.JobId
+        Test-Path -LiteralPath $result.Payload.resume.statePath |
+            Should -BeTrue
 
         InModuleScope RenderKit {
             $jobs = @((Read-RenderKitJobStore).jobs)
             $jobs.Count | Should -Be 1
             $jobs[0].jobType | Should -Be 'BackupProject'
             $jobs[0].payload.archive.format | Should -Be 'SevenZip'
+            Test-Path -LiteralPath $jobs[0].payload.resume.statePath |
+                Should -BeTrue
         }
+    }
+
+    It 'analyzes project media files without requiring ffprobe' {
+        $projectRoot = Join-Path $TestDrive 'AnalysisProject'
+        New-Item -ItemType Directory -Path (Join-Path $projectRoot 'Media') -Force | Out-Null
+        Set-Content `
+            -LiteralPath (Join-Path $projectRoot 'Media\clip.mp4') `
+            -Value 'video-placeholder' `
+            -Encoding UTF8
+        Set-Content `
+            -LiteralPath (Join-Path $projectRoot 'Media\still.jpg') `
+            -Value 'image-placeholder' `
+            -Encoding UTF8
+        Set-Content `
+            -LiteralPath (Join-Path $projectRoot 'notes.txt') `
+            -Value 'notes' `
+            -Encoding UTF8
+
+        $analysis = InModuleScope RenderKit -Parameters @{ Root = $projectRoot } {
+            Get-BackupMediaAnalysis -ProjectRoot $Root
+        }
+
+        $analysis.summary.fileCount | Should -Be 3
+        $analysis.summary.mediaFileCount | Should -Be 2
+        $analysis.summary.videoFileCount | Should -Be 1
+        $analysis.summary.imageFileCount | Should -Be 1
+        $analysis.probe.requested | Should -BeFalse
+        @($analysis.files | Where-Object { $_.relativePath -eq 'Media/clip.mp4' })[0].mediaType |
+            Should -Be 'Video'
+    }
+
+    It 'plans resumable time-range chunks for timed media' {
+        $chunkPlan = InModuleScope RenderKit {
+            $analysis = [PSCustomObject]@{
+                files = @(
+                    [PSCustomObject]@{
+                        relativePath = 'Media/main.mp4'
+                        path = 'D:\Projects\ClientA\Media\main.mp4'
+                        mediaType = 'Video'
+                        sizeBytes = [int64]60000000000
+                        isChunkable = $true
+                        metadata = [PSCustomObject]@{
+                            durationSeconds = 125.0
+                        }
+                    }
+                    [PSCustomObject]@{
+                        relativePath = 'Media/still.jpg'
+                        path = 'D:\Projects\ClientA\Media\still.jpg'
+                        mediaType = 'Image'
+                        sizeBytes = [int64]1024
+                        isChunkable = $false
+                        metadata = [PSCustomObject]@{
+                            durationSeconds = $null
+                        }
+                    }
+                )
+            }
+
+            New-BackupChunkPlan `
+                -MediaAnalysis $analysis `
+                -ChunkDurationSeconds 60 `
+                -Enabled
+        }
+
+        $chunkPlan.enabled | Should -BeTrue
+        $chunkPlan.summary.assetCount | Should -Be 2
+        $chunkPlan.summary.chunkableAssetCount | Should -Be 1
+        $chunkPlan.summary.chunkCount | Should -Be 3
+        $chunkPlan.summary.passThroughFileCount | Should -Be 1
+        $chunkPlan.chunks[0].startSeconds | Should -Be 0
+        $chunkPlan.chunks[1].startSeconds | Should -Be 60
+        $chunkPlan.chunks[2].durationSeconds | Should -Be 5
+        $chunkPlan.chunks[0].resumeKey | Should -Not -BeNullOrEmpty
     }
 
     It 'creates a v2 backup manifest with pipeline metadata' {

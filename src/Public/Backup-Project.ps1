@@ -488,6 +488,9 @@ https://github.com/djtroi/RenderKit
                 compressionMode  = $CompressionMode
                 compressionPreset = $CompressionPreset
                 chunking         = $backupJobPayload.chunking
+                mediaAnalysis    = $backupJobPayload.mediaAnalysis
+                chunkPlan        = $backupJobPayload.chunkPlan
+                resume           = $backupJobPayload.resume
                 execution        = $backupJobPayload.execution
                 advancedFeatures = $backupJobPayload.advancedFeatures
             }) `

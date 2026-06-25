@@ -106,6 +106,14 @@ function New-BackupProjectJobPayload {
     }
 
     $chunkingEnabled = -not [bool]$DisableChunking
+    $probeTimedMedia = $chunkingEnabled -and $CompressionMode -eq 'TranscodeAndArchive'
+    $mediaAnalysis = Get-BackupMediaAnalysis `
+        -ProjectRoot ([string]$Project.RootPath) `
+        -ProbeTimedMedia:$probeTimedMedia
+    $chunkPlan = New-BackupChunkPlan `
+        -MediaAnalysis $mediaAnalysis `
+        -ChunkDurationSeconds $ChunkDurationSeconds `
+        -Enabled:$probeTimedMedia
     $deletePolicyMode = if ($KeepSourceProject) { 'KeepSource' } else { 'RemoveSourceAfterVerified' }
     $storageTiers = ConvertTo-BackupProjectStorageTier `
         -StorageTier $StorageTier `
@@ -154,6 +162,22 @@ function New-BackupProjectJobPayload {
             durationSeconds = if ($chunkingEnabled) { $ChunkDurationSeconds } else { 0 }
             resumeMode      = if ($chunkingEnabled) { 'ChunkManifest' } else { 'WholeArchive' }
             state           = 'Planned'
+            plannedChunkCount = [int]$chunkPlan.summary.chunkCount
+        }
+        mediaAnalysis    = [PSCustomObject]@{
+            schemaVersion = [string]$mediaAnalysis.schemaVersion
+            probe         = $mediaAnalysis.probe
+            summary       = $mediaAnalysis.summary
+            files         = @($mediaAnalysis.files)
+        }
+        chunkPlan        = $chunkPlan
+        resume           = [PSCustomObject]@{
+            schemaVersion = '1.0'
+            strategy      = if ($probeTimedMedia) { 'ChunkManifest' } else { 'WholeArchive' }
+            state         = 'Planned'
+            jobId         = $null
+            statePath     = $null
+            lastCompletedChunkId = $null
         }
         storageTiers     = @($storageTiers)
         execution        = [PSCustomObject]@{
@@ -204,6 +228,18 @@ function New-BackupProjectJob {
         -Priority $Priority `
         -CorrelationId $CorrelationId `
         -RequestedBy $RequestedBy
+
+    if ($Payload.PSObject.Properties.Name -contains 'resume' -and $Payload.resume) {
+        $resumeStatePath = Get-BackupResumeStatePath -JobId ([string]$job.id)
+        $Payload.resume.jobId = [string]$job.id
+        $Payload.resume.statePath = $resumeStatePath
+        $job.payload = $Payload
+
+        Save-BackupResumeState `
+            -JobId ([string]$job.id) `
+            -State (New-BackupResumeState -Job $job -Payload $Payload) |
+            Out-Null
+    }
 
     return Add-RenderKitJob -Job $job
 }
