@@ -737,6 +737,42 @@ function New-RenderKitWorkerId {
     return $WorkerId
 }
 
+function ConvertTo-RenderKitUtcDateTime {
+    [CmdletBinding()]
+    [OutputType([System.Nullable[DateTime]])]
+    param(
+        [object]$Value
+    )
+
+    if ($null -eq $Value) {
+        return $null
+    }
+    if ($Value -is [DateTime]) {
+        return ([DateTime]$Value).ToUniversalTime()
+    }
+
+    $text = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($text)) {
+        return $null
+    }
+
+    $parsed = [DateTime]::MinValue
+    $styles = [System.Globalization.DateTimeStyles]::RoundtripKind -bor
+        [System.Globalization.DateTimeStyles]::AssumeUniversal
+    if ([DateTime]::TryParse(
+            $text,
+            [System.Globalization.CultureInfo]::InvariantCulture,
+            $styles,
+            [ref]$parsed)) {
+        return $parsed.ToUniversalTime()
+    }
+    if ([DateTime]::TryParse($text, [ref]$parsed)) {
+        return $parsed.ToUniversalTime()
+    }
+
+    return $null
+}
+
 function Start-RenderKitQueuedJobLease {
     [CmdletBinding()]
     param(
@@ -873,11 +909,12 @@ function Reset-RenderKitStaleRunningJob {
                     continue
                 }
 
-                $leaseUntil = [DateTime]::MinValue
-                if (-not [DateTime]::TryParse([string]$job.leaseUntilUtc, [ref]$leaseUntil)) {
+                $leaseUntil = ConvertTo-RenderKitUtcDateTime `
+                    -Value $job.leaseUntilUtc
+                if ($null -eq $leaseUntil) {
                     continue
                 }
-                if ($leaseUntil.ToUniversalTime() -gt $NowUtc.ToUniversalTime()) {
+                if ($leaseUntil -gt $NowUtc.ToUniversalTime()) {
                     continue
                 }
 

@@ -32,6 +32,24 @@ If omitted, source project folder is removed after successful backup.
 .PARAMETER DryRun
 Simulates cleanup and archive operations without changing files.
 
+.PARAMETER Background
+Queues a BackupProject job instead of running the backup immediately.
+
+.PARAMETER ConfigProfile
+Backup configuration profile name. This is reserved for user-defined importable/exportable profiles.
+
+.PARAMETER ArchiveFormat
+Archive output format. Immediate execution currently supports Zip; other formats are queued for worker execution.
+
+.PARAMETER CompressionMode
+Pipeline mode for future media handling and archive-only backups.
+
+.PARAMETER CompressionPreset
+Compression intent used by the job payload and manifest.
+
+.PARAMETER ChunkDurationSeconds
+Target chunk duration used by the resumable media pipeline.
+
 .EXAMPLE
 Backup-Project -ProjectName "ClientA_2026"
 Backs up project `ClientA_2026` from the configured default project root.
@@ -72,14 +90,51 @@ https://github.com/djtroi/RenderKit
         [Alias("Software")]
         [string[]]$Preset = @("General"),
         [string]$DestinationRoot,
+        [Alias("AsJob")]
+        [switch]$Background,
+        [string]$ConfigProfile = 'balanced',
+        [ValidateSet('Zip', 'SevenZip', 'TarZstd', 'Folder')]
+        [string]$ArchiveFormat = 'Zip',
+        [ValidateSet('ArchiveOnly', 'TranscodeAndArchive', 'CopyOnly')]
+        [string]$CompressionMode = 'ArchiveOnly',
+        [ValidateSet('Fastest', 'Balanced', 'Smallest', 'Lossless')]
+        [string]$CompressionPreset = 'Balanced',
+        [switch]$DisableChunking,
+        [ValidateRange(10, 86400)]
+        [int]$ChunkDurationSeconds = 600,
+        [hashtable[]]$StorageTier,
+        [ValidateRange(1, 64)]
+        [int]$MaxParallelJobs = 1,
+        [ValidateRange(1, 100)]
+        [int]$MaxCpuPercent = 90,
+        [ValidateRange(1, 100)]
+        [int]$MaxGpuPercent = 95,
+        [switch]$RequireIdle,
+        [switch]$AllowOnBattery,
+        [switch]$DisableThermalThrottle,
+        [string]$QueueName = 'backup',
+        [ValidateRange(-1000, 1000)]
+        [int]$Priority = 0,
         [switch]$KeepEmptyFolders,
         [switch]$KeepSourceProject,
         [switch]$DryRun
     )
     Write-RenderKitLog -Level Info -Message "Starting backup for project '$ProjectName'."
     Write-RenderKitLog -Level Debug -Message (
-        "Parameters: Path='{0}' Profile='{1}' DestinationRoot='{2}' KeepEmptyFolders='{3}' KeepSourceProject='{4}' DryRun='{5}'." -f
-        $Path, ($Preset -join ","), $DestinationRoot, $KeepEmptyFolders, $KeepSourceProject, $DryRun
+        "Parameters: Path='{0}' Preset='{1}' DestinationRoot='{2}' Background='{3}' ConfigProfile='{4}' ArchiveFormat='{5}' CompressionMode='{6}' CompressionPreset='{7}' DisableChunking='{8}' ChunkDurationSeconds='{9}' KeepEmptyFolders='{10}' KeepSourceProject='{11}' DryRun='{12}'." -f
+        $Path,
+        ($Preset -join ","),
+        $DestinationRoot,
+        $Background,
+        $ConfigProfile,
+        $ArchiveFormat,
+        $CompressionMode,
+        $CompressionPreset,
+        $DisableChunking,
+        $ChunkDurationSeconds,
+        $KeepEmptyFolders,
+        $KeepSourceProject,
+        $DryRun
     )
 
     $config = Get-RenderKitConfig
@@ -101,7 +156,70 @@ https://github.com/djtroi/RenderKit
     $archiveDescriptor = Resolve-BackupArchivePath `
         -Project $project `
         -DestinationRoot $DestinationRoot `
-        -Timestamp $startedAt
+        -Timestamp $startedAt `
+        -ArchiveFormat $ArchiveFormat
+
+    $backupJobPayload = New-BackupProjectJobPayload `
+        -Project $project `
+        -ArchiveDescriptor $archiveDescriptor `
+        -CleanupPreset @($rules.Profiles) `
+        -ConfigProfile $ConfigProfile `
+        -ArchiveFormat $ArchiveFormat `
+        -CompressionMode $CompressionMode `
+        -CompressionPreset $CompressionPreset `
+        -KeepEmptyFolders:$KeepEmptyFolders `
+        -KeepSourceProject:$KeepSourceProject `
+        -DryRun:$DryRun `
+        -Background:$Background `
+        -DisableChunking:$DisableChunking `
+        -ChunkDurationSeconds $ChunkDurationSeconds `
+        -StorageTier $StorageTier `
+        -MaxParallelJobs $MaxParallelJobs `
+        -MaxCpuPercent $MaxCpuPercent `
+        -MaxGpuPercent $MaxGpuPercent `
+        -RequireIdle:$RequireIdle `
+        -AllowOnBattery:$AllowOnBattery `
+        -DisableThermalThrottle:$DisableThermalThrottle `
+        -QueueName $QueueName `
+        -Priority $Priority
+
+    if ($Background) {
+        $queueActionDescription = "Queue BackupProject job for archive '$($archiveDescriptor.ArchivePath)'"
+        if (-not $PSCmdlet.ShouldProcess($projectRoot, $queueActionDescription)) {
+            return $null
+        }
+
+        $queuedJob = New-BackupProjectJob `
+            -Payload $backupJobPayload `
+            -QueueName $QueueName `
+            -Priority $Priority `
+            -RequestedBy ([PSCustomObject]@{
+                user    = [string]$env:USERNAME
+                machine = [string]$env:COMPUTERNAME
+                command = 'Backup-Project'
+            })
+
+        Write-RenderKitLog -Level Info -Message "Queued BackupProject job '$($queuedJob.id)' for project '$ProjectName'."
+        return [PSCustomObject]@{
+            ProjectName     = $project.Name
+            ProjectId       = $project.Id
+            RootPath        = $projectRoot
+            JobId           = $queuedJob.id
+            JobType         = $queuedJob.jobType
+            Status          = $queuedJob.status
+            QueueName       = $queuedJob.queueName
+            Priority        = $queuedJob.priority
+            ConfigProfile   = $ConfigProfile
+            ArchiveFormat   = $ArchiveFormat
+            ArchivePath     = $archiveDescriptor.ArchivePath
+            Payload         = $backupJobPayload
+            Job             = $queuedJob
+        }
+    }
+
+    if ($ArchiveFormat -ne 'Zip') {
+        throw "Archive format '$ArchiveFormat' is only supported for background backup jobs in this version."
+    }
 
     $actionDescription = if ($KeepSourceProject) {
         "Clean project artifacts, create backup archive '$($archiveDescriptor.ArchivePath)', verify integrity, inject logs into archive, and keep source project folder"
@@ -348,10 +466,35 @@ https://github.com/djtroi/RenderKit
                 dryRun              = [bool]$DryRun
                 destinationRoot     = [string]$archiveDescriptor.DestinationRoot
                 removeSourceProject = [bool](-not $KeepSourceProject)
+                configProfile       = [string]$ConfigProfile
+                archiveFormat       = [string]$ArchiveFormat
+                compressionMode     = [string]$CompressionMode
+                compressionPreset   = [string]$CompressionPreset
             } `
             -Statistics $statistics `
             -Archive $archiveInfo `
-            -CleanupSummary $cleanupSummary
+            -CleanupSummary $cleanupSummary `
+            -Job ([PSCustomObject]@{
+                id            = $null
+                type          = 'BackupProject'
+                executionMode = 'Immediate'
+                queued        = $false
+                queueName     = $QueueName
+                priority      = $Priority
+            }) `
+            -Profile $backupJobPayload.profile `
+            -Pipeline ([PSCustomObject]@{
+                archiveFormat    = $ArchiveFormat
+                compressionMode  = $CompressionMode
+                compressionPreset = $CompressionPreset
+                chunking         = $backupJobPayload.chunking
+                execution        = $backupJobPayload.execution
+                advancedFeatures = $backupJobPayload.advancedFeatures
+            }) `
+            -StorageTiers @($backupJobPayload.storageTiers) `
+            -Safety ([PSCustomObject]@{
+                deletePolicy = $backupJobPayload.source.deletePolicy
+            })
 
         if (-not $DryRun) {
             $manifestFileName = [System.IO.Path]::ChangeExtension(
