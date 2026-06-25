@@ -91,6 +91,11 @@ Describe 'RenderKit BackupProject job planning' {
         $result.Payload.scheduler.maxParallelJobs | Should -Be 4
         $result.Payload.scheduler.resourceLimits.maxCpuPercent | Should -Be 75
         $result.Payload.scheduler.policy.primaryVideo | Should -Be 'OneChunkAtATime'
+        $result.Payload.progress.source.ffmpegProgress | Should -Be 'pipe:1'
+        $result.Payload.progress.metrics | Should -Contain 'EtaSeconds'
+        $result.Payload.progress.statePath | Should -Be $result.Payload.resume.progressStatePath
+        Test-Path -LiteralPath (Split-Path -Path $result.Payload.progress.statePath -Parent) |
+            Should -BeTrue
         $result.Payload.execution.requireIdle | Should -BeTrue
         $result.Payload.storageTiers[0].name | Should -Be 'Fast SSD'
         $result.Payload.mediaAnalysis.summary.mediaFileCount | Should -Be 1
@@ -327,16 +332,22 @@ Describe 'RenderKit BackupProject job planning' {
         $plan.summary.previewCommandCount | Should -Be 1
         $plan.commands[0].arguments | Should -Contain '-progress'
         $plan.commands[0].arguments | Should -Contain 'pipe:1'
+        $plan.commands[0].progress.stageName | Should -Be 'Encoding'
+        $plan.commands[0].progress.logPath | Should -Match 'ffprogress\.log'
         $plan.commands[0].arguments | Should -Contain 'libx265'
         $plan.commands[0].arguments | Should -Contain '192k'
         $plan.commands[0].outputPath | Should -Match 'encoded'
         $plan.merges[0].arguments | Should -Contain 'concat'
+        $plan.merges[0].arguments | Should -Contain '-progress'
+        $plan.merges[0].progress.stageName | Should -Be 'Merging'
         $plan.merges[0].validation.expectedDurationSeconds | Should -Be 90
         $plan.merges[0].validation.expectedVideo | Should -BeTrue
         $plan.merges[0].validation.expectedAudio | Should -BeTrue
         $plan.merges[0].validation.syncPolicy | Should -Be 'DurationDriftWithinTolerance'
         $plan.proxyCommands[0].arguments | Should -Contain 'libx264'
+        $plan.proxyCommands[0].arguments | Should -Contain '-progress'
         $plan.previewCommands[0].arguments | Should -Contain 'fps=1/30,scale=960:-2'
+        $plan.previewCommands[0].arguments | Should -Contain '-progress'
     }
 
     It 'plans scheduler lanes for controlled main video and parallel secondary media' {
@@ -601,6 +612,58 @@ Describe 'RenderKit BackupProject job planning' {
         $terminal.isTerminal | Should -BeTrue
     }
 
+    It 'builds structured progress snapshots with speed and ETA' {
+        $snapshot = InModuleScope RenderKit {
+            $state = @{}
+            Update-BackupFfmpegProgressAccumulator `
+                -State $state `
+                -Line 'out_time_us=30000000' `
+                -DurationSeconds 60 |
+                Out-Null
+            $ffmpegProgress = Update-BackupFfmpegProgressAccumulator `
+                -State $state `
+                -Line 'speed=2.0x' `
+                -DurationSeconds 60
+            $copyProgress = New-BackupCopyProgressSnapshot `
+                -BytesCompleted 50MB `
+                -BytesTotal 100MB `
+                -StartedAtUtc ((Get-Date).ToUniversalTime().AddSeconds(-10))
+
+            [PSCustomObject]@{
+                ffmpeg = $ffmpegProgress
+                copy = $copyProgress
+                snapshot = New-BackupProgressSnapshot `
+                    -JobId 'job-progress' `
+                    -StageName 'Encoding' `
+                    -StageDisplayName 'Encoding chunk' `
+                    -Message 'Encoding chunk 1/2: Media/main.mp4' `
+                    -Command ([PSCustomObject]@{
+                        id = 'encode-chunk-main-000000'
+                        type = 'EncodeChunk'
+                        assetId = 'asset-main'
+                        chunkId = 'chunk-main-000000'
+                        relativePath = 'Media/main.mp4'
+                        index = 0
+                    }) `
+                    -Current 0 `
+                    -Total 2 `
+                    -Percent 25 `
+                    -FfmpegProgress $ffmpegProgress
+            }
+        }
+
+        $snapshot.ffmpeg.percent | Should -Be 50
+        $snapshot.ffmpeg.speedX | Should -Be 2.0
+        $snapshot.ffmpeg.etaSeconds | Should -Be 15.0
+        $snapshot.ffmpeg.speedText | Should -Be '2.00x'
+        $snapshot.copy.percent | Should -Be 50
+        $snapshot.copy.speedText | Should -Match 'MB/s'
+        $snapshot.snapshot.stage.name | Should -Be 'Encoding'
+        $snapshot.snapshot.current.chunkId | Should -Be 'chunk-main-000000'
+        $snapshot.snapshot.overall.percent | Should -Be 25
+        $snapshot.snapshot.overall.etaSeconds | Should -Be 15.0
+    }
+
     It 'runs the BackupProject worker handler when no encoding is required' {
         $projectParent = Join-Path $TestDrive 'worker-projects'
         $projectRoot = Join-Path $projectParent 'WorkerProject'
@@ -646,6 +709,11 @@ Describe 'RenderKit BackupProject job planning' {
         $completed.result.skipped | Should -BeTrue
         $completed.result.encodedChunkCount | Should -Be 0
         $resumeState.progress.currentPhase | Should -Be 'EncodingComplete'
+        $resumeState.progress.statePath | Should -Not -BeNullOrEmpty
+        Test-Path -LiteralPath $resumeState.progress.statePath |
+            Should -BeTrue
+        $resumeState.progressSnapshot.stage.name | Should -Be 'EncodingSkipped'
+        $resumeState.progressSnapshot.overall.percent | Should -Be 100
     }
 
     It 'creates a v2 backup manifest with pipeline metadata' {
@@ -678,6 +746,10 @@ Describe 'RenderKit BackupProject job planning' {
                         mode = 'WorkerPool'
                         maxParallelJobs = 4
                     }
+                    progress = [PSCustomObject]@{
+                        statePath = 'K:\State\progress.json'
+                        metrics = @('StageName', 'EtaSeconds', 'Speed')
+                    }
                 }) `
                 -StorageTiers @(
                     [PSCustomObject]@{
@@ -693,6 +765,7 @@ Describe 'RenderKit BackupProject job planning' {
         $manifest.pipeline.chunking.enabled | Should -BeTrue
         $manifest.pipeline.merge.validation.enabled | Should -BeTrue
         $manifest.pipeline.scheduler.maxParallelJobs | Should -Be 4
+        $manifest.pipeline.progress.metrics | Should -Contain 'EtaSeconds'
         $manifest.storageTiers[0].name | Should -Be 'Primary'
         $manifest.safety.deletePolicy.mode | Should -Be 'KeepSource'
     }

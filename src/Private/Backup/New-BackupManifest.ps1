@@ -86,6 +86,21 @@ function New-BackupManifest {
                     checksums     = 'ParallelDiskReadLane'
                 }
             }
+            progress      = [PSCustomObject]@{
+                statePath = $null
+                source    = [PSCustomObject]@{
+                    ffmpegProgress = 'pipe:1'
+                    copyProgress   = 'byte-callback'
+                    chunkProgress  = 'chunk-index'
+                }
+                metrics   = @(
+                    'StageName',
+                    'OverallPercent',
+                    'ChunkPercent',
+                    'EtaSeconds',
+                    'Speed'
+                )
+            }
             mediaAnalysis = [PSCustomObject]@{
                 summary = $null
             }

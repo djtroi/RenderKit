@@ -225,6 +225,35 @@ function New-BackupProjectJobPayload {
                 requireIdle   = [bool]$RequireIdle
             }
         }
+        progress         = [PSCustomObject]@{
+            schemaVersion = '1.0'
+            state         = 'Planned'
+            statePath     = $null
+            source        = [PSCustomObject]@{
+                ffmpegProgress = 'pipe:1'
+                copyProgress   = 'byte-callback'
+                chunkProgress  = 'chunk-index'
+            }
+            metrics       = @(
+                'StageName',
+                'OverallPercent',
+                'ChunkPercent',
+                'EtaSeconds',
+                'Speed',
+                'ActiveCommands',
+                'BytesCompleted',
+                'BytesTotal'
+            )
+            stages        = @(
+                'PlanningEncoding',
+                'Encoding',
+                'Merging',
+                'ValidatingMerge',
+                'CreatingProxy',
+                'CreatingPreview',
+                'EncodingComplete'
+            )
+        }
         mediaAnalysis    = [PSCustomObject]@{
             schemaVersion = [string]$mediaAnalysis.schemaVersion
             probe         = $mediaAnalysis.probe
@@ -238,6 +267,7 @@ function New-BackupProjectJobPayload {
             state         = 'Planned'
             jobId         = $null
             statePath     = $null
+            progressStatePath = $null
             lastCompletedChunkId = $null
         }
         storageTiers     = @($storageTiers)
@@ -292,8 +322,13 @@ function New-BackupProjectJob {
 
     if ($Payload.PSObject.Properties.Name -contains 'resume' -and $Payload.resume) {
         $resumeStatePath = Get-BackupResumeStatePath -JobId ([string]$job.id)
+        $progressStatePath = Get-BackupProgressStatePath -JobId ([string]$job.id)
         $Payload.resume.jobId = [string]$job.id
         $Payload.resume.statePath = $resumeStatePath
+        $Payload.resume.progressStatePath = $progressStatePath
+        if ($Payload.PSObject.Properties.Name -contains 'progress' -and $Payload.progress) {
+            $Payload.progress.statePath = $progressStatePath
+        }
         if ($Payload.chunkPlan -and $Payload.chunkPlan.index) {
             $Payload.chunkPlan.index.jobId = [string]$job.id
             $Payload.chunkPlan.index.statePath = Get-BackupChunkIndexPath -JobId ([string]$job.id)
