@@ -66,19 +66,23 @@ Remove-Project
         $projects = @($projects | Where-Object { [bool]$_.available })
     }
 
-    $(foreach ($project in ($projects | Sort-Object -Property name, rootPath)) {
-    [PSCustomObject]@{
-        Name                         = [string]$project.name
-        Id                           = [string]$project.id
-        Available                    = [bool]$project.available
-        Version                      = [string]$project.version
-        RootPath                     = [string]$project.rootPath
-        MetadataPath                 = [string]$project.metadataPath
-        Location                     = [string]$project.locationType
-        IsInsideConfiguredProjectRoot = [bool]$project.isInsideConfiguredProjectRoot
-        ValidationStatus             = [string]$project.validationStatus
-        ConflictStatus               = [string]$project.conflictStatus
-        UpdatedAtUtc                 = [string]$project.updatedAtUtc
+
+  $projectSummaries = foreach ($project in ($projects | Sort-Object -Property name, rootPath)) {
+        [PSCustomObject]@{
+            Name                          = [string]$project.name
+            Id                            = [string]$project.id
+            Available                     = [bool]$project.available
+            Version                       = [string]$project.version
+            RootPath                      = [string]$project.rootPath
+            MetadataPath                  = [string]$project.metadataPath
+            Location                      = [string]$project.locationType
+            IsInsideConfiguredProjectRoot = [bool]$project.isInsideConfiguredProjectRoot
+            ValidationStatus              = [string]$project.validationStatus
+            ConflictStatus                = [string]$project.conflictStatus
+            UpdatedAtUtc                  = [string]$project.updatedAtUtc
+        }
     }
-}) | Format-Table -AutoSize -Property Name, Version, Available, ValidationStatus, ConflictStatus, UpdatedAtUtc
+
+    return $projectSummaries | Format-Table -AutoSize -Property Name, Version, Available, ValidationStatus, ConflictStatus, UpdatedAtUtc
+
 }
