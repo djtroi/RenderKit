@@ -457,6 +457,289 @@ function New-BackupMergeValidationExpectation {
     }
 }
 
+function Get-BackupSchedulerExecution {
+    [CmdletBinding()]
+    param(
+        [object]$Payload
+    )
+
+    $execution = if ($Payload -and $Payload.execution) {
+        $Payload.execution
+    }
+    else {
+        [PSCustomObject]@{}
+    }
+    $limits = if ($execution.PSObject.Properties.Name -contains 'resourceLimits' -and $execution.resourceLimits) {
+        $execution.resourceLimits
+    }
+    else {
+        [PSCustomObject]@{}
+    }
+    $maxParallelJobs = if ($execution.PSObject.Properties.Name -contains 'maxParallelJobs' -and $execution.maxParallelJobs) {
+        [int]$execution.maxParallelJobs
+    }
+    else {
+        1
+    }
+    $maxCpuPercent = if ($limits.PSObject.Properties.Name -contains 'maxCpuPercent' -and $limits.maxCpuPercent) {
+        [int]$limits.maxCpuPercent
+    }
+    else {
+        90
+    }
+    $maxGpuPercent = if ($limits.PSObject.Properties.Name -contains 'maxGpuPercent' -and $limits.maxGpuPercent) {
+        [int]$limits.maxGpuPercent
+    }
+    else {
+        95
+    }
+
+    $maxWorkers = [Math]::Max(1, [Math]::Min(64, $maxParallelJobs))
+    $cpuWorkerLimit = if ($maxCpuPercent -lt 45) {
+        1
+    }
+    elseif ($maxCpuPercent -lt 70) {
+        [Math]::Min($maxWorkers, 2)
+    }
+    else {
+        $maxWorkers
+    }
+    $gpuWorkerLimit = if ($maxGpuPercent -lt 50) {
+        1
+    }
+    elseif ($maxGpuPercent -lt 80) {
+        [Math]::Min($maxWorkers, 2)
+    }
+    else {
+        $maxWorkers
+    }
+    $diskWorkerLimit = [Math]::Max(1, [Math]::Min($maxWorkers, 2))
+
+    return [PSCustomObject]@{
+        mode             = if ($maxWorkers -gt 1) { 'WorkerPool' } else { 'SingleWorker' }
+        maxWorkers       = $maxWorkers
+        cpuWorkerLimit   = [Math]::Max(1, $cpuWorkerLimit)
+        gpuWorkerLimit   = [Math]::Max(1, $gpuWorkerLimit)
+        diskWorkerLimit  = $diskWorkerLimit
+        maxCpuPercent    = $maxCpuPercent
+        maxGpuPercent    = $maxGpuPercent
+        requireIdle      = if ($execution.PSObject.Properties.Name -contains 'requireIdle') { [bool]$execution.requireIdle } else { $false }
+        allowOnBattery   = if ($execution.PSObject.Properties.Name -contains 'allowOnBattery') { [bool]$execution.allowOnBattery } else { $false }
+        priority         = if ($execution.PSObject.Properties.Name -contains 'priority') { [int]$execution.priority } else { 0 }
+    }
+}
+
+function Get-BackupPrimaryTimedAssetId {
+    [CmdletBinding()]
+    param(
+        [object]$Payload
+    )
+
+    if (-not $Payload -or -not $Payload.chunkPlan -or -not $Payload.chunkPlan.assets) {
+        return $null
+    }
+
+    $asset = @($Payload.chunkPlan.assets |
+        Where-Object {
+            [bool]$_.chunkable -and
+            ([string]$_.mediaType -eq 'Video' -or
+                ($_.PSObject.Properties.Name -contains 'durationSeconds' -and $null -ne $_.durationSeconds))
+        } |
+        Sort-Object `
+            @{ Expression = { if ($null -ne $_.durationSeconds) { [double]$_.durationSeconds } else { 0.0 } }; Descending = $true },
+            @{ Expression = { if ($null -ne $_.sizeBytes) { [int64]$_.sizeBytes } else { [int64]0 } }; Descending = $true },
+            id |
+        Select-Object -First 1)
+
+    if ($asset.Count -eq 0) {
+        return $null
+    }
+
+    return [string]$asset[0].id
+}
+
+function New-BackupCommandSchedulerMetadata {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Command,
+        [Parameter(Mandatory)]
+        [object]$Profile,
+        [string]$PrimaryAssetId,
+        [Parameter(Mandatory)]
+        [object]$SchedulerExecution
+    )
+
+    $commandType = [string]$Command.type
+    $assetId = [string]$Command.assetId
+    $isPrimaryAsset = -not [string]::IsNullOrWhiteSpace($PrimaryAssetId) -and $assetId -eq $PrimaryAssetId
+    $usesGpu = [string]$Profile.encoderDevice -ne 'CPU'
+
+    switch ($commandType) {
+        'EncodeChunk' {
+            $lane = if ($isPrimaryAsset) { 'PrimaryVideo' } else { 'SecondaryMedia' }
+            $resourceClass = if ($usesGpu) { 'GpuEncode' } else { 'CpuEncode' }
+            $priority = if ($isPrimaryAsset) { 100 } else { 70 }
+            $laneWorkerLimit = if ($usesGpu) {
+                [int]$SchedulerExecution.gpuWorkerLimit
+            }
+            else {
+                [int]$SchedulerExecution.cpuWorkerLimit
+            }
+            $maxConcurrentPerAsset = if ($isPrimaryAsset) { 1 } else { [Math]::Max(1, [Math]::Min(2, $laneWorkerLimit)) }
+            $diskWeight = 2
+        }
+        'MergeAssetChunks' {
+            $lane = 'DiskMerge'
+            $resourceClass = 'DiskHeavy'
+            $priority = 50
+            $laneWorkerLimit = [int]$SchedulerExecution.diskWorkerLimit
+            $maxConcurrentPerAsset = 1
+            $diskWeight = 3
+        }
+        'CreateProxy' {
+            $lane = 'DerivativeMedia'
+            $resourceClass = 'CpuEncode'
+            $priority = 30
+            $laneWorkerLimit = [Math]::Max(1, [Math]::Min([int]$SchedulerExecution.cpuWorkerLimit, 2))
+            $maxConcurrentPerAsset = 1
+            $diskWeight = 1
+        }
+        'CreatePreview' {
+            $lane = 'DerivativeImage'
+            $resourceClass = 'CpuLight'
+            $priority = 20
+            $laneWorkerLimit = [Math]::Max(1, [Math]::Min([int]$SchedulerExecution.cpuWorkerLimit, 2))
+            $maxConcurrentPerAsset = 1
+            $diskWeight = 1
+        }
+        default {
+            $lane = 'Utility'
+            $resourceClass = 'CpuLight'
+            $priority = 10
+            $laneWorkerLimit = [int]$SchedulerExecution.maxWorkers
+            $maxConcurrentPerAsset = 1
+            $diskWeight = 1
+        }
+    }
+
+    return [PSCustomObject]@{
+        lane                  = $lane
+        resourceClass         = $resourceClass
+        priority              = $priority
+        primaryAsset          = [bool]$isPrimaryAsset
+        controlledMainVideo   = [bool]($commandType -eq 'EncodeChunk' -and $isPrimaryAsset)
+        maxConcurrentPerAsset = [int]$maxConcurrentPerAsset
+        laneWorkerLimit       = [Math]::Max(1, [Math]::Min([int]$SchedulerExecution.maxWorkers, [int]$laneWorkerLimit))
+        diskWeight            = [int]$diskWeight
+        cpuWeight             = if ($resourceClass -in @('CpuEncode', 'CpuLight')) { 1 } else { 0 }
+        gpuWeight             = if ($resourceClass -eq 'GpuEncode') { 1 } else { 0 }
+    }
+}
+
+function Set-BackupCommandSchedulerMetadata {
+    [CmdletBinding()]
+    param(
+        [object[]]$Commands,
+        [Parameter(Mandatory)]
+        [object]$Profile,
+        [string]$PrimaryAssetId,
+        [Parameter(Mandatory)]
+        [object]$SchedulerExecution
+    )
+
+    foreach ($command in @($Commands)) {
+        $metadata = New-BackupCommandSchedulerMetadata `
+            -Command $command `
+            -Profile $Profile `
+            -PrimaryAssetId $PrimaryAssetId `
+            -SchedulerExecution $SchedulerExecution
+        $command | Add-Member `
+            -NotePropertyName scheduler `
+            -NotePropertyValue $metadata `
+            -Force
+    }
+}
+
+function New-BackupSchedulerPlan {
+    [CmdletBinding()]
+    param(
+        [object]$Payload,
+        [Parameter(Mandatory)]
+        [object]$Profile,
+        [object[]]$Commands,
+        [object[]]$Merges,
+        [object[]]$ProxyCommands,
+        [object[]]$PreviewCommands
+    )
+
+    $execution = Get-BackupSchedulerExecution -Payload $Payload
+    $primaryAssetId = Get-BackupPrimaryTimedAssetId -Payload $Payload
+    $allCommands = @($Commands) + @($Merges) + @($ProxyCommands) + @($PreviewCommands)
+    Set-BackupCommandSchedulerMetadata `
+        -Commands $allCommands `
+        -Profile $Profile `
+        -PrimaryAssetId $primaryAssetId `
+        -SchedulerExecution $execution
+
+    $laneGroups = @($allCommands | Group-Object { [string]$_.scheduler.lane })
+    $lanes = [ordered]@{}
+    foreach ($laneGroup in $laneGroups) {
+        $sample = @($laneGroup.Group | Select-Object -First 1)
+        $lanes[$laneGroup.Name] = [PSCustomObject]@{
+            commandCount  = @($laneGroup.Group).Count
+            maxConcurrent = if ($sample.Count -gt 0) { [int]$sample[0].scheduler.laneWorkerLimit } else { 1 }
+            resourceClass = if ($sample.Count -gt 0) { [string]$sample[0].scheduler.resourceClass } else { 'Unknown' }
+        }
+    }
+
+    if (-not $lanes.Contains('Checksum')) {
+        $lanes['Checksum'] = [PSCustomObject]@{
+            commandCount  = 0
+            maxConcurrent = [int]$execution.diskWorkerLimit
+            resourceClass = 'DiskRead'
+            state         = 'ReadyForArchiveLayer'
+        }
+    }
+
+    return [PSCustomObject]@{
+        schemaVersion  = '1.0'
+        enabled        = [int]$execution.maxWorkers -gt 1
+        mode           = [string]$execution.mode
+        primaryAssetId = $primaryAssetId
+        workerPool     = [PSCustomObject]@{
+            maxWorkers             = [int]$execution.maxWorkers
+            cpuWorkers             = [int]$execution.cpuWorkerLimit
+            gpuWorkers             = [int]$execution.gpuWorkerLimit
+            diskWorkers            = [int]$execution.diskWorkerLimit
+            mainVideoMaxConcurrent = 1
+        }
+        resourceLimits = [PSCustomObject]@{
+            maxCpuPercent = [int]$execution.maxCpuPercent
+            maxGpuPercent = [int]$execution.maxGpuPercent
+            diskPolicy    = 'LimitHeavyDiskStages'
+            requireIdle   = [bool]$execution.requireIdle
+            allowOnBattery = [bool]$execution.allowOnBattery
+        }
+        priorities     = [PSCustomObject]@{
+            primaryVideo   = 100
+            secondaryMedia = 70
+            merge          = 50
+            proxy          = 30
+            preview        = 20
+            checksum       = 10
+        }
+        policy         = [PSCustomObject]@{
+            primaryVideo = 'OneChunkAtATime'
+            secondaryMedia = 'ParallelWithinWorkerPool'
+            imagesAndPreviews = 'ParallelDerivativeLane'
+            checksums     = 'ParallelDiskReadLane'
+            overloadAction = 'ThrottleByLaneLimits'
+        }
+        lanes          = [PSCustomObject]$lanes
+    }
+}
+
 function New-BackupFfmpegChunkArguments {
     [CmdletBinding()]
     param(
@@ -653,6 +936,14 @@ function New-BackupEncodingPlan {
         }
     }
 
+    $scheduler = New-BackupSchedulerPlan `
+        -Payload $Payload `
+        -Profile $profile `
+        -Commands @($commands.ToArray()) `
+        -Merges @($merges.ToArray()) `
+        -ProxyCommands @($proxyCommands.ToArray()) `
+        -PreviewCommands @($previewCommands.ToArray())
+
     return [PSCustomObject]@{
         schemaVersion = '1.0'
         mode          = [string]$Payload.archive.mode
@@ -666,6 +957,7 @@ function New-BackupEncodingPlan {
         }
         profile       = $profile
         encoding      = $encoding
+        scheduler     = $scheduler
         summary       = [PSCustomObject]@{
             commandCount        = [int]$commands.Count
             mergeCount          = [int]$merges.Count
@@ -901,6 +1193,267 @@ function Invoke-BackupFfmpegCommand {
     return @($lines)
 }
 
+function Sort-BackupScheduledCommand {
+    [CmdletBinding()]
+    param(
+        [object[]]$Commands
+    )
+
+    return @($Commands | Sort-Object `
+            @{ Expression = { if ($_.scheduler) { [int]$_.scheduler.priority } else { 0 } }; Descending = $true },
+            @{ Expression = { if ($_.scheduler) { [string]$_.scheduler.lane } else { '' } } },
+            assetId,
+            index,
+            id)
+}
+
+function Test-BackupScheduledCommandCanStart {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Command,
+        [object[]]$RunningCommands
+    )
+
+    if (-not $Command.scheduler) {
+        return $true
+    }
+
+    $lane = [string]$Command.scheduler.lane
+    $assetId = [string]$Command.assetId
+    $laneLimit = [Math]::Max(1, [int]$Command.scheduler.laneWorkerLimit)
+    $assetLimit = [Math]::Max(1, [int]$Command.scheduler.maxConcurrentPerAsset)
+    $runningInLane = @($RunningCommands | Where-Object {
+            $_.scheduler -and [string]$_.scheduler.lane -eq $lane
+        }).Count
+    $runningForAsset = @($RunningCommands | Where-Object {
+            [string]$_.assetId -eq $assetId
+        }).Count
+
+    return $runningInLane -lt $laneLimit -and $runningForAsset -lt $assetLimit
+}
+
+function Select-BackupScheduledCommand {
+    [CmdletBinding()]
+    param(
+        [object[]]$PendingCommands,
+        [object[]]$RunningCommands
+    )
+
+    foreach ($candidate in @(Sort-BackupScheduledCommand -Commands $PendingCommands)) {
+        if (Test-BackupScheduledCommandCanStart `
+                -Command $candidate `
+                -RunningCommands $RunningCommands) {
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
+function Invoke-BackupScheduledCommandSerial {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Job,
+        [Parameter(Mandatory)]
+        [object]$Command,
+        [int]$Completed,
+        [int]$Total,
+        [string]$Phase,
+        [string]$MessageVerb,
+        [switch]$ParseProgress
+    )
+
+    $targetName = if (-not [string]::IsNullOrWhiteSpace([string]$Command.relativePath)) {
+        [string]$Command.relativePath
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace([string]$Command.assetId)) {
+        [string]$Command.assetId
+    }
+    else {
+        [string]$Command.id
+    }
+
+    Update-RenderKitJobProgress `
+        -JobId ([string]$Job.id) `
+        -Phase $Phase `
+        -Message ("{0} {1}/{2}: {3}" -f $MessageVerb, ($Completed + 1), $Total, $targetName) `
+        -Current $Completed `
+        -Total $Total |
+        Out-Null
+
+    Invoke-BackupFfmpegCommand -Command $Command -JobId ([string]$Job.id) |
+        ForEach-Object {
+            if ($ParseProgress) {
+                $progress = ConvertFrom-BackupFfmpegProgressLine `
+                    -Line ([string]$_) `
+                    -DurationSeconds ([double]$Command.durationSeconds)
+                if ($progress -and $null -ne $progress.percent) {
+                    $overall = [Math]::Round(((($Completed + ($progress.percent / 100.0)) / $Total) * 100), 2)
+                    Update-RenderKitJobProgress `
+                        -JobId ([string]$Job.id) `
+                        -Phase $Phase `
+                        -Message ("{0} {1}/{2}: {3}" -f $MessageVerb, ($Completed + 1), $Total, $targetName) `
+                        -Current $Completed `
+                        -Total $Total `
+                        -Percent $overall |
+                        Out-Null
+                }
+            }
+        }
+}
+
+function Start-BackupScheduledThreadJob {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Command
+    )
+
+    Start-ThreadJob `
+        -Name ([string]$Command.id) `
+        -ArgumentList $Command `
+        -ScriptBlock {
+            param($ScheduledCommand)
+
+            $lines = & ([string]$ScheduledCommand.executable) @($ScheduledCommand.arguments) 2>$null
+            [PSCustomObject]@{
+                commandId = [string]$ScheduledCommand.id
+                exitCode  = [int]$LASTEXITCODE
+                output    = @($lines)
+            }
+        }
+}
+
+function Invoke-BackupScheduledCommandBatch {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Job,
+        [object[]]$Commands,
+        [Parameter(Mandatory)]
+        [object]$Scheduler,
+        [string]$Phase = 'Running',
+        [string]$MessageVerb = 'Running command',
+        [switch]$ParseProgress
+    )
+
+    $commandList = @(Sort-BackupScheduledCommand -Commands $Commands)
+    $total = @($commandList).Count
+    if ($total -eq 0) {
+        return [PSCustomObject]@{
+            completedCount = 0
+            usedParallel   = $false
+            workerLimit    = 0
+            fallback       = $null
+        }
+    }
+
+    $threadJobCommand = Get-Command -Name Start-ThreadJob -ErrorAction SilentlyContinue
+    $workerLimit = if ($Scheduler -and $Scheduler.workerPool) {
+        [Math]::Max(1, [int]$Scheduler.workerPool.maxWorkers)
+    }
+    else {
+        1
+    }
+    $canParallelize = $workerLimit -gt 1 -and $null -ne $threadJobCommand
+    if (-not $canParallelize) {
+        $completed = 0
+        foreach ($command in @($commandList)) {
+            Invoke-BackupScheduledCommandSerial `
+                -Job $Job `
+                -Command $command `
+                -Completed $completed `
+                -Total $total `
+                -Phase $Phase `
+                -MessageVerb $MessageVerb `
+                -ParseProgress:$ParseProgress
+            $completed++
+            Update-RenderKitJobProgress `
+                -JobId ([string]$Job.id) `
+                -Phase $Phase `
+                -Message ("{0} complete {1}/{2}" -f $MessageVerb, $completed, $total) `
+                -Current $completed `
+                -Total $total |
+                Out-Null
+        }
+
+        return [PSCustomObject]@{
+            completedCount = $completed
+            usedParallel   = $false
+            workerLimit    = 1
+            fallback       = if ($workerLimit -le 1) { 'SingleWorker' } else { 'StartThreadJobUnavailable' }
+        }
+    }
+
+    $pending = [System.Collections.ArrayList]::new()
+    foreach ($command in @($commandList)) {
+        [void]$pending.Add($command)
+    }
+    $running = @{}
+    $completedParallel = 0
+
+    while ($pending.Count -gt 0 -or $running.Count -gt 0) {
+        while ($pending.Count -gt 0 -and $running.Count -lt $workerLimit) {
+            $next = Select-BackupScheduledCommand `
+                -PendingCommands @($pending) `
+                -RunningCommands @($running.Values)
+            if (-not $next) {
+                break
+            }
+
+            [void]$pending.Remove($next)
+            $startedJob = Start-BackupScheduledThreadJob -Command $next
+            $running[[string]$startedJob.Id] = [PSCustomObject]@{
+                job     = $startedJob
+                command = $next
+            }
+            Update-RenderKitJobProgress `
+                -JobId ([string]$Job.id) `
+                -Phase $Phase `
+                -Message ("{0} running {1}/{2} with {3} worker(s)" -f $MessageVerb, $completedParallel, $total, $running.Count) `
+                -Current $completedParallel `
+                -Total $total |
+                Out-Null
+        }
+
+        if ($running.Count -eq 0) {
+            throw "No schedulable backup command was found for phase '$Phase'."
+        }
+
+        $finishedJob = Wait-Job -Job @($running.Values | ForEach-Object { $_.job }) -Any
+        foreach ($jobHandle in @($finishedJob)) {
+            $key = [string]$jobHandle.Id
+            $entry = $running[$key]
+            $result = Receive-Job -Job $jobHandle -ErrorAction Stop
+            Remove-Job -Job $jobHandle -Force -ErrorAction SilentlyContinue
+            $running.Remove($key)
+
+            if (-not $result -or [int]$result.exitCode -ne 0) {
+                throw "ffmpeg command '$($entry.command.id)' failed with exit code $($result.exitCode)."
+            }
+
+            $completedParallel++
+            Update-RenderKitJobProgress `
+                -JobId ([string]$Job.id) `
+                -Phase $Phase `
+                -Message ("{0} complete {1}/{2}" -f $MessageVerb, $completedParallel, $total) `
+                -Current $completedParallel `
+                -Total $total `
+                -Percent ([Math]::Round(([double]$completedParallel / [double]$total) * 100, 2)) |
+                Out-Null
+        }
+    }
+
+    return [PSCustomObject]@{
+        completedCount = $completedParallel
+        usedParallel   = $true
+        workerLimit    = $workerLimit
+        fallback       = $null
+    }
+}
+
 function Invoke-BackupEncodingPlan {
     [CmdletBinding()]
     param(
@@ -928,6 +1481,10 @@ function Invoke-BackupEncodingPlan {
             mergeValidations           = @()
             proxyAssetCount            = 0
             previewAssetCount          = 0
+            scheduler                  = [PSCustomObject]@{
+                usedParallel = $false
+                skipped      = $true
+            }
             skipped                    = $true
         }
     }
@@ -939,43 +1496,14 @@ function Invoke-BackupEncodingPlan {
         throw 'ffprobe was not found. Install ffprobe to validate merged backup media.'
     }
 
-    $completed = 0
-    foreach ($command in @($Plan.commands | Sort-Object assetId, index)) {
-        Update-RenderKitJobProgress `
-            -JobId ([string]$Job.id) `
-            -Phase 'Encoding' `
-            -Message ("Encoding chunk {0}/{1}: {2}" -f ($completed + 1), $total, [string]$command.relativePath) `
-            -Current $completed `
-            -Total $total |
-            Out-Null
-
-        Invoke-BackupFfmpegCommand -Command $command -JobId ([string]$Job.id) |
-            ForEach-Object {
-                $progress = ConvertFrom-BackupFfmpegProgressLine `
-                    -Line ([string]$_) `
-                    -DurationSeconds ([double]$command.durationSeconds)
-                if ($progress -and $null -ne $progress.percent) {
-                    $overall = [Math]::Round(((($completed + ($progress.percent / 100.0)) / $total) * 100), 2)
-                    Update-RenderKitJobProgress `
-                        -JobId ([string]$Job.id) `
-                        -Phase 'Encoding' `
-                        -Message ("Encoding chunk {0}/{1}: {2}" -f ($completed + 1), $total, [string]$command.relativePath) `
-                        -Current $completed `
-                        -Total $total `
-                        -Percent $overall |
-                        Out-Null
-                }
-            }
-
-        $completed++
-        Update-RenderKitJobProgress `
-            -JobId ([string]$Job.id) `
-            -Phase 'Encoding' `
-            -Message ("Encoded chunk {0}/{1}" -f $completed, $total) `
-            -Current $completed `
-            -Total $total |
-            Out-Null
-    }
+    $encodeSchedule = Invoke-BackupScheduledCommandBatch `
+        -Job $Job `
+        -Commands @($Plan.commands) `
+        -Scheduler $Plan.scheduler `
+        -Phase 'Encoding' `
+        -MessageVerb 'Encoding chunk' `
+        -ParseProgress
+    $completed = [int]$encodeSchedule.completedCount
 
     $mergeValidations = New-Object System.Collections.Generic.List[object]
     $ffprobeCommand = if ([bool]$Plan.summary.requiresFfprobe) {
@@ -987,18 +1515,16 @@ function Invoke-BackupEncodingPlan {
     $mergeTotal = @($Plan.merges).Count
     $mergeCompleted = 0
     foreach ($merge in @($Plan.merges)) {
-        Update-RenderKitJobProgress `
-            -JobId ([string]$Job.id) `
-            -Phase 'Merging' `
-            -Message ("Merging asset {0}/{1}: {2}" -f ($mergeCompleted + 1), $mergeTotal, [string]$merge.assetId) `
-            -Current $mergeCompleted `
-            -Total $mergeTotal |
-            Out-Null
-
         Write-BackupConcatList -MergeCommand $merge
-        Invoke-BackupFfmpegCommand -Command $merge -JobId ([string]$Job.id) |
-            Out-Null
+    }
+    $mergeSchedule = Invoke-BackupScheduledCommandBatch `
+        -Job $Job `
+        -Commands @($Plan.merges) `
+        -Scheduler $Plan.scheduler `
+        -Phase 'Merging' `
+        -MessageVerb 'Merging asset'
 
+    foreach ($merge in @(Sort-BackupScheduledCommand -Commands @($Plan.merges))) {
         Update-RenderKitJobProgress `
             -JobId ([string]$Job.id) `
             -Phase 'ValidatingMerge' `
@@ -1023,15 +1549,18 @@ function Invoke-BackupEncodingPlan {
             Out-Null
     }
 
-    foreach ($proxyCommand in @($Plan.proxyCommands)) {
-        Invoke-BackupFfmpegCommand -Command $proxyCommand -JobId ([string]$Job.id) |
-            Out-Null
-    }
-
-    foreach ($previewCommand in @($Plan.previewCommands)) {
-        Invoke-BackupFfmpegCommand -Command $previewCommand -JobId ([string]$Job.id) |
-            Out-Null
-    }
+    $proxySchedule = Invoke-BackupScheduledCommandBatch `
+        -Job $Job `
+        -Commands @($Plan.proxyCommands) `
+        -Scheduler $Plan.scheduler `
+        -Phase 'CreatingProxy' `
+        -MessageVerb 'Creating proxy'
+    $previewSchedule = Invoke-BackupScheduledCommandBatch `
+        -Job $Job `
+        -Commands @($Plan.previewCommands) `
+        -Scheduler $Plan.scheduler `
+        -Phase 'CreatingPreview' `
+        -MessageVerb 'Creating preview'
 
     return [PSCustomObject]@{
         encodedChunkCount          = $completed
@@ -1041,6 +1570,13 @@ function Invoke-BackupEncodingPlan {
         mergeValidations           = @($mergeValidations.ToArray())
         proxyAssetCount            = @($Plan.proxyCommands).Count
         previewAssetCount          = @($Plan.previewCommands).Count
+        scheduler                  = [PSCustomObject]@{
+            usedParallel = [bool]($encodeSchedule.usedParallel -or $mergeSchedule.usedParallel -or $proxySchedule.usedParallel -or $previewSchedule.usedParallel)
+            encode       = $encodeSchedule
+            merge        = $mergeSchedule
+            proxy        = $proxySchedule
+            preview      = $previewSchedule
+        }
         skipped                    = $false
     }
 }

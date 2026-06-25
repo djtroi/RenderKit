@@ -53,6 +53,9 @@ Describe 'RenderKit backup command contracts' {
         $command.Parameters.Keys | Should -Contain 'CreatePreview'
         $command.Parameters.Keys | Should -Contain 'ChunkDurationSeconds'
         $command.Parameters.Keys | Should -Contain 'StorageTier'
+        $command.Parameters.Keys | Should -Contain 'MaxParallelJobs'
+        $command.Parameters.Keys | Should -Contain 'MaxCpuPercent'
+        $command.Parameters.Keys | Should -Contain 'MaxGpuPercent'
         $command.Parameters.Keys | Should -Contain 'RequireIdle'
     }
 

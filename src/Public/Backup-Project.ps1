@@ -530,6 +530,7 @@ https://github.com/djtroi/RenderKit
                 encoding        = $backupJobPayload.encoding
                 chunking         = $backupJobPayload.chunking
                 merge            = $backupJobPayload.merge
+                scheduler        = $backupJobPayload.scheduler
                 mediaAnalysis    = $backupJobPayload.mediaAnalysis
                 chunkPlan        = $backupJobPayload.chunkPlan
                 resume           = $backupJobPayload.resume

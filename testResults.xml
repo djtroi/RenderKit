@@ -1,68 +1,69 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
-<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="31" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2026-06-25" time="19:21:33">
-  <environment clr-version="10.0.8" user="Troi" os-version="10.0.26200" platform="Microsoft Windows 11 Pro|C:\WINDOWS|\Device\Harddisk3\Partition2" machine-name="TROI-PC" nunit-version="2.5.8.0" cwd="K:\Programming\RenderKit" user-domain="Troi-PC" />
+<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="32" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2026-06-25" time="19:42:43">
+  <environment clr-version="10.0.8" platform="Microsoft Windows 11 Pro|C:\WINDOWS|\Device\Harddisk3\Partition2" nunit-version="2.5.8.0" machine-name="TROI-PC" os-version="10.0.26200" user-domain="Troi-PC" user="Troi" cwd="K:\Programming\RenderKit" />
   <culture-info current-culture="de-DE" current-uiculture="de-DE" />
-  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="10.5514" asserts="0" description="Pester">
+  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="17.1392" asserts="0" description="Pester">
     <results>
-      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Backup\RenderKit.BackupCommandContract.Tests.ps1" executed="True" result="Success" success="True" time="2.6958" asserts="0" description="K:\Programming\RenderKit\Tests\Backup\RenderKit.BackupCommandContract.Tests.ps1">
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Backup\RenderKit.BackupCommandContract.Tests.ps1" executed="True" result="Success" success="True" time="5.6234" asserts="0" description="K:\Programming\RenderKit\Tests\Backup\RenderKit.BackupCommandContract.Tests.ps1">
         <results>
-          <test-suite type="TestFixture" name="RenderKit backup command contracts" executed="True" result="Success" success="True" time="1.6448" asserts="0" description="RenderKit backup command contracts">
+          <test-suite type="TestFixture" name="RenderKit backup command contracts" executed="True" result="Success" success="True" time="3.5707" asserts="0" description="RenderKit backup command contracts">
             <results>
-              <test-case description="exposes Preset as the cleanup selection parameter" name="RenderKit backup command contracts.exposes Preset as the cleanup selection parameter" time="0.189" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="exposes the upgraded backup job planning parameters" name="RenderKit backup command contracts.exposes the upgraded backup job planning parameters" time="0.0704" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="uses only parameters supported by Get-CleanupRule" name="RenderKit backup command contracts.uses only parameters supported by Get-CleanupRule" time="0.1041" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="exposes Preset as the cleanup selection parameter" name="RenderKit backup command contracts.exposes Preset as the cleanup selection parameter" time="0.2771" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="exposes the upgraded backup job planning parameters" name="RenderKit backup command contracts.exposes the upgraded backup job planning parameters" time="0.1313" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="uses only parameters supported by Get-CleanupRule" name="RenderKit backup command contracts.uses only parameters supported by Get-CleanupRule" time="0.2199" asserts="0" success="True" result="Success" executed="True" />
             </results>
           </test-suite>
         </results>
       </test-suite>
-      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Backup\RenderKit.BackupProjectJob.Tests.ps1" executed="True" result="Success" success="True" time="4.0133" asserts="0" description="K:\Programming\RenderKit\Tests\Backup\RenderKit.BackupProjectJob.Tests.ps1">
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Backup\RenderKit.BackupProjectJob.Tests.ps1" executed="True" result="Success" success="True" time="6.2762" asserts="0" description="K:\Programming\RenderKit\Tests\Backup\RenderKit.BackupProjectJob.Tests.ps1">
         <results>
-          <test-suite type="TestFixture" name="RenderKit BackupProject job planning" executed="True" result="Success" success="True" time="3.9094" asserts="0" description="RenderKit BackupProject job planning">
+          <test-suite type="TestFixture" name="RenderKit BackupProject job planning" executed="True" result="Success" success="True" time="6.1164" asserts="0" description="RenderKit BackupProject job planning">
             <results>
-              <test-case description="queues a background BackupProject job with chunking and storage tiers" name="RenderKit BackupProject job planning.queues a background BackupProject job with chunking and storage tiers" time="1.3337" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="analyzes project media files without requiring ffprobe" name="RenderKit BackupProject job planning.analyzes project media files without requiring ffprobe" time="0.0811" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="plans resumable time-range chunks for timed media" name="RenderKit BackupProject job planning.plans resumable time-range chunks for timed media" time="0.171" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="snaps chunk boundaries to nearby keyframes when available" name="RenderKit BackupProject job planning.snaps chunk boundaries to nearby keyframes when available" time="0.0789" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="builds ffmpeg encode and merge plans for chunked assets" name="RenderKit BackupProject job planning.builds ffmpeg encode and merge plans for chunked assets" time="0.2925" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="validates merged assets for container, streams, and sync drift" name="RenderKit BackupProject job planning.validates merged assets for container, streams, and sync drift" time="0.0765" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="maps codec and GPU selections to concrete ffmpeg encoders" name="RenderKit BackupProject job planning.maps codec and GPU selections to concrete ffmpeg encoders" time="0.0507" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="parses ffmpeg progress lines into percentages" name="RenderKit BackupProject job planning.parses ffmpeg progress lines into percentages" time="0.0545" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="runs the BackupProject worker handler when no encoding is required" name="RenderKit BackupProject job planning.runs the BackupProject worker handler when no encoding is required" time="0.8696" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="creates a v2 backup manifest with pipeline metadata" name="RenderKit BackupProject job planning.creates a v2 backup manifest with pipeline metadata" time="0.0744" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="queues a background BackupProject job with chunking and storage tiers" name="RenderKit BackupProject job planning.queues a background BackupProject job with chunking and storage tiers" time="1.8842" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="analyzes project media files without requiring ffprobe" name="RenderKit BackupProject job planning.analyzes project media files without requiring ffprobe" time="0.0947" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="plans resumable time-range chunks for timed media" name="RenderKit BackupProject job planning.plans resumable time-range chunks for timed media" time="0.1857" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="snaps chunk boundaries to nearby keyframes when available" name="RenderKit BackupProject job planning.snaps chunk boundaries to nearby keyframes when available" time="0.0846" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="builds ffmpeg encode and merge plans for chunked assets" name="RenderKit BackupProject job planning.builds ffmpeg encode and merge plans for chunked assets" time="0.4342" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="plans scheduler lanes for controlled main video and parallel secondary media" name="RenderKit BackupProject job planning.plans scheduler lanes for controlled main video and parallel secondary media" time="0.3316" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="validates merged assets for container, streams, and sync drift" name="RenderKit BackupProject job planning.validates merged assets for container, streams, and sync drift" time="0.1211" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="maps codec and GPU selections to concrete ffmpeg encoders" name="RenderKit BackupProject job planning.maps codec and GPU selections to concrete ffmpeg encoders" time="0.0302" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="parses ffmpeg progress lines into percentages" name="RenderKit BackupProject job planning.parses ffmpeg progress lines into percentages" time="0.0594" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="runs the BackupProject worker handler when no encoding is required" name="RenderKit BackupProject job planning.runs the BackupProject worker handler when no encoding is required" time="1.1696" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="creates a v2 backup manifest with pipeline metadata" name="RenderKit BackupProject job planning.creates a v2 backup manifest with pipeline metadata" time="0.1074" asserts="0" success="True" result="Success" executed="True" />
             </results>
           </test-suite>
         </results>
       </test-suite>
-      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Job\RenderKit.JobService.Tests.ps1" executed="True" result="Success" success="True" time="0.9518" asserts="0" description="K:\Programming\RenderKit\Tests\Job\RenderKit.JobService.Tests.ps1">
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Job\RenderKit.JobService.Tests.ps1" executed="True" result="Success" success="True" time="1.4368" asserts="0" description="K:\Programming\RenderKit\Tests\Job\RenderKit.JobService.Tests.ps1">
         <results>
-          <test-suite type="TestFixture" name="RenderKit job service" executed="True" result="Success" success="True" time="0.8309" asserts="0" description="RenderKit job service">
+          <test-suite type="TestFixture" name="RenderKit job service" executed="True" result="Success" success="True" time="1.1765" asserts="0" description="RenderKit job service">
             <results>
-              <test-case description="creates an empty job store when none exists" name="RenderKit job service.creates an empty job store when none exists" time="0.0217" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="adds queued jobs" name="RenderKit job service.adds queued jobs" time="0.0845" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="defines supported job statuses and transitions" name="RenderKit job service.defines supported job statuses and transitions" time="0.0291" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="filters queued jobs by type" name="RenderKit job service.filters queued jobs by type" time="0.1302" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="filters job lists by queue and correlation id" name="RenderKit job service.filters job lists by queue and correlation id" time="0.148" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="normalizes legacy jobs into the vNext shape" name="RenderKit job service.normalizes legacy jobs into the vNext shape" time="0.0452" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="starts the oldest queued job" name="RenderKit job service.starts the oldest queued job" time="0.1585" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="marks jobs as failed with an error message" name="RenderKit job service.marks jobs as failed with an error message" time="0.1544" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="creates an empty job store when none exists" name="RenderKit job service.creates an empty job store when none exists" time="0.1308" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="adds queued jobs" name="RenderKit job service.adds queued jobs" time="0.1274" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="defines supported job statuses and transitions" name="RenderKit job service.defines supported job statuses and transitions" time="0.0371" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="filters queued jobs by type" name="RenderKit job service.filters queued jobs by type" time="0.1836" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="filters job lists by queue and correlation id" name="RenderKit job service.filters job lists by queue and correlation id" time="0.1808" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="normalizes legacy jobs into the vNext shape" name="RenderKit job service.normalizes legacy jobs into the vNext shape" time="0.0507" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="starts the oldest queued job" name="RenderKit job service.starts the oldest queued job" time="0.1718" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="marks jobs as failed with an error message" name="RenderKit job service.marks jobs as failed with an error message" time="0.1999" asserts="0" success="True" result="Success" executed="True" />
             </results>
           </test-suite>
         </results>
       </test-suite>
-      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Job\RenderKit.JobWorkerService.Tests.ps1" executed="True" result="Success" success="True" time="2.8905" asserts="0" description="K:\Programming\RenderKit\Tests\Job\RenderKit.JobWorkerService.Tests.ps1">
+      <test-suite type="TestFixture" name="K:\Programming\RenderKit\Tests\Job\RenderKit.JobWorkerService.Tests.ps1" executed="True" result="Success" success="True" time="3.8027" asserts="0" description="K:\Programming\RenderKit\Tests\Job\RenderKit.JobWorkerService.Tests.ps1">
         <results>
-          <test-suite type="TestFixture" name="RenderKit job worker service" executed="True" result="Success" success="True" time="2.7803" asserts="0" description="RenderKit job worker service">
+          <test-suite type="TestFixture" name="RenderKit job worker service" executed="True" result="Success" success="True" time="3.4741" asserts="0" description="RenderKit job worker service">
             <results>
-              <test-case description="registers and resolves job handlers" name="RenderKit job worker service.registers and resolves job handlers" time="0.0217" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="publishes safe handler catalog metadata without scriptblocks" name="RenderKit job worker service.publishes safe handler catalog metadata without scriptblocks" time="0.0777" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="runs a queued job successfully" name="RenderKit job worker service.runs a queued job successfully" time="0.2288" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="requeues failed jobs while retry attempts remain" name="RenderKit job worker service.requeues failed jobs while retry attempts remain" time="0.316" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="marks failed jobs after max attempts" name="RenderKit job worker service.marks failed jobs after max attempts" time="0.768" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="starts queued job leases with worker ownership and lease metadata" name="RenderKit job worker service.starts queued job leases with worker ownership and lease metadata" time="0.1709" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="renews heartbeats only for the owning worker" name="RenderKit job worker service.renews heartbeats only for the owning worker" time="0.2644" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="recovers stale running jobs back to the queue" name="RenderKit job worker service.recovers stale running jobs back to the queue" time="0.217" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="runs a worker tick without double-counting attempts" name="RenderKit job worker service.runs a worker tick without double-counting attempts" time="0.3464" asserts="0" success="True" result="Success" executed="True" />
-              <test-case description="uses the default lifecycle automation handler" name="RenderKit job worker service.uses the default lifecycle automation handler" time="0.2189" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="registers and resolves job handlers" name="RenderKit job worker service.registers and resolves job handlers" time="0.0494" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="publishes safe handler catalog metadata without scriptblocks" name="RenderKit job worker service.publishes safe handler catalog metadata without scriptblocks" time="0.0705" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="runs a queued job successfully" name="RenderKit job worker service.runs a queued job successfully" time="0.4106" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="requeues failed jobs while retry attempts remain" name="RenderKit job worker service.requeues failed jobs while retry attempts remain" time="0.5152" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="marks failed jobs after max attempts" name="RenderKit job worker service.marks failed jobs after max attempts" time="1.0096" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="starts queued job leases with worker ownership and lease metadata" name="RenderKit job worker service.starts queued job leases with worker ownership and lease metadata" time="0.2064" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="renews heartbeats only for the owning worker" name="RenderKit job worker service.renews heartbeats only for the owning worker" time="0.2628" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="recovers stale running jobs back to the queue" name="RenderKit job worker service.recovers stale running jobs back to the queue" time="0.2406" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="runs a worker tick without double-counting attempts" name="RenderKit job worker service.runs a worker tick without double-counting attempts" time="0.2873" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="uses the default lifecycle automation handler" name="RenderKit job worker service.uses the default lifecycle automation handler" time="0.2603" asserts="0" success="True" result="Success" executed="True" />
             </results>
           </test-suite>
         </results>
