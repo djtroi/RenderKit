@@ -77,6 +77,16 @@ function New-BackupProjectJobPayload {
         [string]$CompressionMode = 'ArchiveOnly',
         [ValidateSet('Fastest', 'Balanced', 'Smallest', 'Lossless')]
         [string]$CompressionPreset = 'Balanced',
+        [ValidateSet('Auto', 'H264', 'H265', 'AV1')]
+        [string]$VideoCodec = 'Auto',
+        [ValidateSet('Auto', 'CPU', 'Nvidia', 'IntelQuickSync', 'AMD')]
+        [string]$EncoderDevice = 'Auto',
+        [ValidateSet('Draft', 'Balanced', 'High', 'Smallest', 'Lossless')]
+        [string]$QualityPreset = 'Balanced',
+        [ValidateSet('Auto', 'AAC_128', 'AAC_192', 'Opus_96', 'Opus_128', 'Copy', 'Lossless')]
+        [string]$AudioProfile = 'Auto',
+        [switch]$CreateProxy,
+        [switch]$CreatePreview,
         [switch]$KeepEmptyFolders,
         [switch]$KeepSourceProject,
         [switch]$DryRun,
@@ -147,6 +157,25 @@ function New-BackupProjectJobPayload {
             configProfile     = $ConfigProfile
             cleanupPresets    = @($CleanupPreset)
             compressionPreset = $CompressionPreset
+        }
+        encoding         = [PSCustomObject]@{
+            schemaVersion    = '1.0'
+            videoCodec       = $VideoCodec
+            encoderDevice    = $EncoderDevice
+            qualityPreset    = $QualityPreset
+            audioProfile     = $AudioProfile
+            proxy            = [PSCustomObject]@{
+                enabled     = [bool]$CreateProxy
+                height      = 720
+                videoCodec  = 'H264'
+                quality     = 'Draft'
+            }
+            preview          = [PSCustomObject]@{
+                enabled        = [bool]$CreatePreview
+                format         = 'jpg'
+                intervalSeconds = 60
+                width          = 1280
+            }
         }
         archive          = [PSCustomObject]@{
             format            = $ArchiveFormat

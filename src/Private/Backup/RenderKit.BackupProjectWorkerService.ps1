@@ -43,6 +43,8 @@ function Invoke-BackupProjectJob {
         [PSCustomObject]@{
             encodedChunkCount = 0
             mergedAssetCount  = 0
+            proxyAssetCount   = 0
+            previewAssetCount = 0
             skipped           = $true
         }
     }
@@ -64,10 +66,14 @@ function Invoke-BackupProjectJob {
         skipped           = [bool]$encodingResult.skipped
         encodedChunkCount = [int]$encodingResult.encodedChunkCount
         mergedAssetCount  = [int]$encodingResult.mergedAssetCount
+        proxyAssetCount   = [int]$encodingResult.proxyAssetCount
+        previewAssetCount = [int]$encodingResult.previewAssetCount
         encodingPlan      = [PSCustomObject]@{
             profile      = $encodingPlan.profile.name
             commandCount = $encodingPlan.summary.commandCount
             mergeCount   = $encodingPlan.summary.mergeCount
+            proxyCommandCount = $encodingPlan.summary.proxyCommandCount
+            previewCommandCount = $encodingPlan.summary.previewCommandCount
             ffmpeg       = $encodingPlan.ffmpeg
         }
         resumeStatePath   = Get-BackupResumeStatePath -JobId ([string]$Job.id)

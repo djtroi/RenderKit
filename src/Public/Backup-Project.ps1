@@ -47,6 +47,24 @@ Pipeline mode for future media handling and archive-only backups.
 .PARAMETER CompressionPreset
 Compression intent used by the job payload and manifest.
 
+.PARAMETER VideoCodec
+Target video codec for chunk encoding.
+
+.PARAMETER EncoderDevice
+Encoder device class used for chunk encoding.
+
+.PARAMETER QualityPreset
+Quality intent used for encoder arguments.
+
+.PARAMETER AudioProfile
+Audio compression profile used during chunk encoding.
+
+.PARAMETER CreateProxy
+Plans proxy media generation for encoded assets.
+
+.PARAMETER CreatePreview
+Plans preview thumbnail generation for encoded assets.
+
 .PARAMETER ChunkDurationSeconds
 Target chunk duration used by the resumable media pipeline.
 
@@ -99,6 +117,16 @@ https://github.com/djtroi/RenderKit
         [string]$CompressionMode = 'ArchiveOnly',
         [ValidateSet('Fastest', 'Balanced', 'Smallest', 'Lossless')]
         [string]$CompressionPreset = 'Balanced',
+        [ValidateSet('Auto', 'H264', 'H265', 'AV1')]
+        [string]$VideoCodec = 'Auto',
+        [ValidateSet('Auto', 'CPU', 'Nvidia', 'IntelQuickSync', 'AMD')]
+        [string]$EncoderDevice = 'Auto',
+        [ValidateSet('Draft', 'Balanced', 'High', 'Smallest', 'Lossless')]
+        [string]$QualityPreset = 'Balanced',
+        [ValidateSet('Auto', 'AAC_128', 'AAC_192', 'Opus_96', 'Opus_128', 'Copy', 'Lossless')]
+        [string]$AudioProfile = 'Auto',
+        [switch]$CreateProxy,
+        [switch]$CreatePreview,
         [switch]$DisableChunking,
         [ValidateRange(10, 86400)]
         [int]$ChunkDurationSeconds = 600,
@@ -167,6 +195,12 @@ https://github.com/djtroi/RenderKit
         -ArchiveFormat $ArchiveFormat `
         -CompressionMode $CompressionMode `
         -CompressionPreset $CompressionPreset `
+        -VideoCodec $VideoCodec `
+        -EncoderDevice $EncoderDevice `
+        -QualityPreset $QualityPreset `
+        -AudioProfile $AudioProfile `
+        -CreateProxy:$CreateProxy `
+        -CreatePreview:$CreatePreview `
         -KeepEmptyFolders:$KeepEmptyFolders `
         -KeepSourceProject:$KeepSourceProject `
         -DryRun:$DryRun `
@@ -470,6 +504,12 @@ https://github.com/djtroi/RenderKit
                 archiveFormat       = [string]$ArchiveFormat
                 compressionMode     = [string]$CompressionMode
                 compressionPreset   = [string]$CompressionPreset
+                videoCodec          = [string]$VideoCodec
+                encoderDevice       = [string]$EncoderDevice
+                qualityPreset       = [string]$QualityPreset
+                audioProfile        = [string]$AudioProfile
+                createProxy         = [bool]$CreateProxy
+                createPreview       = [bool]$CreatePreview
             } `
             -Statistics $statistics `
             -Archive $archiveInfo `
@@ -487,6 +527,7 @@ https://github.com/djtroi/RenderKit
                 archiveFormat    = $ArchiveFormat
                 compressionMode  = $CompressionMode
                 compressionPreset = $CompressionPreset
+                encoding        = $backupJobPayload.encoding
                 chunking         = $backupJobPayload.chunking
                 mediaAnalysis    = $backupJobPayload.mediaAnalysis
                 chunkPlan        = $backupJobPayload.chunkPlan

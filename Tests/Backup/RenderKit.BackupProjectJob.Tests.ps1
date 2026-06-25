@@ -57,6 +57,12 @@ Describe 'RenderKit BackupProject job planning' {
             -ArchiveFormat SevenZip `
             -CompressionMode TranscodeAndArchive `
             -CompressionPreset Smallest `
+            -VideoCodec AV1 `
+            -EncoderDevice CPU `
+            -QualityPreset Smallest `
+            -AudioProfile Opus_96 `
+            -CreateProxy `
+            -CreatePreview `
             -ChunkDurationSeconds 120 `
             -RequireIdle `
             -StorageTier @{
@@ -69,6 +75,11 @@ Describe 'RenderKit BackupProject job planning' {
         $result.Status | Should -Be 'Queued'
         $result.Payload.profile.configProfile | Should -Be 'smallest'
         $result.Payload.archive.format | Should -Be 'SevenZip'
+        $result.Payload.encoding.videoCodec | Should -Be 'AV1'
+        $result.Payload.encoding.encoderDevice | Should -Be 'CPU'
+        $result.Payload.encoding.audioProfile | Should -Be 'Opus_96'
+        $result.Payload.encoding.proxy.enabled | Should -BeTrue
+        $result.Payload.encoding.preview.enabled | Should -BeTrue
         $result.Payload.chunking.enabled | Should -BeTrue
         $result.Payload.chunking.durationSeconds | Should -Be 120
         $result.Payload.execution.requireIdle | Should -BeTrue
@@ -216,6 +227,14 @@ Describe 'RenderKit BackupProject job planning' {
                     mode = 'TranscodeAndArchive'
                     compressionPreset = 'Balanced'
                 }
+                encoding = [PSCustomObject]@{
+                    videoCodec = 'H265'
+                    encoderDevice = 'CPU'
+                    qualityPreset = 'High'
+                    audioProfile = 'AAC_192'
+                    proxy = [PSCustomObject]@{ enabled = $true; height = 720 }
+                    preview = [PSCustomObject]@{ enabled = $true; format = 'jpg'; intervalSeconds = 30; width = 960 }
+                }
                 chunkPlan = [PSCustomObject]@{
                     assets = @(
                         [PSCustomObject]@{
@@ -251,13 +270,57 @@ Describe 'RenderKit BackupProject job planning' {
             New-BackupEncodingPlan -Job $job -Payload $payload
         }
 
-        $plan.profile.name | Should -Be 'Balanced'
+        $plan.profile.videoCodec | Should -Be 'H265'
+        $plan.profile.encoderDevice | Should -Be 'CPU'
+        $plan.profile.encoderName | Should -Be 'libx265'
+        $plan.profile.qualityPreset | Should -Be 'High'
+        $plan.profile.audioProfile | Should -Be 'AAC_192'
         $plan.summary.commandCount | Should -Be 2
         $plan.summary.mergeCount | Should -Be 1
+        $plan.summary.proxyCommandCount | Should -Be 1
+        $plan.summary.previewCommandCount | Should -Be 1
         $plan.commands[0].arguments | Should -Contain '-progress'
         $plan.commands[0].arguments | Should -Contain 'pipe:1'
+        $plan.commands[0].arguments | Should -Contain 'libx265'
+        $plan.commands[0].arguments | Should -Contain '192k'
         $plan.commands[0].outputPath | Should -Match 'encoded'
         $plan.merges[0].arguments | Should -Contain 'concat'
+        $plan.proxyCommands[0].arguments | Should -Contain 'libx264'
+        $plan.previewCommands[0].arguments | Should -Contain 'fps=1/30,scale=960:-2'
+    }
+
+    It 'maps codec and GPU selections to concrete ffmpeg encoders' {
+        $profiles = InModuleScope RenderKit {
+            @(
+                Get-BackupEncodingProfile `
+                    -CompressionPreset Balanced `
+                    -VideoCodec H264 `
+                    -EncoderDevice Nvidia `
+                    -QualityPreset Draft `
+                    -AudioProfile AAC_128
+                Get-BackupEncodingProfile `
+                    -CompressionPreset Smallest `
+                    -VideoCodec AV1 `
+                    -EncoderDevice IntelQuickSync `
+                    -QualityPreset Smallest `
+                    -AudioProfile Opus_96
+                Get-BackupEncodingProfile `
+                    -CompressionPreset Balanced `
+                    -VideoCodec H265 `
+                    -EncoderDevice AMD `
+                    -QualityPreset Balanced `
+                    -AudioProfile AAC_192
+            )
+        }
+
+        $profiles[0].encoderName | Should -Be 'h264_nvenc'
+        $profiles[0].videoCodec | Should -Be 'H264'
+        $profiles[1].encoderName | Should -Be 'av1_qsv'
+        $profiles[1].videoCodec | Should -Be 'AV1'
+        $profiles[1].audioArgs | Should -Contain 'libopus'
+        $profiles[2].encoderName | Should -Be 'hevc_amf'
+        $profiles[2].videoCodec | Should -Be 'H265'
+        $profiles[2].audioArgs | Should -Contain '192k'
     }
 
     It 'parses ffmpeg progress lines into percentages' {
