@@ -23,6 +23,7 @@
 
 ### Changed
 - Changed `Get-Project`to read `DiscoveredProjects.json`by default and to run internal indexed discovery only when `-Refresh`is supplied.
+- Changed `Get-Project` to return discovered project summary objects directly so callers and tests can access properties without receiving formatting records.
 - Changed `Set-ProjectRoot`and `New-Project`to feed the project search index so current roots, previous roots, explicit absolute project paths, and parant folders can be discovered efficiently.
 - Changed JSON-reading and JSON-writing paths across storage, backup, device, mapping, template, project, export, and delivery services to use the new persistence helpers where appropriate.
 - Changed bundled artifact compatibility metadata so EventStore and JobStore now use current schema version `1.1` while retaining compatibility with readable `1.0` stores.
@@ -34,6 +35,8 @@
 - Fixed resilience of JSON state updates by introducing atomic write, lock, backup, and validation behavior for internal state files.
 - Fixed host-facing project detail lookups so project registry read failures return stable `RK_STORAGE_UNAVAILABLE` result envelopes instead of leaking raw exceptions.
 - Fixed PowerShell automatic-variable sensitivity in the engine project detail lookup by avoiding `$Matches`/`$matches` naming in new facade code.
+- Fixed `Import-Project` path handling so quoted user input is normalized, supported archive paths are validated, and accidentally swapped destination/archive arguments can be recovered.
+- Fixed `Remove-Project` success logging after project deletion by clearing stale logging state when the active log target points inside the removed project.
 
 
 ## 0.3.9 - 2026-06-18
