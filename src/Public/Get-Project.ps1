@@ -2,36 +2,36 @@ Register-RenderKitFunction "Get-Project"
 function Get-Project {
     <#
 .SYNOPSIS
-Lists projects known to the RenderKit project registry.
+Lists projects from the RenderKit discovered project overview.
 
 .DESCRIPTION
-Reads the system-wide RenderKit project registry and returns one object per
-known project. The output is intentionally shaped for PowerShell table output
-and includes identity, availability, version, path, metadata path, and the last
-registry update timestamp.
+Reads the persisted RenderKit discovered project overview and returns one object
+per known discovered project. The default command is intentionally cheap: it
+only reads the JSON overview and does not scan the file system.
 
-By default, Get-Project returns every registered project, including projects
-that are currently unavailable because a drive or network share is offline. Use
--AvailableOnly to show only projects whose root path currently exists.
+Use -Refresh to trigger the internal project discovery service before reading
+the overview. Discovery uses the internal search index and remains an internal
+engine function rather than a separate public command.
 
 .PARAMETER AvailableOnly
-Only returns projects whose registered root path currently exists.
+Only returns projects whose last discovered availability marker is true.
 
 .PARAMETER Refresh
-Rechecks registered project paths before returning the list and persists the
-updated availability markers in the registry.
+Runs internal project discovery from the project search index before reading the
+discovered project overview.
 
 .EXAMPLE
 Get-Project
-Lists all projects currently known to RenderKit.
+Lists all projects currently present in the discovered project overview.
 
 .EXAMPLE
 Get-Project -AvailableOnly | Format-Table
-Lists only currently available projects in table form.
+Lists only projects marked available in the discovered project overview.
 
 .EXAMPLE
 Get-Project -Refresh
-Refreshes path availability in the registry before listing known projects.
+Refreshes the discovered project overview through internal discovery before
+listing projects.
 
 .INPUTS
 None. You cannot pipe input to this command.
@@ -57,29 +57,28 @@ Remove-Project
     Write-RenderKitLog -Level Debug -Message "Get-Project started: AvailableOnly='$AvailableOnly', Refresh='$Refresh'."
 
     if ($Refresh) {
-        $registry = Repair-RenderKitProjectRegistry
-    }
-    else {
-        $registry = Read-RenderKitProjectRegistry
+        Invoke-RenderKitProjectDiscovery | Out-Null
     }
 
-    $projects = @($registry.projects)
+    $store = Read-RenderKitDiscoveredProjectStore
+    $projects = @($store.projects)
     if ($AvailableOnly) {
-        $projects = @($projects | Where-Object {
-            [bool]$_.exists -and
-            (Test-Path -LiteralPath ([string]$_.rootPath) -PathType Container)
-        })
+        $projects = @($projects | Where-Object { [bool]$_.available })
     }
 
     foreach ($project in ($projects | Sort-Object -Property name, rootPath)) {
         [PSCustomObject]@{
-            Name         = [string]$project.name
-            Id           = [string]$project.id
-            Available    = [bool]$project.exists
-            Version      = [string]$project.version
-            RootPath     = [string]$project.rootPath
-            MetadataPath = [string]$project.metadataPath
-            UpdatedAtUtc = [string]$project.updatedAtUtc
+            Name                          = [string]$project.name
+            Id                            = [string]$project.id
+            Available                     = [bool]$project.available
+            Version                       = [string]$project.version
+            RootPath                      = [string]$project.rootPath
+            MetadataPath                  = [string]$project.metadataPath
+            Location                      = [string]$project.locationType
+            IsInsideConfiguredProjectRoot = [bool]$project.isInsideConfiguredProjectRoot
+            ValidationStatus              = [string]$project.validationStatus
+            ConflictStatus                = [string]$project.conflictStatus
+            UpdatedAtUtc                  = [string]$project.updatedAtUtc
         }
     }
 }

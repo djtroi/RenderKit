@@ -1,10 +1,11 @@
 # Get-Project
 
-Lists the projects known to the RenderKit project registry.
+Lists projects from the RenderKit discovered project overview.
 
-RenderKit already keeps a system-wide project registry in the state storage
-root. `Get-Project` exposes that registry as a public command so users can see
-which projects RenderKit knows about without providing a project path.
+`Get-Project` is intentionally cheap by default: it reads the persisted
+`DiscoveredProjects.json` overview and does not scan the file system. Use
+`-Refresh` when you want RenderKit to run internal discovery from the project
+search index before returning the table.
 
 ## Syntax
 
@@ -16,12 +17,15 @@ Get-Project [-AvailableOnly] [-Refresh]
 
 ### `-AvailableOnly`
 
-Returns only projects whose registered root path currently exists.
+Returns only projects whose last discovered availability marker is `true` in the
+discovered project overview. This parameter does not perform live path checks.
 
 ### `-Refresh`
 
-Rechecks all registered project root paths before output and persists the
-updated availability markers in the registry.
+Runs the internal project discovery service before output. Discovery reads the
+internal project search index, looks for `.renderkit` project markers, validates
+project metadata, updates scan diagnostics, and refreshes the discovered project
+overview.
 
 ## Output
 
@@ -33,6 +37,10 @@ The command returns table-friendly project summary objects with these fields:
 - `Version`
 - `RootPath`
 - `MetadataPath`
+- `Location` (`ProjectRoot` or `CustomPath`)
+- `IsInsideConfiguredProjectRoot`
+- `ValidationStatus`
+- `ConflictStatus`
 - `UpdatedAtUtc`
 
 ## Examples
@@ -41,17 +49,24 @@ The command returns table-friendly project summary objects with these fields:
 Get-Project
 ```
 
-Lists all projects known to RenderKit, including unavailable projects on
-disconnected drives or offline shares.
+Lists all projects currently present in the discovered project overview.
 
 ```powershell
 Get-Project -AvailableOnly | Format-Table
 ```
 
-Lists only currently available projects in table form.
+Lists only projects marked available in the discovered project overview.
 
 ```powershell
 Get-Project -Refresh
 ```
 
-Refreshes availability markers before listing projects.
+Runs internal discovery from indexed search roots and then lists the refreshed
+project overview.
+
+## Notes
+
+The project overview is backed by RenderKit state, not by a public database API.
+If a project appears with `Location` set to `CustomPath`, it was discovered or
+created outside the currently configured project root. Duplicate project IDs are
+surfaced through `ConflictStatus` so a future repair workflow can resolve them.

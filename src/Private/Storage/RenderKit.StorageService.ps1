@@ -383,6 +383,23 @@ function Get-RenderKitProjectRegistryPath {
     $root = Get-RenderKitStorageRoot -Kind State -Ensure
     return Join-Path -Path $root -ChildPath 'Projects.json'
 }
+function Get-RenderKitDiscoveredProjectsPath {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param()
+
+    $root = Get-RenderKitStorageRoot -Kind State -Ensure
+    return Join-Path -Path $root -ChildPath 'DiscoveredProjects.json'
+}
+
+function Get-RenderKitProjectSearchIndexPath {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param()
+
+    $root = Get-RenderKitStorageRoot -Kind State -Ensure
+    return Join-Path -Path $root -ChildPath 'ProjectSearchIndex.json'
+}
 
 function Get-RenderKitEventStorePath {
     [CmdletBinding()]

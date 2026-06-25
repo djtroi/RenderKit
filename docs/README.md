@@ -17,8 +17,8 @@ portable/test override locations.
 Technical schema compatibility is governed by the
 [Artifact Versioning](artifact-versioning.md) foundation.
 Internal project-name resolution is backed by the
-[Project Registry](project-registry.md).
-Project lifecycle status rules are documented in
+[Project Registry](project-registry.md). Fast project overview reads and refresh
+scans are documented in [Project Discovery and Search Index](project-discovery.md).
 [Project Lifecycle](project-lifecycle.md).
 Internal automation signals are documented in [Domain Events](events.md).
 Future asynchronous work is backed by [Background Jobs](jobs.md).

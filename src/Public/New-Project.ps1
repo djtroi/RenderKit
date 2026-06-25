@@ -56,6 +56,8 @@ https://github.com/djtroi/RenderKit
     Write-RenderKitLog -Level Debug -Message "New-Project started: Name='$Name', Template='$Template', Path='$Path'."
 
     #define Template
+    $explicitAbsolutePath = -not [string]::IsNullOrWhiteSpace($Path) -and `
+        [System.IO.Path]::IsPathRooted($Path)
     $ProjectRoot = Resolve-ProjectPath -ProjectName $Name -Path $Path
     #project path
     if(Test-Path $ProjectRoot) {
@@ -72,7 +74,39 @@ https://github.com/djtroi/RenderKit
             -ProjectName $Name `
             -ProjectRoot $ProjectRoot `
             -Template $templateObject
-            Register-RenderKitProject -ProjectRoot $ProjectRoot | Out-Null
+        $registeredProject = Register-RenderKitProject -ProjectRoot $ProjectRoot
+
+        if ($explicitAbsolutePath) {
+            $projectPath = [string]$registeredProject.rootPath
+            $parentPath = Split-Path -Path $projectPath -Parent
+            Set-RenderKitProjectSearchIndexEntry `
+                -Path $projectPath `
+                -Kind 'ProjectPath' `
+                -Source 'NewProject' `
+                -Priority 100 `
+                -Recursive $false |
+                Out-Null
+            if (-not [string]::IsNullOrWhiteSpace($parentPath)) {
+                Set-RenderKitProjectSearchIndexEntry `
+                    -Path $parentPath `
+                    -Kind 'ProjectParentPath' `
+                    -Source 'NewProject' `
+                    -Priority 80 `
+                    -Recursive $true |
+                    Out-Null
+            }
+        }
+
+        Set-RenderKitDiscoveredProjectEntry `
+            -ProjectId ([string]$registeredProject.id) `
+            -ProjectName ([string]$registeredProject.name) `
+            -ProjectRoot ([string]$registeredProject.rootPath) `
+            -Version ([string]$registeredProject.version) `
+            -MetadataPath ([string]$registeredProject.metadataPath) `
+            -Source 'NewProject' `
+            -ValidationStatus 'Valid' `
+            -ConflictStatus 'None' |
+            Out-Null
     }
     Write-RenderKitLog -Level Info -Message "Project '$Name' created successfully."
 }
