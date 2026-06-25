@@ -87,6 +87,7 @@ https://github.com/djtroi/RenderKit
 
     try {
         Remove-RenderKitProjectDirectory -ProjectRoot $projectRoot
+        Clear-RenderKitLoggingState -ProjectRoot $projectRoot
         Remove-RenderKitProjectRegistryEntry `
             -ProjectId ([string]$project.Id)
 
