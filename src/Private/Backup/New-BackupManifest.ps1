@@ -101,6 +101,43 @@ function New-BackupManifest {
                     'Speed'
                 )
             }
+            control       = [PSCustomObject]@{
+                statePath = $null
+                pause     = [PSCustomObject]@{
+                    enabled = $true
+                    mode    = 'ProcessSuspendWhenSupported'
+                }
+                resume    = [PSCustomObject]@{
+                    enabled = $true
+                    mode    = 'SkipCompletedChunksFromChunkIndex'
+                }
+                cancel    = [PSCustomObject]@{
+                    enabled = $true
+                    mode    = 'OrderedStopActiveProcesses'
+                }
+                retry     = [PSCustomObject]@{
+                    maxAttemptsPerChunk = 3
+                }
+            }
+            background    = [PSCustomObject]@{
+                enabled   = $true
+                queueName = 'backup'
+                worker    = [PSCustomObject]@{
+                    mode              = 'LocalWorker'
+                    startCommand      = 'Start-RenderKitJobWorker'
+                    statusCommand     = 'Get-RenderKitJobStatus'
+                    workerStatusCommand = 'Get-RenderKitJobWorkerStatus'
+                }
+                recovery  = [PSCustomObject]@{
+                    leaseHeartbeat      = 'ProgressExtendsLease'
+                    staleRunningJobMode = 'RequeueAfterExpiredLease'
+                    crashedWorkerState  = 'DetectPreviousWorkerPid'
+                }
+                logs      = [PSCustomObject]@{
+                    persistent = $true
+                    format     = 'jsonl'
+                }
+            }
             mediaAnalysis = [PSCustomObject]@{
                 summary = $null
             }

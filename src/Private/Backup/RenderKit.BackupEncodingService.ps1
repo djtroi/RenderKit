@@ -493,6 +493,65 @@ function Get-BackupSchedulerExecution {
     else {
         95
     }
+    $maxDiskActivePercent = if ($limits.PSObject.Properties.Name -contains 'maxDiskActivePercent' -and $limits.maxDiskActivePercent) {
+        [int]$limits.maxDiskActivePercent
+    }
+    else {
+        90
+    }
+    $maxTemperatureCelsius = if ($limits.PSObject.Properties.Name -contains 'maxTemperatureCelsius' -and $limits.maxTemperatureCelsius) {
+        [int]$limits.maxTemperatureCelsius
+    }
+    else {
+        85
+    }
+    $minIdleMinutes = if ($limits.PSObject.Properties.Name -contains 'minIdleMinutes' -and $null -ne $limits.minIdleMinutes) {
+        [int]$limits.minIdleMinutes
+    }
+    else {
+        10
+    }
+    $allowedStartTime = if ($limits.PSObject.Properties.Name -contains 'allowedStartTime') {
+        [string]$limits.allowedStartTime
+    }
+    else {
+        $null
+    }
+    $allowedEndTime = if ($limits.PSObject.Properties.Name -contains 'allowedEndTime') {
+        [string]$limits.allowedEndTime
+    }
+    else {
+        $null
+    }
+    $systemRulePollSeconds = if ($limits.PSObject.Properties.Name -contains 'systemRulePollSeconds' -and $limits.systemRulePollSeconds) {
+        [int]$limits.systemRulePollSeconds
+    }
+    else {
+        5
+    }
+    $requireIdle = if ($execution.PSObject.Properties.Name -contains 'requireIdle') { [bool]$execution.requireIdle } else { $false }
+    $allowOnBattery = if ($execution.PSObject.Properties.Name -contains 'allowOnBattery') { [bool]$execution.allowOnBattery } else { $false }
+    $thermalThrottleEnabled = if ($execution.PSObject.Properties.Name -contains 'thermalThrottleEnabled') { [bool]$execution.thermalThrottleEnabled } else { $true }
+    $systemRules = if ($Payload -and $Payload.PSObject.Properties.Name -contains 'systemRules' -and $Payload.systemRules) {
+        $Payload.systemRules
+    }
+    elseif ($execution.PSObject.Properties.Name -contains 'systemRules' -and $execution.systemRules) {
+        $execution.systemRules
+    }
+    else {
+        New-RenderKitSystemRulesPolicy `
+            -RequireIdle $requireIdle `
+            -MinIdleMinutes $minIdleMinutes `
+            -AllowOnBattery $allowOnBattery `
+            -ThermalThrottleEnabled $thermalThrottleEnabled `
+            -MaxCpuPercent $maxCpuPercent `
+            -MaxGpuPercent $maxGpuPercent `
+            -MaxDiskActivePercent $maxDiskActivePercent `
+            -MaxTemperatureCelsius $maxTemperatureCelsius `
+            -AllowedStartTime $allowedStartTime `
+            -AllowedEndTime $allowedEndTime `
+            -PollIntervalSeconds $systemRulePollSeconds
+    }
 
     $maxWorkers = [Math]::Max(1, [Math]::Min(64, $maxParallelJobs))
     $cpuWorkerLimit = if ($maxCpuPercent -lt 45) {
@@ -516,16 +575,24 @@ function Get-BackupSchedulerExecution {
     $diskWorkerLimit = [Math]::Max(1, [Math]::Min($maxWorkers, 2))
 
     return [PSCustomObject]@{
-        mode             = if ($maxWorkers -gt 1) { 'WorkerPool' } else { 'SingleWorker' }
-        maxWorkers       = $maxWorkers
-        cpuWorkerLimit   = [Math]::Max(1, $cpuWorkerLimit)
-        gpuWorkerLimit   = [Math]::Max(1, $gpuWorkerLimit)
-        diskWorkerLimit  = $diskWorkerLimit
-        maxCpuPercent    = $maxCpuPercent
-        maxGpuPercent    = $maxGpuPercent
-        requireIdle      = if ($execution.PSObject.Properties.Name -contains 'requireIdle') { [bool]$execution.requireIdle } else { $false }
-        allowOnBattery   = if ($execution.PSObject.Properties.Name -contains 'allowOnBattery') { [bool]$execution.allowOnBattery } else { $false }
-        priority         = if ($execution.PSObject.Properties.Name -contains 'priority') { [int]$execution.priority } else { 0 }
+        mode                  = if ($maxWorkers -gt 1) { 'WorkerPool' } else { 'SingleWorker' }
+        maxWorkers            = $maxWorkers
+        cpuWorkerLimit        = [Math]::Max(1, $cpuWorkerLimit)
+        gpuWorkerLimit        = [Math]::Max(1, $gpuWorkerLimit)
+        diskWorkerLimit       = $diskWorkerLimit
+        maxCpuPercent         = $maxCpuPercent
+        maxGpuPercent         = $maxGpuPercent
+        maxDiskActivePercent  = $maxDiskActivePercent
+        maxTemperatureCelsius = $maxTemperatureCelsius
+        requireIdle           = $requireIdle
+        minIdleMinutes        = $minIdleMinutes
+        allowedStartTime      = $allowedStartTime
+        allowedEndTime        = $allowedEndTime
+        systemRulePollSeconds = $systemRulePollSeconds
+        allowOnBattery        = $allowOnBattery
+        thermalThrottleEnabled = $thermalThrottleEnabled
+        systemRules           = $systemRules
+        priority              = if ($execution.PSObject.Properties.Name -contains 'priority') { [int]$execution.priority } else { 0 }
     }
 }
 
@@ -715,12 +782,20 @@ function New-BackupSchedulerPlan {
             mainVideoMaxConcurrent = 1
         }
         resourceLimits = [PSCustomObject]@{
-            maxCpuPercent = [int]$execution.maxCpuPercent
-            maxGpuPercent = [int]$execution.maxGpuPercent
-            diskPolicy    = 'LimitHeavyDiskStages'
-            requireIdle   = [bool]$execution.requireIdle
-            allowOnBattery = [bool]$execution.allowOnBattery
+            maxCpuPercent         = [int]$execution.maxCpuPercent
+            maxGpuPercent         = [int]$execution.maxGpuPercent
+            maxDiskActivePercent  = [int]$execution.maxDiskActivePercent
+            maxTemperatureCelsius = [int]$execution.maxTemperatureCelsius
+            diskPolicy            = 'LimitHeavyDiskStages'
+            requireIdle           = [bool]$execution.requireIdle
+            minIdleMinutes        = [int]$execution.minIdleMinutes
+            allowedStartTime      = [string]$execution.allowedStartTime
+            allowedEndTime        = [string]$execution.allowedEndTime
+            systemRulePollSeconds = [int]$execution.systemRulePollSeconds
+            allowOnBattery        = [bool]$execution.allowOnBattery
+            thermalThrottleEnabled = [bool]$execution.thermalThrottleEnabled
         }
+        systemRules    = $execution.systemRules
         priorities     = [PSCustomObject]@{
             primaryVideo   = 100
             secondaryMedia = 70
@@ -807,17 +882,40 @@ function Get-BackupCommandProgressLogPath {
     return Join-Path -Path $progressRoot -ChildPath ("{0}.ffprogress.log" -f $CommandId)
 }
 
+function Get-BackupCommandProcessIdPath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$JobId,
+        [Parameter(Mandatory)]
+        [string]$CommandId
+    )
+
+    $progressRoot = New-RenderKitStorageDirectory -Path (
+        Join-Path -Path (Get-BackupJobStateRoot -JobId $JobId) -ChildPath 'progress'
+    )
+
+    return Join-Path -Path $progressRoot -ChildPath ("{0}.pid" -f $CommandId)
+}
+
 function Set-BackupCommandProgressMetadata {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [string]$JobId,
-        [object[]]$Commands
+        [object[]]$Commands,
+        [ValidateRange(1, 100)]
+        [int]$MaxAttemptsPerChunk = 3,
+        [ValidateRange(0, 3600)]
+        [int]$RetryDelaySeconds = 1
     )
 
     foreach ($command in @($Commands)) {
         $stage = Get-BackupCommandProgressStage -Command $command
         $logPath = Get-BackupCommandProgressLogPath `
+            -JobId $JobId `
+            -CommandId ([string]$command.id)
+        $pidPath = Get-BackupCommandProcessIdPath `
             -JobId $JobId `
             -CommandId ([string]$command.id)
         $command | Add-Member `
@@ -829,10 +927,294 @@ function Set-BackupCommandProgressMetadata {
                 stageKind       = [string]$stage.kind
                 unit            = [string]$stage.unit
                 logPath         = $logPath
+                pidPath         = $pidPath
                 supportsFfmpegProgress = [string]$stage.kind -like 'Ffmpeg*'
                 state           = 'Planned'
             }) `
             -Force
+        $isRetryableChunk = [string]$command.type -eq 'EncodeChunk'
+        $command | Add-Member `
+            -NotePropertyName control `
+            -NotePropertyValue ([PSCustomObject]@{
+                schemaVersion     = '1.0'
+                retryable         = [bool]$isRetryableChunk
+                maxAttempts       = if ($isRetryableChunk) { [int]$MaxAttemptsPerChunk } else { 1 }
+                attempts          = if ($command.PSObject.Properties.Name -contains 'attempts') { [int]$command.attempts } else { 0 }
+                retryDelaySeconds = [int]$RetryDelaySeconds
+                resumeMode        = 'SkipCompletedChunksFromChunkIndex'
+                state             = [string]$command.state
+            }) `
+            -Force
+    }
+}
+
+function Get-BackupCommandProcessId {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Command
+    )
+
+    if (-not $Command.progress -or
+        [string]::IsNullOrWhiteSpace([string]$Command.progress.pidPath) -or
+        -not (Test-Path -LiteralPath ([string]$Command.progress.pidPath) -PathType Leaf)) {
+        return $null
+    }
+
+    $text = Get-Content -LiteralPath ([string]$Command.progress.pidPath) -Raw -ErrorAction SilentlyContinue
+    $pid = 0
+    if ([int]::TryParse(([string]$text).Trim(), [ref]$pid) -and $pid -gt 0) {
+        return $pid
+    }
+
+    return $null
+}
+
+function Invoke-BackupProcessControl {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('Pause', 'Resume', 'Stop')]
+        [string]$Action,
+        [Parameter(Mandatory)]
+        [object[]]$Commands
+    )
+
+    $affected = New-Object System.Collections.Generic.List[int]
+    foreach ($command in @($Commands)) {
+        $pid = Get-BackupCommandProcessId -Command $command
+        if ($null -eq $pid) {
+            continue
+        }
+
+        $process = Get-Process -Id $pid -ErrorAction SilentlyContinue
+        if (-not $process) {
+            continue
+        }
+
+        if ($Action -eq 'Stop') {
+            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+            $affected.Add([int]$pid)
+            continue
+        }
+
+        $commandName = if ($Action -eq 'Pause') { 'Suspend-Process' } else { 'Resume-Process' }
+        if (Get-Command -Name $commandName -ErrorAction SilentlyContinue) {
+            & $commandName -Id $pid -ErrorAction SilentlyContinue
+            $affected.Add([int]$pid)
+        }
+    }
+
+    return @($affected.ToArray())
+}
+
+function Get-BackupControlSnapshot {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Job
+    )
+
+    $control = Read-BackupControlState -JobId ([string]$Job.id)
+    $currentJob = Get-RenderKitJob -JobId ([string]$Job.id)
+    $cancelRequested = $false
+    if ($currentJob -and -not [string]::IsNullOrWhiteSpace([string]$currentJob.cancelRequestedAtUtc)) {
+        $cancelRequested = $true
+    }
+    if ($cancelRequested -and [string]$control.requestedAction -ne 'Cancel') {
+        $control.requestedAction = 'Cancel'
+        $control.state = 'CancelRequested'
+        if ([string]::IsNullOrWhiteSpace([string]$control.reason)) {
+            $control.reason = [string]$currentJob.cancelReason
+        }
+        Save-BackupControlState `
+            -JobId ([string]$Job.id) `
+            -State $control |
+            Out-Null
+    }
+
+    return $control
+}
+
+function Set-BackupControlRunning {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$JobId,
+        [string]$Reason
+    )
+
+    $control = Read-BackupControlState -JobId $JobId
+    $control.requestedAction = 'None'
+    $control.state = 'Running'
+    $control.reason = $Reason
+    Save-BackupControlState -JobId $JobId -State $control | Out-Null
+    return $control
+}
+
+function Stop-BackupJobForCancellation {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Job,
+        [string]$Reason = 'Backup job cancellation requested.',
+        [object[]]$RunningCommands = @()
+    )
+
+    Invoke-BackupProcessControl `
+        -Action Stop `
+        -Commands $RunningCommands |
+        Out-Null
+    Update-BackupJobProgressSnapshot `
+        -Job $Job `
+        -StageName 'Cancelled' `
+        -StageDisplayName 'Cancelled' `
+        -Message $Reason `
+        -Current 0 `
+        -Total 0 |
+        Out-Null
+    Set-RenderKitJobStatus `
+        -JobId ([string]$Job.id) `
+        -Status Cancelled |
+        Out-Null
+}
+
+function Wait-BackupJobControlRelease {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Job,
+        [object[]]$RunningCommands = @(),
+        [string]$Phase = 'Paused',
+        [string]$Message = 'Backup job paused.'
+    )
+
+    $pausedPids = @()
+    while ($true) {
+        $control = Get-BackupControlSnapshot -Job $Job
+        if ([string]$control.requestedAction -eq 'Cancel') {
+            Stop-BackupJobForCancellation `
+                -Job $Job `
+                -Reason $(if ($control.reason) { [string]$control.reason } else { 'Backup job cancellation requested.' }) `
+                -RunningCommands $RunningCommands
+            throw "Backup job '$($Job.id)' was cancelled."
+        }
+
+        if ([string]$control.requestedAction -ne 'Pause') {
+            if (@($pausedPids).Count -gt 0) {
+                Invoke-BackupProcessControl -Action Resume -Commands $RunningCommands | Out-Null
+            }
+            Set-BackupControlRunning `
+                -JobId ([string]$Job.id) `
+                -Reason $(if ([string]$control.requestedAction -eq 'Resume') { 'Backup job resumed.' } else { $null }) |
+                Out-Null
+            return
+        }
+
+        if (@($pausedPids).Count -eq 0) {
+            $pausedPids = @(Invoke-BackupProcessControl -Action Pause -Commands $RunningCommands)
+            $control.state = 'Paused'
+            Save-BackupControlState -JobId ([string]$Job.id) -State $control | Out-Null
+        }
+
+        Update-BackupJobProgressSnapshot `
+            -Job $Job `
+            -StageName $Phase `
+            -StageDisplayName 'Paused' `
+            -Message $Message `
+            -Current 0 `
+            -Total 0 `
+            -RunningCommands $RunningCommands |
+            Out-Null
+        Start-Sleep -Milliseconds 500
+    }
+}
+
+function Wait-BackupSystemRulesRelease {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Job,
+        [object]$Rules,
+        [object[]]$RunningCommands = @(),
+        [ValidateRange(1, 64)]
+        [int]$BaseWorkerLimit = 1,
+        [string]$Phase = 'WaitingForSystemRules',
+        [string]$Message = 'Waiting for system rules.'
+    )
+
+    $pausedForRules = $false
+    while ($true) {
+        $control = Get-BackupControlSnapshot -Job $Job
+        if ([string]$control.requestedAction -eq 'Cancel') {
+            Stop-BackupJobForCancellation `
+                -Job $Job `
+                -Reason $(if ($control.reason) { [string]$control.reason } else { 'Backup job cancellation requested.' }) `
+                -RunningCommands $RunningCommands
+            throw "Backup job '$($Job.id)' was cancelled."
+        }
+        if ([string]$control.requestedAction -eq 'Pause') {
+            Wait-BackupJobControlRelease `
+                -Job $Job `
+                -RunningCommands $RunningCommands `
+                -Phase $Phase `
+                -Message 'Backup job paused.'
+        }
+
+        $decision = Test-RenderKitSystemRules `
+            -Rules $Rules `
+            -BaseWorkerLimit $BaseWorkerLimit
+
+        if ([bool]$decision.canRun) {
+            if ($pausedForRules) {
+                Invoke-BackupProcessControl `
+                    -Action Resume `
+                    -Commands $RunningCommands |
+                    Out-Null
+            }
+            if ([bool]$decision.shouldThrottle) {
+                $throttledReasons = @($decision.throttledBy | ForEach-Object { [string]$_.reason })
+                Update-BackupJobProgressSnapshot `
+                    -Job $Job `
+                    -StageName $Phase `
+                    -StageDisplayName 'System rules throttled' `
+                    -Message ("System rules throttled worker pool to {0}/{1}: {2}" -f [int]$decision.effectiveWorkerLimit, $BaseWorkerLimit, (($throttledReasons | Where-Object { $_ }) -join ', ')) `
+                    -Current 0 `
+                    -Total 0 `
+                    -RunningCommands $RunningCommands |
+                    Out-Null
+            }
+            return $decision
+        }
+
+        $blockedReasons = @($decision.blockedBy | ForEach-Object { [string]$_.reason })
+        $reasonText = (($blockedReasons | Where-Object { $_ }) -join ', ')
+        if ([string]::IsNullOrWhiteSpace($reasonText)) {
+            $reasonText = 'SystemRuleBlocked'
+        }
+
+        if (@($RunningCommands).Count -gt 0 -and
+            $Rules -and
+            $Rules.PSObject.Properties.Name -contains 'throttling' -and
+            $Rules.throttling -and
+            [bool]$Rules.throttling.pauseWhenBlocked) {
+            Invoke-BackupProcessControl `
+                -Action Pause `
+                -Commands $RunningCommands |
+                Out-Null
+            $pausedForRules = $true
+        }
+
+        Update-BackupJobProgressSnapshot `
+            -Job $Job `
+            -StageName $Phase `
+            -StageDisplayName 'Waiting for system rules' `
+            -Message ("{0}: {1}" -f $Message, $reasonText) `
+            -Current 0 `
+            -Total 0 `
+            -RunningCommands $RunningCommands |
+            Out-Null
+        Start-Sleep -Seconds ([Math]::Max(1, [int]$decision.waitSeconds))
     }
 }
 
@@ -1195,6 +1577,7 @@ function New-BackupEncodingPlan {
     $merges = New-Object System.Collections.Generic.List[object]
     $proxyCommands = New-Object System.Collections.Generic.List[object]
     $previewCommands = New-Object System.Collections.Generic.List[object]
+    $completedChunkIndex = Get-BackupCompletedChunkIndex -JobId ([string]$Job.id)
     $chunks = @()
     if ($Payload.chunkPlan -and $Payload.chunkPlan.chunks) {
         $chunks = @($Payload.chunkPlan.chunks)
@@ -1212,6 +1595,18 @@ function New-BackupEncodingPlan {
             -JobId ([string]$Job.id) `
             -Chunk $chunk `
             -Extension ([string]$profile.container)
+        $chunkState = 'Planned'
+        $chunkAttempts = if ($chunk.PSObject.Properties.Name -contains 'attempts') { [int]$chunk.attempts } else { 0 }
+        if ($completedChunkIndex.ContainsKey([string]$chunk.id)) {
+            $completedEntry = $completedChunkIndex[[string]$chunk.id]
+            if (-not [string]::IsNullOrWhiteSpace([string]$completedEntry.outputPath)) {
+                $outputPath = [string]$completedEntry.outputPath
+            }
+            $chunkState = 'Completed'
+            if ($completedEntry.PSObject.Properties.Name -contains 'attempts') {
+                $chunkAttempts = [int]$completedEntry.attempts
+            }
+        }
         $commands.Add([PSCustomObject]@{
             id              = "encode-$($chunk.id)"
             type            = 'EncodeChunk'
@@ -1229,7 +1624,8 @@ function New-BackupEncodingPlan {
                     -Chunk $chunk `
                     -Profile $profile `
                     -OutputPath $outputPath)
-            state           = 'Planned'
+            state           = $chunkState
+            attempts        = $chunkAttempts
         })
     }
 
@@ -1336,7 +1732,9 @@ function New-BackupEncodingPlan {
         -PreviewCommands @($previewCommands.ToArray())
     Set-BackupCommandProgressMetadata `
         -JobId ([string]$Job.id) `
-        -Commands (@($commands.ToArray()) + @($merges.ToArray()) + @($proxyCommands.ToArray()) + @($previewCommands.ToArray()))
+        -Commands (@($commands.ToArray()) + @($merges.ToArray()) + @($proxyCommands.ToArray()) + @($previewCommands.ToArray())) `
+        -MaxAttemptsPerChunk $(if ($Payload.control -and $Payload.control.retry -and $Payload.control.retry.maxAttemptsPerChunk) { [int]$Payload.control.retry.maxAttemptsPerChunk } else { 3 }) `
+        -RetryDelaySeconds $(if ($Payload.control -and $Payload.control.retry -and $Payload.control.retry.retryDelaySeconds) { [int]$Payload.control.retry.retryDelaySeconds } else { 1 })
 
     return [PSCustomObject]@{
         schemaVersion = '1.0'
@@ -1645,6 +2043,152 @@ function Select-BackupScheduledCommand {
     return $null
 }
 
+function Get-BackupScheduledCommandAttempts {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Command
+    )
+
+    if ($Command.control -and $Command.control.PSObject.Properties.Name -contains 'attempts') {
+        return [int]$Command.control.attempts
+    }
+    if ($Command.PSObject.Properties.Name -contains 'attempts') {
+        return [int]$Command.attempts
+    }
+
+    return 0
+}
+
+function Set-BackupScheduledCommandState {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Command,
+        [Parameter(Mandatory)]
+        [ValidateSet('Planned', 'Running', 'Completed', 'Failed', 'RetryScheduled', 'Skipped')]
+        [string]$State,
+        [Nullable[int]]$Attempts
+    )
+
+    $Command | Add-Member -NotePropertyName state -NotePropertyValue $State -Force
+    if ($Command.progress) {
+        $Command.progress.state = $State
+    }
+    if ($Command.control) {
+        $Command.control.state = $State
+        if ($null -ne $Attempts) {
+            $Command.control.attempts = [int]$Attempts
+        }
+    }
+    if ($null -ne $Attempts) {
+        $Command | Add-Member -NotePropertyName attempts -NotePropertyValue ([int]$Attempts) -Force
+    }
+}
+
+function Start-BackupScheduledCommandAttempt {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Job,
+        [Parameter(Mandatory)]
+        [object]$Command
+    )
+
+    $attempts = (Get-BackupScheduledCommandAttempts -Command $Command) + 1
+    Set-BackupScheduledCommandState -Command $Command -State Running -Attempts $attempts
+    if ([string]$Command.type -eq 'EncodeChunk') {
+        Update-BackupChunkIndexEntry `
+            -JobId ([string]$Job.id) `
+            -ChunkId ([string]$Command.chunkId) `
+            -State Running `
+            -OutputPath ([string]$Command.outputPath) `
+            -Attempts $attempts |
+            Out-Null
+    }
+
+    return $attempts
+}
+
+function Complete-BackupScheduledCommandAttempt {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Job,
+        [Parameter(Mandatory)]
+        [object]$Command
+    )
+
+    $attempts = Get-BackupScheduledCommandAttempts -Command $Command
+    Set-BackupScheduledCommandState -Command $Command -State Completed -Attempts $attempts
+    if ([string]$Command.type -eq 'EncodeChunk') {
+        Update-BackupChunkIndexEntry `
+            -JobId ([string]$Job.id) `
+            -ChunkId ([string]$Command.chunkId) `
+            -State Completed `
+            -OutputPath ([string]$Command.outputPath) `
+            -Attempts $attempts |
+            Out-Null
+    }
+}
+
+function Fail-BackupScheduledCommandAttempt {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Job,
+        [Parameter(Mandatory)]
+        [object]$Command,
+        [Parameter(Mandatory)]
+        [ValidateSet('Failed', 'RetryScheduled')]
+        [string]$State,
+        [string]$ErrorMessage
+    )
+
+    $attempts = Get-BackupScheduledCommandAttempts -Command $Command
+    Set-BackupScheduledCommandState -Command $Command -State $State -Attempts $attempts
+    if ([string]$Command.type -eq 'EncodeChunk') {
+        Update-BackupChunkIndexEntry `
+            -JobId ([string]$Job.id) `
+            -ChunkId ([string]$Command.chunkId) `
+            -State $State `
+            -OutputPath ([string]$Command.outputPath) `
+            -Attempts $attempts `
+            -ErrorMessage $ErrorMessage |
+            Out-Null
+    }
+}
+
+function Test-BackupScheduledCommandCanRetry {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Command
+    )
+
+    if (-not $Command.control -or -not [bool]$Command.control.retryable) {
+        return $false
+    }
+
+    $attempts = Get-BackupScheduledCommandAttempts -Command $Command
+    $maxAttempts = if ($Command.control.maxAttempts) { [int]$Command.control.maxAttempts } else { 1 }
+    return $attempts -lt $maxAttempts
+}
+
+function Get-BackupScheduledCommandRetryDelay {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Command
+    )
+
+    if ($Command.control -and $Command.control.retryDelaySeconds) {
+        return [Math]::Max(0, [int]$Command.control.retryDelaySeconds)
+    }
+
+    return 0
+}
+
 function Invoke-BackupScheduledCommandSerial {
     [CmdletBinding()]
     param(
@@ -1718,6 +2262,21 @@ function Start-BackupScheduledThreadJob {
         -ScriptBlock {
             param($ScheduledCommand)
 
+            function ConvertTo-BackupProcessArgumentText {
+                param([string[]]$Arguments)
+
+                $escaped = foreach ($argument in @($Arguments)) {
+                    if ($argument -match '[\s"]') {
+                        '"' + ($argument -replace '"', '\"') + '"'
+                    }
+                    else {
+                        $argument
+                    }
+                }
+
+                return ($escaped -join ' ')
+            }
+
             $progressLogPath = if ($ScheduledCommand.progress -and $ScheduledCommand.progress.logPath) {
                 [string]$ScheduledCommand.progress.logPath
             }
@@ -1733,18 +2292,67 @@ function Start-BackupScheduledThreadJob {
                 Set-Content -LiteralPath $progressLogPath -Value @() -Encoding UTF8
             }
 
-            $lines = & ([string]$ScheduledCommand.executable) @($ScheduledCommand.arguments) 2>$null |
-                ForEach-Object {
-                    $line = [string]$_
-                    if (-not [string]::IsNullOrWhiteSpace($progressLogPath)) {
-                        Add-Content -LiteralPath $progressLogPath -Value $line -Encoding UTF8
-                    }
-                    $line
+            $pidPath = if ($ScheduledCommand.progress -and $ScheduledCommand.progress.pidPath) {
+                [string]$ScheduledCommand.progress.pidPath
+            }
+            else {
+                $null
+            }
+
+            $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
+            $processInfo.FileName = [string]$ScheduledCommand.executable
+            $processInfo.UseShellExecute = $false
+            $processInfo.RedirectStandardOutput = $true
+            $processInfo.RedirectStandardError = $true
+            $processInfo.CreateNoWindow = $true
+            try {
+                foreach ($argument in @($ScheduledCommand.arguments)) {
+                    $processInfo.ArgumentList.Add([string]$argument)
                 }
+            }
+            catch {
+                $processInfo.Arguments = ConvertTo-BackupProcessArgumentText -Arguments @($ScheduledCommand.arguments)
+            }
+
+            $process = [System.Diagnostics.Process]::new()
+            $process.StartInfo = $processInfo
+            $errorLines = New-Object System.Collections.Generic.List[string]
+            $process.add_ErrorDataReceived({
+                    param($sender, $eventArgs)
+                    if (-not [string]::IsNullOrWhiteSpace($eventArgs.Data)) {
+                        $errorLines.Add([string]$eventArgs.Data)
+                    }
+                })
+            [void]$process.Start()
+            if (-not [string]::IsNullOrWhiteSpace($pidPath)) {
+                $pidFolder = Split-Path -Path $pidPath -Parent
+                if (-not [string]::IsNullOrWhiteSpace($pidFolder) -and
+                    -not (Test-Path -LiteralPath $pidFolder -PathType Container)) {
+                    New-Item -ItemType Directory -Path $pidFolder -Force | Out-Null
+                }
+                Set-Content -LiteralPath $pidPath -Value ([string]$process.Id) -Encoding UTF8
+            }
+            $process.BeginErrorReadLine()
+
+            $lines = New-Object System.Collections.Generic.List[string]
+            while (-not $process.StandardOutput.EndOfStream) {
+                $line = $process.StandardOutput.ReadLine()
+                if ($null -eq $line) {
+                    continue
+                }
+                $lines.Add([string]$line)
+                if (-not [string]::IsNullOrWhiteSpace($progressLogPath)) {
+                    Add-Content -LiteralPath $progressLogPath -Value ([string]$line) -Encoding UTF8
+                }
+            }
+            $process.WaitForExit()
+
             [PSCustomObject]@{
                 commandId = [string]$ScheduledCommand.id
-                exitCode  = [int]$LASTEXITCODE
-                output    = @($lines)
+                processId = [int]$process.Id
+                exitCode  = [int]$process.ExitCode
+                output    = @($lines.ToArray())
+                error     = @($errorLines.ToArray())
             }
         }
 }
@@ -1773,6 +2381,30 @@ function Invoke-BackupScheduledCommandBatch {
         }
     }
 
+    $alreadyCompleted = @($commandList | Where-Object { [string]$_.state -eq 'Completed' })
+    $commandsToRun = @($commandList | Where-Object { [string]$_.state -ne 'Completed' })
+    $completedParallel = @($alreadyCompleted).Count
+    if ($completedParallel -gt 0) {
+        Update-BackupJobProgressSnapshot `
+            -Job $Job `
+            -StageName $Phase `
+            -StageDisplayName $MessageVerb `
+            -Message ("{0} resume skipped {1}/{2} already completed item(s)" -f $MessageVerb, $completedParallel, $total) `
+            -Current $completedParallel `
+            -Total $total `
+            -Percent ([Math]::Round(([double]$completedParallel / [double]$total) * 100, 2)) |
+            Out-Null
+    }
+    if (@($commandsToRun).Count -eq 0) {
+        return [PSCustomObject]@{
+            completedCount = $completedParallel
+            skippedCount   = $completedParallel
+            usedParallel   = $false
+            workerLimit    = 0
+            fallback       = 'AlreadyCompleted'
+        }
+    }
+
     $threadJobCommand = Get-Command -Name Start-ThreadJob -ErrorAction SilentlyContinue
     $workerLimit = if ($Scheduler -and $Scheduler.workerPool) {
         [Math]::Max(1, [int]$Scheduler.workerPool.maxWorkers)
@@ -1780,140 +2412,290 @@ function Invoke-BackupScheduledCommandBatch {
     else {
         1
     }
-    $canParallelize = $workerLimit -gt 1 -and $null -ne $threadJobCommand
-    if (-not $canParallelize) {
-        $completed = 0
-        foreach ($command in @($commandList)) {
-            Invoke-BackupScheduledCommandSerial `
-                -Job $Job `
-                -Command $command `
-                -Completed $completed `
-                -Total $total `
-                -Phase $Phase `
-                -MessageVerb $MessageVerb `
-                -ParseProgress:$ParseProgress
-            $completed++
-            Update-BackupJobProgressSnapshot `
-                -Job $Job `
-                -StageName $Phase `
-                -StageDisplayName $MessageVerb `
-                -Message ("{0} complete {1}/{2}" -f $MessageVerb, $completed, $total) `
-                -Current $completed `
-                -Total $total |
-                Out-Null
+    $systemRules = if ($Scheduler -and $Scheduler.PSObject.Properties.Name -contains 'systemRules') {
+        $Scheduler.systemRules
+    }
+    else {
+        $null
+    }
+    $lastSystemRuleDecision = $null
+    $canUseThreadJobs = $null -ne $threadJobCommand
+    if (-not $canUseThreadJobs) {
+        $completed = $completedParallel
+        foreach ($command in @($commandsToRun)) {
+            $done = $false
+            while (-not $done) {
+                Wait-BackupJobControlRelease `
+                    -Job $Job `
+                    -RunningCommands @() `
+                    -Phase $Phase `
+                    -Message ("{0} paused." -f $MessageVerb)
+                $lastSystemRuleDecision = Wait-BackupSystemRulesRelease `
+                    -Job $Job `
+                    -Rules $systemRules `
+                    -RunningCommands @() `
+                    -BaseWorkerLimit 1 `
+                    -Phase 'WaitingForSystemRules' `
+                    -Message ("{0} waiting for system rules" -f $MessageVerb)
+                Start-BackupScheduledCommandAttempt -Job $Job -Command $command | Out-Null
+                try {
+                    Invoke-BackupScheduledCommandSerial `
+                        -Job $Job `
+                        -Command $command `
+                        -Completed $completed `
+                        -Total $total `
+                        -Phase $Phase `
+                        -MessageVerb $MessageVerb `
+                        -ParseProgress:$ParseProgress
+                    Complete-BackupScheduledCommandAttempt -Job $Job -Command $command
+                    $completed++
+                    $done = $true
+                    Update-BackupJobProgressSnapshot `
+                        -Job $Job `
+                        -StageName $Phase `
+                        -StageDisplayName $MessageVerb `
+                        -Message ("{0} complete {1}/{2}" -f $MessageVerb, $completed, $total) `
+                        -Command $command `
+                        -Current $completed `
+                        -Total $total `
+                        -Percent ([Math]::Round(([double]$completed / [double]$total) * 100, 2)) |
+                        Out-Null
+                }
+                catch {
+                    $errorMessage = $_.Exception.Message
+                    if (Test-BackupScheduledCommandCanRetry -Command $command) {
+                        Fail-BackupScheduledCommandAttempt `
+                            -Job $Job `
+                            -Command $command `
+                            -State RetryScheduled `
+                            -ErrorMessage $errorMessage
+                        Update-BackupJobProgressSnapshot `
+                            -Job $Job `
+                            -StageName $Phase `
+                            -StageDisplayName $MessageVerb `
+                            -Message ("{0} retry scheduled for {1} after attempt {2}" -f $MessageVerb, [string]$command.id, (Get-BackupScheduledCommandAttempts -Command $command)) `
+                            -Command $command `
+                            -Current $completed `
+                            -Total $total |
+                            Out-Null
+                        $delay = Get-BackupScheduledCommandRetryDelay -Command $command
+                        if ($delay -gt 0) {
+                            Start-Sleep -Seconds $delay
+                        }
+                        Set-BackupScheduledCommandState -Command $command -State Planned -Attempts (Get-BackupScheduledCommandAttempts -Command $command)
+                        continue
+                    }
+
+                    Fail-BackupScheduledCommandAttempt `
+                        -Job $Job `
+                        -Command $command `
+                        -State Failed `
+                        -ErrorMessage $errorMessage
+                    throw
+                }
+            }
         }
 
         return [PSCustomObject]@{
             completedCount = $completed
+            skippedCount   = $completedParallel
             usedParallel   = $false
             workerLimit    = 1
-            fallback       = if ($workerLimit -le 1) { 'SingleWorker' } else { 'StartThreadJobUnavailable' }
+            systemRules    = [PSCustomObject]@{
+                enforced     = $null -ne $systemRules
+                lastDecision = $lastSystemRuleDecision
+            }
+            fallback       = 'StartThreadJobUnavailable'
         }
     }
 
     $pending = [System.Collections.ArrayList]::new()
-    foreach ($command in @($commandList)) {
+    foreach ($command in @($commandsToRun)) {
         [void]$pending.Add($command)
     }
     $running = @{}
-    $completedParallel = 0
 
-    while ($pending.Count -gt 0 -or $running.Count -gt 0) {
-        while ($pending.Count -gt 0 -and $running.Count -lt $workerLimit) {
-            $next = Select-BackupScheduledCommand `
-                -PendingCommands @($pending) `
-                -RunningCommands @($running.Values)
-            if (-not $next) {
+    try {
+        while ($pending.Count -gt 0 -or $running.Count -gt 0) {
+            Wait-BackupJobControlRelease `
+                -Job $Job `
+                -RunningCommands @($running.Values | ForEach-Object { $_.command }) `
+                -Phase $Phase `
+                -Message ("{0} paused." -f $MessageVerb)
+            $lastSystemRuleDecision = Wait-BackupSystemRulesRelease `
+                -Job $Job `
+                -Rules $systemRules `
+                -RunningCommands @($running.Values | ForEach-Object { $_.command }) `
+                -BaseWorkerLimit $workerLimit `
+                -Phase 'WaitingForSystemRules' `
+                -Message ("{0} waiting for system rules" -f $MessageVerb)
+            $effectiveWorkerLimit = [Math]::Max(1, [int]$lastSystemRuleDecision.effectiveWorkerLimit)
+
+            while ($pending.Count -gt 0 -and $running.Count -lt $effectiveWorkerLimit) {
+                $next = Select-BackupScheduledCommand `
+                    -PendingCommands @($pending) `
+                    -RunningCommands @($running.Values | ForEach-Object { $_.command })
+                if (-not $next) {
+                    break
+                }
+
+                [void]$pending.Remove($next)
+                Start-BackupScheduledCommandAttempt -Job $Job -Command $next | Out-Null
+                $startedJob = Start-BackupScheduledThreadJob -Command $next
+                $running[[string]$startedJob.Id] = [PSCustomObject]@{
+                    job     = $startedJob
+                    command = $next
+                }
+                Update-BackupJobProgressSnapshot `
+                    -Job $Job `
+                    -StageName $Phase `
+                    -StageDisplayName $MessageVerb `
+                    -Message ("{0} running {1}/{2} with {3}/{4} worker(s)" -f $MessageVerb, $completedParallel, $total, $running.Count, $effectiveWorkerLimit) `
+                    -Command $next `
+                    -Current $completedParallel `
+                    -Total $total `
+                    -RunningCommands @($running.Values | ForEach-Object { $_.command }) |
+                    Out-Null
+            }
+
+            if ($running.Count -eq 0) {
+                if ($pending.Count -gt 0) {
+                    throw "No schedulable backup command was found for phase '$Phase'."
+                }
                 break
             }
 
-            [void]$pending.Remove($next)
-            $startedJob = Start-BackupScheduledThreadJob -Command $next
-            $running[[string]$startedJob.Id] = [PSCustomObject]@{
-                job     = $startedJob
-                command = $next
-            }
-            Update-BackupJobProgressSnapshot `
-                -Job $Job `
-                -StageName $Phase `
-                -StageDisplayName $MessageVerb `
-                -Message ("{0} running {1}/{2} with {3} worker(s)" -f $MessageVerb, $completedParallel, $total, $running.Count) `
-                -Command $next `
-                -Current $completedParallel `
-                -Total $total `
-                -RunningCommands @($running.Values | ForEach-Object { $_.command }) |
-                Out-Null
-        }
-
-        if ($running.Count -eq 0) {
-            throw "No schedulable backup command was found for phase '$Phase'."
-        }
-
-        $finishedJob = Wait-Job -Job @($running.Values | ForEach-Object { $_.job }) -Any -Timeout 1
-        if (-not $finishedJob) {
-            $runningCommands = @($running.Values | ForEach-Object { $_.command })
-            $activeProgress = @($runningCommands |
-                ForEach-Object { Read-BackupFfmpegProgressLogSnapshot -Command $_ } |
-                Where-Object { $null -ne $_ })
-            $activeProgressFraction = 0.0
-            foreach ($progress in @($activeProgress)) {
-                if ($null -ne $progress.percent) {
-                    $activeProgressFraction += ([double]$progress.percent / 100.0)
+            $finishedJob = Wait-Job -Job @($running.Values | ForEach-Object { $_.job }) -Any -Timeout 1
+            if (-not $finishedJob) {
+                $runningCommands = @($running.Values | ForEach-Object { $_.command })
+                $activeProgress = @($runningCommands |
+                    ForEach-Object { Read-BackupFfmpegProgressLogSnapshot -Command $_ } |
+                    Where-Object { $null -ne $_ })
+                $activeProgressFraction = 0.0
+                foreach ($progress in @($activeProgress)) {
+                    if ($null -ne $progress.percent) {
+                        $activeProgressFraction += ([double]$progress.percent / 100.0)
+                    }
                 }
+                $overallPercent = if ($total -gt 0) {
+                    [Math]::Round(((($completedParallel + $activeProgressFraction) / $total) * 100), 2)
+                }
+                else {
+                    $null
+                }
+                $currentCommand = @($runningCommands | Select-Object -First 1)
+                $currentProgress = @($activeProgress | Select-Object -First 1)
+                Update-BackupJobProgressSnapshot `
+                    -Job $Job `
+                    -StageName $Phase `
+                    -StageDisplayName $MessageVerb `
+                    -Message ("{0} running {1}/{2} with {3}/{4} worker(s)" -f $MessageVerb, $completedParallel, $total, $running.Count, $effectiveWorkerLimit) `
+                    -Command $(if ($currentCommand.Count -gt 0) { $currentCommand[0] } else { $null }) `
+                    -Current $completedParallel `
+                    -Total $total `
+                    -Percent $overallPercent `
+                    -FfmpegProgress $(if ($currentProgress.Count -gt 0) { $currentProgress[0] } else { $null }) `
+                    -RunningCommands $runningCommands |
+                    Out-Null
+                continue
             }
-            $overallPercent = if ($total -gt 0) {
-                [Math]::Round(((($completedParallel + $activeProgressFraction) / $total) * 100), 2)
-            }
-            else {
-                $null
-            }
-            $currentCommand = @($runningCommands | Select-Object -First 1)
-            $currentProgress = @($activeProgress | Select-Object -First 1)
-            Update-BackupJobProgressSnapshot `
-                -Job $Job `
-                -StageName $Phase `
-                -StageDisplayName $MessageVerb `
-                -Message ("{0} running {1}/{2} with {3} worker(s)" -f $MessageVerb, $completedParallel, $total, $running.Count) `
-                -Command $(if ($currentCommand.Count -gt 0) { $currentCommand[0] } else { $null }) `
-                -Current $completedParallel `
-                -Total $total `
-                -Percent $overallPercent `
-                -FfmpegProgress $(if ($currentProgress.Count -gt 0) { $currentProgress[0] } else { $null }) `
-                -RunningCommands $runningCommands |
-                Out-Null
-            continue
-        }
-        foreach ($jobHandle in @($finishedJob)) {
-            $key = [string]$jobHandle.Id
-            $entry = $running[$key]
-            $result = Receive-Job -Job $jobHandle -ErrorAction Stop
-            Remove-Job -Job $jobHandle -Force -ErrorAction SilentlyContinue
-            $running.Remove($key)
+            foreach ($jobHandle in @($finishedJob)) {
+                $key = [string]$jobHandle.Id
+                $entry = $running[$key]
+                $receiveError = $null
+                $result = $null
+                try {
+                    $result = Receive-Job -Job $jobHandle -ErrorAction Stop
+                }
+                catch {
+                    $receiveError = $_.Exception.Message
+                }
+                Remove-Job -Job $jobHandle -Force -ErrorAction SilentlyContinue
+                $running.Remove($key)
 
-            if (-not $result -or [int]$result.exitCode -ne 0) {
-                throw "ffmpeg command '$($entry.command.id)' failed with exit code $($result.exitCode)."
-            }
+                $resultItems = @($result)
+                $resultObject = if ($resultItems.Count -gt 0) { $resultItems[$resultItems.Count - 1] } else { $null }
+                $exitCode = if ($resultObject -and $null -ne $resultObject.exitCode) { [int]$resultObject.exitCode } else { 1 }
+                if (-not [string]::IsNullOrWhiteSpace($receiveError) -or -not $resultObject -or $exitCode -ne 0) {
+                    $errorMessage = if (-not [string]::IsNullOrWhiteSpace($receiveError)) {
+                        $receiveError
+                    }
+                    elseif ($resultObject -and $resultObject.error -and @($resultObject.error).Count -gt 0) {
+                        (@($resultObject.error) -join [Environment]::NewLine)
+                    }
+                    else {
+                        "ffmpeg command '$($entry.command.id)' failed with exit code $exitCode."
+                    }
 
-            $completedParallel++
-            Update-BackupJobProgressSnapshot `
-                -Job $Job `
-                -StageName $Phase `
-                -StageDisplayName $MessageVerb `
-                -Message ("{0} complete {1}/{2}" -f $MessageVerb, $completedParallel, $total) `
-                -Command $entry.command `
-                -Current $completedParallel `
-                -Total $total `
-                -Percent ([Math]::Round(([double]$completedParallel / [double]$total) * 100, 2)) `
-                -RunningCommands @($running.Values | ForEach-Object { $_.command }) |
-                Out-Null
+                    if (Test-BackupScheduledCommandCanRetry -Command $entry.command) {
+                        Fail-BackupScheduledCommandAttempt `
+                            -Job $Job `
+                            -Command $entry.command `
+                            -State RetryScheduled `
+                            -ErrorMessage $errorMessage
+                        Update-BackupJobProgressSnapshot `
+                            -Job $Job `
+                            -StageName $Phase `
+                            -StageDisplayName $MessageVerb `
+                            -Message ("{0} retry scheduled for {1} after attempt {2}" -f $MessageVerb, [string]$entry.command.id, (Get-BackupScheduledCommandAttempts -Command $entry.command)) `
+                            -Command $entry.command `
+                            -Current $completedParallel `
+                            -Total $total `
+                            -RunningCommands @($running.Values | ForEach-Object { $_.command }) |
+                            Out-Null
+                        $delay = Get-BackupScheduledCommandRetryDelay -Command $entry.command
+                        if ($delay -gt 0) {
+                            Start-Sleep -Seconds $delay
+                        }
+                        Set-BackupScheduledCommandState -Command $entry.command -State Planned -Attempts (Get-BackupScheduledCommandAttempts -Command $entry.command)
+                        [void]$pending.Add($entry.command)
+                        continue
+                    }
+
+                    Fail-BackupScheduledCommandAttempt `
+                        -Job $Job `
+                        -Command $entry.command `
+                        -State Failed `
+                        -ErrorMessage $errorMessage
+                    throw $errorMessage
+                }
+
+                Complete-BackupScheduledCommandAttempt -Job $Job -Command $entry.command
+                $completedParallel++
+                Update-BackupJobProgressSnapshot `
+                    -Job $Job `
+                    -StageName $Phase `
+                    -StageDisplayName $MessageVerb `
+                    -Message ("{0} complete {1}/{2}" -f $MessageVerb, $completedParallel, $total) `
+                    -Command $entry.command `
+                    -Current $completedParallel `
+                    -Total $total `
+                    -Percent ([Math]::Round(([double]$completedParallel / [double]$total) * 100, 2)) `
+                    -RunningCommands @($running.Values | ForEach-Object { $_.command }) |
+                    Out-Null
+            }
         }
+    }
+    catch {
+        foreach ($entry in @($running.Values)) {
+            if ($entry.job) {
+                Remove-Job -Job $entry.job -Force -ErrorAction SilentlyContinue
+            }
+        }
+        throw
     }
 
     return [PSCustomObject]@{
         completedCount = $completedParallel
+        skippedCount   = @($alreadyCompleted).Count
         usedParallel   = $true
         workerLimit    = $workerLimit
-        fallback       = $null
+        effectiveWorkerLimit = if ($lastSystemRuleDecision) { [int]$lastSystemRuleDecision.effectiveWorkerLimit } else { $workerLimit }
+        systemRules    = [PSCustomObject]@{
+            enforced     = $null -ne $systemRules
+            lastDecision = $lastSystemRuleDecision
+        }
+        fallback       = if ($workerLimit -le 1) { 'SingleWorkerThreadJob' } else { $null }
     }
 }
 

@@ -59,6 +59,34 @@ Describe 'RenderKit backup command contracts' {
         $command.Parameters.Keys | Should -Contain 'RequireIdle'
     }
 
+    It 'exposes backup job control commands' {
+        Get-Command -Module RenderKit -Name Suspend-BackupProjectJob |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Resume-BackupProjectJob |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Stop-BackupProjectJob |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Start-RenderKitJobWorker |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Get-RenderKitJobStatus |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Get-RenderKitJobWorkerStatus |
+            Should -Not -BeNullOrEmpty
+
+        (Get-Command -Module RenderKit -Name Suspend-BackupProjectJob).Parameters.Keys |
+            Should -Contain 'JobId'
+        (Get-Command -Module RenderKit -Name Resume-BackupProjectJob).Parameters.Keys |
+            Should -Contain 'Reason'
+        (Get-Command -Module RenderKit -Name Stop-BackupProjectJob).Parameters.Keys |
+            Should -Contain 'JobId'
+        (Get-Command -Module RenderKit -Name Start-RenderKitJobWorker).Parameters.Keys |
+            Should -Contain 'Detached'
+        (Get-Command -Module RenderKit -Name Get-RenderKitJobStatus).Parameters.Keys |
+            Should -Contain 'IncludeLogs'
+        (Get-Command -Module RenderKit -Name Get-RenderKitJobWorkerStatus).Parameters.Keys |
+            Should -Contain 'WorkerId'
+    }
+
     It 'uses only parameters supported by Get-CleanupRule' {
         $cleanupCommandParameters = @(
             $module.Invoke({

@@ -202,6 +202,7 @@ function ConvertTo-RenderKitJobVNext {
         jobSchemaVersion = '1.1'
         payloadSchemaVersion = '1.0'
         ownerWorkerId = $null
+        lastWorkerId = $null
         leaseUntilUtc = $null
         claimedAtUtc = $null
         heartbeatAtUtc = $null
@@ -499,6 +500,9 @@ function Set-RenderKitJobStatus {
                     }
                     if ($Status -in @('Succeeded', 'Failed', 'Cancelled')) {
                         $job.completedAtUtc = $now
+                        if (-not [string]::IsNullOrWhiteSpace([string]$job.ownerWorkerId)) {
+                            $job.lastWorkerId = [string]$job.ownerWorkerId
+                        }
                         $job.ownerWorkerId = $null
                         $job.leaseUntilUtc = $null
                     }
@@ -592,8 +596,21 @@ function Update-RenderKitJobProgress {
                         -Current $Current `
                         -Total $Total `
                         -Percent $Percent
-                    $job.progress.updatedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+                    $progressUpdatedAt = (Get-Date).ToUniversalTime()
+                    $job.progress.updatedAtUtc = $progressUpdatedAt.ToString('o')
                     $job.updatedAtUtc = $job.progress.updatedAtUtc
+                    if ([string]$job.status -eq 'Running' -and
+                        -not [string]::IsNullOrWhiteSpace([string]$job.ownerWorkerId)) {
+                        $leaseSeconds = 300
+                        $leaseUntil = ConvertTo-RenderKitUtcDateTime -Value $job.leaseUntilUtc
+                        $heartbeatAt = ConvertTo-RenderKitUtcDateTime -Value $job.heartbeatAtUtc
+                        if ($null -ne $leaseUntil -and $null -ne $heartbeatAt -and $leaseUntil -gt $heartbeatAt) {
+                            $leaseSeconds = [Math]::Max(1, [Math]::Min(86400, [int][Math]::Round(($leaseUntil - $heartbeatAt).TotalSeconds)))
+                        }
+                        $job.heartbeatAtUtc = $progressUpdatedAt.ToString('o')
+                        $job.leaseUntilUtc = $progressUpdatedAt.AddSeconds($leaseSeconds).ToString('o')
+                        $job.lastWorkerId = [string]$job.ownerWorkerId
+                    }
                     $found = $true
                     break
                 }
@@ -817,6 +834,7 @@ function Start-RenderKitQueuedJobLease {
             $job.heartbeatAtUtc = $now.ToString('o')
             $job.leaseUntilUtc = $now.AddSeconds($LeaseSeconds).ToString('o')
             $job.ownerWorkerId = $normalizedWorkerId
+            $job.lastWorkerId = $normalizedWorkerId
             $job.retryAfterUtc = $null
             $job.attempts = [int]$job.attempts + 1
             if ($job.progress) {
@@ -919,6 +937,9 @@ function Reset-RenderKitStaleRunningJob {
                 }
 
                 $job.status = 'Queued'
+                if (-not [string]::IsNullOrWhiteSpace([string]$job.ownerWorkerId)) {
+                    $job.lastWorkerId = [string]$job.ownerWorkerId
+                }
                 $job.ownerWorkerId = $null
                 $job.leaseUntilUtc = $null
                 $job.heartbeatAtUtc = $null
