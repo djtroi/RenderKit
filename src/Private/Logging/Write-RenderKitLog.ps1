@@ -44,6 +44,7 @@ if (!( $NoConsole )){
         }
     }
 }
+}
 function Write-RenderKitLogFileEntry {
     [CmdletBinding()]
     param(
@@ -73,5 +74,4 @@ function Write-RenderKitLogFileEntry {
     catch {
         Write-Warning "RenderKit could not write to log file '$Path': $($_.Exception.Message)"
     }
-}
 }

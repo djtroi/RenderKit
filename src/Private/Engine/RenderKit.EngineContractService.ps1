@@ -731,8 +731,8 @@ function Get-RenderKitEngineEventDetail {
         -CausationId $CausationId `
         -Source $Source
 
-    $event = Get-RenderKitDomainEvent -EventId $EventId
-    if (-not $event) {
+    $events = Get-RenderKitDomainEvent -EventId $EventId
+    if (-not $events) {
         return New-RenderKitEngineFailureResult `
             -OperationContext $context `
             -Code 'RK_NOT_FOUND' `

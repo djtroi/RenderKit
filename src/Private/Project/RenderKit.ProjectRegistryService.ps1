@@ -200,7 +200,7 @@ function Resolve-RenderKitProjectRegistryEntry {
         throw "Multiple RenderKit projects named '$ProjectName' are registered. Provide -Path to disambiguate."
     }
 
-    return $matches[0]
+    return $found[0]
 }
 
 function Repair-RenderKitProjectRegistry {
