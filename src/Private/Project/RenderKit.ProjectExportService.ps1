@@ -1,3 +1,7 @@
+if ($PSVersionTable.PSVersion.Major -le 5 -and -not ('System.IO.Compression.ZipFile' -as [type])) {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
+} # Powershell 5.1 Support guard. T_T 
+
 function ConvertTo-RenderKitProjectRelativePath {
     [CmdletBinding()]
     param(
