@@ -68,6 +68,18 @@ Plans preview thumbnail generation for encoded assets.
 .PARAMETER ChunkDurationSeconds
 Target chunk duration used by the resumable media pipeline.
 
+.PARAMETER StorageTier
+Inline storage tier definitions for cascading backup targets.
+
+.PARAMETER StorageTierProfile
+Built-in storage tier profiles to create, such as FastSSD, HDD, NAS, ColdStorage, Tape, or CloudS3.
+
+.PARAMETER StorageTierPath
+Target paths or URIs matching StorageTierProfile order.
+
+.PARAMETER ConfigureStorageTiers
+Starts an interactive CLI prompt for building storage tier targets.
+
 .PARAMETER RequireIdle
 Only lets the background media worker run when the user has been idle long enough.
 
@@ -143,6 +155,10 @@ https://github.com/djtroi/RenderKit
         [ValidateRange(10, 86400)]
         [int]$ChunkDurationSeconds = 600,
         [hashtable[]]$StorageTier,
+        [ValidateSet('FastSSD', 'HDD', 'NAS', 'ColdStorage', 'Tape', 'CloudS3')]
+        [string[]]$StorageTierProfile,
+        [string[]]$StorageTierPath,
+        [switch]$ConfigureStorageTiers,
         [ValidateRange(1, 64)]
         [int]$MaxParallelJobs = 1,
         [ValidateRange(1, 100)]
@@ -205,9 +221,42 @@ https://github.com/djtroi/RenderKit
 
     $rules = Get-CleanupRule -Preset $Preset
     $startedAt = Get-Date
+    $effectiveStorageTier = @()
+    if ($StorageTier) {
+        $effectiveStorageTier += @($StorageTier)
+    }
+    if ($StorageTierProfile) {
+        $effectiveStorageTier += @(
+            ConvertTo-BackupStorageTierProfileInput `
+                -Profile $StorageTierProfile `
+                -Path $StorageTierPath
+        )
+    }
+    if ($ConfigureStorageTiers) {
+        $effectiveStorageTier += @(
+            Read-BackupStorageTierInteractiveConfiguration
+        )
+    }
+    $effectiveDestinationRoot = $DestinationRoot
+    if ([string]::IsNullOrWhiteSpace($effectiveDestinationRoot) -and @($effectiveStorageTier).Count -gt 0) {
+        $firstTierTarget = if ($effectiveStorageTier[0].ContainsKey('Path')) {
+            [string]$effectiveStorageTier[0].Path
+        }
+        elseif ($effectiveStorageTier[0].ContainsKey('Uri')) {
+            [string]$effectiveStorageTier[0].Uri
+        }
+        else {
+            $null
+        }
+        if (-not (Test-BackupPathLooksLikeUri -Path $firstTierTarget) -and
+            -not [string]::IsNullOrWhiteSpace($firstTierTarget)) {
+            $effectiveDestinationRoot = $firstTierTarget
+        }
+    }
+
     $archiveDescriptor = Resolve-BackupArchivePath `
         -Project $project `
-        -DestinationRoot $DestinationRoot `
+        -DestinationRoot $effectiveDestinationRoot `
         -Timestamp $startedAt `
         -ArchiveFormat $ArchiveFormat
 
@@ -231,7 +280,7 @@ https://github.com/djtroi/RenderKit
         -Background:$Background `
         -DisableChunking:$DisableChunking `
         -ChunkDurationSeconds $ChunkDurationSeconds `
-        -StorageTier $StorageTier `
+        -StorageTier $effectiveStorageTier `
         -MaxParallelJobs $MaxParallelJobs `
         -MaxCpuPercent $MaxCpuPercent `
         -MaxGpuPercent $MaxGpuPercent `
@@ -301,6 +350,8 @@ https://github.com/djtroi/RenderKit
     $sourceRemoved = $false
     $integrityCheck = $null
     $sourceIntegrityIndex = $null
+    $storageVerification = $null
+    $safeDeleteDecision = $null
     $archiveLogInjection = [PSCustomObject]@{
         AddedCount = 0
         AddedEntries = @()
@@ -564,6 +615,9 @@ https://github.com/djtroi/RenderKit
                 progress         = $backupJobPayload.progress
                 control          = $backupJobPayload.control
                 background       = $backupJobPayload.background
+                storageCascade   = $backupJobPayload.storageCascade
+                copyVerify       = $backupJobPayload.copyVerify
+                safeDelete       = $backupJobPayload.safeDelete
                 mediaAnalysis    = $backupJobPayload.mediaAnalysis
                 chunkPlan        = $backupJobPayload.chunkPlan
                 resume           = $backupJobPayload.resume
@@ -573,6 +627,7 @@ https://github.com/djtroi/RenderKit
             -StorageTiers @($backupJobPayload.storageTiers) `
             -Safety ([PSCustomObject]@{
                 deletePolicy = $backupJobPayload.source.deletePolicy
+                safeDelete   = $backupJobPayload.safeDelete
             })
 
         if (-not $DryRun) {
@@ -619,7 +674,66 @@ https://github.com/djtroi/RenderKit
             Write-RenderKitLog -Level Info -Message "DryRun mode: manifest was generated in-memory but not written to disk."
         }
 
-        if ($willRemoveSource) {
+        if (-not $DryRun) {
+            $verifiedArchiveItem = Get-Item -Path $archiveDescriptor.ArchivePath -ErrorAction Stop
+            $verifiedArchiveHash = Get-FileHash -Path $archiveDescriptor.ArchivePath -Algorithm SHA256 -ErrorAction Stop
+            $archiveInfo.sizeBytes = [int64]$verifiedArchiveItem.Length
+            $archiveInfo.hashAlgorithm = 'SHA256'
+            $archiveInfo.hash = [string]$verifiedArchiveHash.Hash
+
+            $storageVerification = Invoke-BackupStorageTierCopyVerifyChain `
+                -ArchivePath $archiveDescriptor.ArchivePath `
+                -StorageTiers @($backupJobPayload.storageTiers) `
+                -StorageCascade $backupJobPayload.storageCascade `
+                -ExpectedHash ([string]$archiveInfo.hash) `
+                -ExpectedSizeBytes ([int64]$archiveInfo.sizeBytes) `
+                -Algorithm 'SHA256' `
+                -ArchiveIntegrityPassed ([bool]($integrityCheck -and $integrityCheck.IsMatch))
+            $archiveInfo.storageVerification = $storageVerification
+        }
+        else {
+            $archiveInfo.storageVerification = [PSCustomObject]@{
+                schemaVersion = '1.0'
+                state         = 'DryRun'
+                release       = [PSCustomObject]@{
+                    canReleaseSource = $false
+                    reason           = 'DryRun'
+                }
+            }
+        }
+
+        $safeDeleteDecision = Test-BackupSafeDeletePolicy `
+            -Policy $backupJobPayload.safeDelete `
+            -ArchiveInfo $archiveInfo `
+            -StorageVerification $archiveInfo.storageVerification `
+            -MergeValidations @() `
+            -DryRun ([bool]$DryRun) `
+            -DeleteRequested ([bool]$willRemoveSource)
+        $archiveInfo.safeDelete = $safeDeleteDecision
+        $statistics.source.safeDelete = @{
+            state     = [string]$safeDeleteDecision.state
+            canDelete = [bool]$safeDeleteDecision.canDelete
+            reason    = [string]$safeDeleteDecision.reason
+        }
+
+        if ($willRemoveSource -and -not [bool]$safeDeleteDecision.canDelete) {
+            $failedRuleReasons = @(
+                $safeDeleteDecision.failedRules |
+                    ForEach-Object { [string]$_.reason } |
+                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+            ) -join ','
+            if ([string]::IsNullOrWhiteSpace($failedRuleReasons)) {
+                $failedRuleReasons = [string]$safeDeleteDecision.reason
+            }
+
+            throw (
+                "Source project was not removed because safe-delete checks failed. Reason={0}; FailedRules={1}." -f
+                [string]$safeDeleteDecision.reason,
+                $failedRuleReasons
+            )
+        }
+
+        if ($willRemoveSource -and [bool]$safeDeleteDecision.canDelete) {
             Write-RenderKitLog -Level Info -Message "Removing source project folder '$projectRoot'."
 
             if ($lockHandle) {
