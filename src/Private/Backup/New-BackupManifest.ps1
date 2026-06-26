@@ -168,6 +168,11 @@ function New-BackupManifest {
                     maxAttempts = 1
                 }
             }
+            deduplication = New-BackupDeduplicationPolicy
+            reports = New-BackupReportPlan `
+                -ArchivePath ([string](Get-BackupReportObjectValue -InputObject $Archive -Name 'path')) `
+                -ReportRoot ([string](Get-BackupReportObjectValue -InputObject $Archive -Name 'destinationRoot')) `
+                -Format @('Json', 'Html', 'Text')
             safeDelete = New-BackupSafeDeletePolicy `
                 -Mode $(if ($Options.keepSourceProject) { 'KeepSource' } else { 'RemoveSourceAfterVerified' }) `
                 -RequiredStorageTierIds @()

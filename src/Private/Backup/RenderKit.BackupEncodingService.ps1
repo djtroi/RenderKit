@@ -1748,6 +1748,12 @@ function New-BackupEncodingPlan {
         -Merges @($merges.ToArray()) `
         -ProxyCommands @($proxyCommands.ToArray()) `
         -PreviewCommands @($previewCommands.ToArray())
+    if ($Payload.PSObject.Properties.Name -contains 'failureRecovery' -and $Payload.failureRecovery) {
+        Set-BackupFailureSimulationOnEncodingCommands `
+            -Commands @($commands.ToArray()) `
+            -Simulation $Payload.failureRecovery.simulation |
+            Out-Null
+    }
     Set-BackupCommandProgressMetadata `
         -JobId ([string]$Job.id) `
         -Commands (@($commands.ToArray()) + @($merges.ToArray()) + @($qualityValidation.decodeCommands) + @($qualityValidation.metricCommands | Where-Object { [string]$_.state -eq 'Planned' }) + @($proxyCommands.ToArray()) + @($previewCommands.ToArray())) `
@@ -2253,6 +2259,17 @@ function Invoke-BackupScheduledCommandSerial {
         Out-Null
 
     $ffmpegProgressState = @{}
+    $failureSimulation = Get-BackupFailureSimulation -Source $Command
+    $attempt = Get-BackupScheduledCommandAttempts -Command $Command
+    if (Test-BackupFailureSimulationShouldFail -Simulation $failureSimulation -Scenario 'CorruptChunk' -Attempt $attempt) {
+        $failureClass = New-BackupFailureClassification `
+            -Scenario 'CorruptChunk' `
+            -Stage $Phase `
+            -Attempt $attempt `
+            -Message "Simulated corrupt encoded chunk for command '$($Command.id)' on attempt $attempt."
+        throw [string]$failureClass.message
+    }
+
     Invoke-BackupFfmpegCommand -Command $Command -JobId ([string]$Job.id) |
         ForEach-Object {
             if ($ParseProgress) {
@@ -2326,6 +2343,48 @@ function Start-BackupScheduledThreadJob {
             }
             else {
                 $null
+            }
+
+            $failureSimulation = if ($ScheduledCommand.PSObject.Properties.Name -contains 'failureSimulation') {
+                $ScheduledCommand.failureSimulation
+            }
+            else {
+                $null
+            }
+            $scenarios = @()
+            if ($failureSimulation -and $failureSimulation.PSObject.Properties.Name -contains 'scenarios') {
+                $scenarios = @($failureSimulation.scenarios | ForEach-Object { [string]$_ })
+            }
+            elseif ($failureSimulation -and $failureSimulation.PSObject.Properties.Name -contains 'scenario') {
+                $scenarios = @([string]$failureSimulation.scenario)
+            }
+            $failAttempts = if ($failureSimulation -and $failureSimulation.PSObject.Properties.Name -contains 'failAttempts') {
+                [Math]::Max(1, [int]$failureSimulation.failAttempts)
+            }
+            else {
+                1
+            }
+            $attempt = if ($ScheduledCommand.control -and $ScheduledCommand.control.PSObject.Properties.Name -contains 'attempts') {
+                [int]$ScheduledCommand.control.attempts
+            }
+            elseif ($ScheduledCommand.PSObject.Properties.Name -contains 'attempts') {
+                [int]$ScheduledCommand.attempts
+            }
+            else {
+                1
+            }
+            if ($failureSimulation -and
+                ($failureSimulation.PSObject.Properties.Name -notcontains 'enabled' -or [bool]$failureSimulation.enabled) -and
+                $scenarios -contains 'CorruptChunk' -and
+                $attempt -le $failAttempts) {
+                [PSCustomObject]@{
+                    commandId = [string]$ScheduledCommand.id
+                    processId = 0
+                    exitCode  = 23
+                    output    = @()
+                    error     = @("Simulated corrupt encoded chunk for command '$($ScheduledCommand.id)' on attempt $attempt.")
+                }
+                return
             }
 
             $processInfo = [System.Diagnostics.ProcessStartInfo]::new()

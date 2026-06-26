@@ -135,6 +135,48 @@ function Test-BackupStorageTierHealth {
     }
     $checkedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
     $adapter = if ($Tier.PSObject.Properties.Name -contains 'adapter') { [string]$Tier.adapter } else { 'FileSystem' }
+    $failureSimulation = Get-BackupFailureSimulation -Source $Tier
+
+    if (Test-BackupFailureSimulationShouldFail -Simulation $failureSimulation -Scenario 'MissingTarget' -Attempt 1) {
+        return [PSCustomObject]@{
+            healthy       = $false
+            state         = 'Failed'
+            reason        = 'MissingTarget'
+            checkedAtUtc  = $checkedAtUtc
+            target        = $target
+            adapter       = $adapter
+            canWrite      = $false
+            freeBytes     = $null
+            requiredBytes = $RequiredBytes
+            failureClass  = New-BackupFailureClassification `
+                -Scenario 'MissingTarget' `
+                -Stage 'StorageHealthCheck' `
+                -Attempt 1 `
+                -Message "Simulated missing storage target for tier '$($Tier.name)'."
+            error         = "Simulated missing storage target for tier '$($Tier.name)'."
+        }
+    }
+
+    if (Test-BackupFailureSimulationShouldFail -Simulation $failureSimulation -Scenario 'FullDisk' -Attempt 1) {
+        return [PSCustomObject]@{
+            healthy       = $false
+            state         = 'InsufficientSpace'
+            reason        = 'InsufficientFreeSpace'
+            checkedAtUtc  = $checkedAtUtc
+            target        = $target
+            adapter       = $adapter
+            canWrite      = $true
+            created       = $false
+            freeBytes     = 0
+            requiredBytes = $RequiredBytes
+            failureClass  = New-BackupFailureClassification `
+                -Scenario 'FullDisk' `
+                -Stage 'StorageHealthCheck' `
+                -Attempt 1 `
+                -Message "Simulated full storage target for tier '$($Tier.name)'."
+            error         = "Simulated full storage target for tier '$($Tier.name)'."
+        }
+    }
 
     if ([string]::IsNullOrWhiteSpace($target)) {
         return [PSCustomObject]@{
@@ -266,6 +308,7 @@ function Invoke-BackupStorageTierCopyVerify {
         sourceHash      = $ExpectedHash
         targetHash      = $null
         sizeBytes       = $null
+        failureClass    = $null
         error           = $null
         completedAtUtc  = $null
     }
@@ -299,7 +342,18 @@ function Invoke-BackupStorageTierCopyVerify {
 
     for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
         $attemptStarted = (Get-Date).ToUniversalTime()
+        $failureClass = $null
         try {
+            $failureSimulation = Get-BackupFailureSimulation -Source $Tier
+            if (Test-BackupFailureSimulationShouldFail -Simulation $failureSimulation -Scenario 'TransientStorageCopy' -Attempt $attempt) {
+                $failureClass = New-BackupFailureClassification `
+                    -Scenario 'TransientStorageCopy' `
+                    -Stage 'CopyingToStorageTier' `
+                    -Attempt $attempt `
+                    -Message "Simulated transient storage copy failure for tier '$($Tier.name)' on attempt $attempt."
+                throw [string]$failureClass.message
+            }
+
             $samePath = Test-BackupPathEquivalent -Left $SourcePath -Right $targetPath
             if (-not $samePath) {
                 Copy-Item -LiteralPath $SourcePath -Destination $targetPath -Force -ErrorAction Stop
@@ -322,6 +376,7 @@ function Invoke-BackupStorageTierCopyVerify {
                     state        = 'Verified'
                     startedAtUtc = $attemptStarted.ToString('o')
                     endedAtUtc   = (Get-Date).ToUniversalTime().ToString('o')
+                    failureClass = $null
                     error        = $null
                 })
             $result.verified = $true
@@ -335,9 +390,11 @@ function Invoke-BackupStorageTierCopyVerify {
                     state        = 'Failed'
                     startedAtUtc = $attemptStarted.ToString('o')
                     endedAtUtc   = (Get-Date).ToUniversalTime().ToString('o')
+                    failureClass = $failureClass
                     error        = $_.Exception.Message
                 })
             $result.error = $_.Exception.Message
+            $result.failureClass = $failureClass
             $result.state = 'Failed'
             if ($attempt -lt $maxAttempts -and $retryDelay -gt 0) {
                 Start-Sleep -Seconds $retryDelay
