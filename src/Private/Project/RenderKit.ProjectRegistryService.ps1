@@ -141,8 +141,10 @@ function Set-RenderKitProjectRegistryEntry {
             }
 
             $remaining = @($currentRegistry.projects | Where-Object {
-                [string]$_.id -ne $entry.id -and
-                [string]$_.rootPath -ne $entry.rootPath
+                -not (
+                    [string]$_.id -eq $entry.id -and
+                    [string]$_.rootPath -eq $entry.rootPath
+                )
             })
             $currentRegistry.projects = @($remaining + $entry |
                 Sort-Object -Property name, rootPath)

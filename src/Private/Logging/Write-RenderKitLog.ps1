@@ -22,10 +22,10 @@ if (!( $script:RenderKitLoggingInitialized )) {
     $script:RenderKitBootstrapLog.Add($entry)
 }
 else {
-    Add-Content -Path $script:RenderKitLogFile -Value $entry
+    Write-RenderKitLogFileEntry -Path $script:RenderKitLogFile -Value $entry
 
-    if ( $script:RenderKitDebugMode -or $Level -eq "Debug "){
-        Add-Content -Path $script:RenderKitDebugLogFile -Value $entry
+    if ( $script:RenderKitDebugMode -or $Level -eq "Debug" ){
+        Write-RenderKitLogFileEntry -Path $script:RenderKitDebugLogFile -Value $entry
     }
 }
 
@@ -44,4 +44,33 @@ if (!( $NoConsole )){
         }
     }
 }
+function Write-RenderKitLogFileEntry {
+    [CmdletBinding()]
+    param(
+        [string]$Path,
+        [string]$Value
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return
+    }
+
+    try {
+        $logDirectory = Split-Path -Path $Path -Parent
+        if (-not [string]::IsNullOrWhiteSpace($logDirectory) -and
+            -not (Test-Path -LiteralPath $logDirectory -PathType Container)) {
+            New-Item -ItemType Directory -Path $logDirectory -Force -ErrorAction Stop |
+                Out-Null
+        }
+
+        if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+            New-Item -ItemType File -Path $Path -Force -ErrorAction Stop |
+                Out-Null
+        }
+
+        Add-Content -LiteralPath $Path -Value $Value -ErrorAction Stop
+    }
+    catch {
+        Write-Warning "RenderKit could not write to log file '$Path': $($_.Exception.Message)"
+    }
 }

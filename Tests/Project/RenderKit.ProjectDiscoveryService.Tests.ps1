@@ -121,4 +121,28 @@ Describe 'RenderKit project discovery service' {
             [string]$_.conflictStatus -eq 'DuplicateProjectId'
         }).Count | Should -Be 2
     }
+It 'marks previously discovered projects unavailable when their folder is missing on refresh' {
+        $scanRoot = Join-Path $TestDrive 'UnavailableRefresh'
+        $projectRoot = Join-Path $scanRoot 'DeletedProject'
+        New-TestRenderKitProjectFolder `
+            -ProjectRoot $projectRoot `
+            -ProjectId 'deleted-project' `
+            -ProjectName 'DeletedProject'
+        Set-RenderKitProjectSearchIndexEntry `
+            -Path $scanRoot `
+            -Kind 'ProjectParentPath' `
+            -Source 'Test' |
+            Out-Null
+
+        Invoke-RenderKitProjectDiscovery | Out-Null
+        Remove-Item -LiteralPath $projectRoot -Recurse -Force
+
+        $summary = Invoke-RenderKitProjectDiscovery
+
+        $summary.projectsDiscovered | Should -Be 0
+        $store = Read-RenderKitDiscoveredProjectStore
+        @($store.projects).Count | Should -Be 1
+        $store.projects[0].id | Should -Be 'deleted-project'
+        $store.projects[0].available | Should -BeFalse
+    }
 }

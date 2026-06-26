@@ -111,6 +111,38 @@ Describe 'RenderKit engine job operations' {
         $succeeded.data.result.artifact | Should -Be 'deliverable.zip'
     }
 
+    It 'requires actor context before mutating job progress or terminal state' {
+        $created = New-RenderKitEngineJob `
+            -JobType 'RenderKitMaintenance' `
+            -Actor $script:Actor
+        Start-RenderKitQueuedJob | Out-Null
+
+        $progress = Update-RenderKitEngineJobProgress `
+            -JobId $created.data.id `
+            -Phase 'Copying' `
+            -Message 'Copying files' `
+            -Current 5 `
+            -Total 10
+        $succeeded = Set-RenderKitEngineJobSucceeded `
+            -JobId $created.data.id `
+            -Result ([PSCustomObject]@{ artifact = 'deliverable.zip' })
+        $failed = Set-RenderKitEngineJobFailed `
+            -JobId $created.data.id `
+            -Message 'Maintenance failed.'
+        $job = Get-RenderKitJob -JobId $created.data.id
+
+        $progress.success | Should -BeFalse
+        $progress.error.code | Should -Be 'RK_ACCESS_CONTEXT_MISSING'
+        $succeeded.success | Should -BeFalse
+        $succeeded.error.code | Should -Be 'RK_ACCESS_CONTEXT_MISSING'
+        $failed.success | Should -BeFalse
+        $failed.error.code | Should -Be 'RK_ACCESS_CONTEXT_MISSING'
+        $job.status | Should -Be 'Running'
+        $job.progress.percent | Should -Be 0
+        $job.result | Should -BeNullOrEmpty
+        $job.lastError | Should -BeNullOrEmpty
+    }
+    
     It 'marks jobs as failed and retries failed jobs' {
         $created = New-RenderKitEngineJob `
             -JobType 'RenderKitMaintenance' `

@@ -25,6 +25,24 @@ Exports a RenderKit project manifest or self-contained project package.
         throw "Project root '$ProjectRoot' is not a directory."
     }
 
+    $destinationIsDirectory = Test-Path -LiteralPath $DestinationPath -PathType Container
+    $trimmedDestination = $DestinationPath.TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    if ($destinationIsDirectory -or $trimmedDestination.Length -ne $DestinationPath.Length) {
+        $destinationDirectory = if ($destinationIsDirectory) {
+            (Resolve-Path -LiteralPath $DestinationPath -ErrorAction Stop).ProviderPath
+        }
+        else {
+            [System.IO.Path]::GetFullPath($trimmedDestination)
+        }
+        $destinationExtension = if ($Mode -eq 'SelfContained') { '.rkitpkg' } else { '.rkit' }
+        $DestinationPath = Join-Path `
+            -Path $destinationDirectory `
+            -ChildPath ("{0}{1}" -f (Split-Path -Path $resolvedProjectRoot -Leaf), $destinationExtension)
+    }
+    
     $extension = [System.IO.Path]::GetExtension($DestinationPath).ToLowerInvariant()
     if ($Mode -eq 'ManifestOnly' -and $extension -ne '.rkit') {
         Write-RenderKitLog -Level Warning -Message "ManifestOnly exports should use the .rkit extension."

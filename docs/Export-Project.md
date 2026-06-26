@@ -21,7 +21,7 @@ Export-Project -ProjectRoot <string> -DestinationPath <string> [-Mode <string>] 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `-ProjectRoot` | `string` | Yes | – | Full path to the project directory. |
-| `-DestinationPath` | `string` | Yes | – | Destination path for the manifest, package, or delivery. |
+| `-DestinationPath` | `string` | Yes | – | Destination file path for the manifest/package, or an existing destination directory. Directory destinations create `<ProjectRootName>.rkit` for `ManifestOnly` exports and `<ProjectRootName>.rkitpkg` for `SelfContained` exports. |
 | `-Mode` | `string` | No | `'ManifestOnly'` | Export mode. |
 | `-CompressionMethod` | `string` | No | `'Zip'` | Compression method. |
 | `-CompressionLevel` | `string` | No | `'Optimal'` | Compression level. |
@@ -32,8 +32,11 @@ Export-Project -ProjectRoot <string> -DestinationPath <string> [-Mode <string>] 
 ## Usage
 
 ```powershell
-Export-Project -ProjectRoot "D:\Projects\ClientA" -DestinationPath "E:\Transfer\ClientA.rkitpkg" -Mode SelfContained
+Export-Project -ProjectRoot "D:\Projects\ClientA" -DestinationPath "E:\Transfer" -Mode ManifestOnly
 ```
+
+Exports `D:\Projects\ClientA` to `E:\Transfer\ClientA.rkit`.
+
 
 Before running the command, inspect its full help with `Get-Help Export-Project -Full`. For commands that support `ShouldProcess`, use `-WhatIf` before making production changes.
 

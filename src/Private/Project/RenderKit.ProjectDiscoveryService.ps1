@@ -252,7 +252,8 @@ function Invoke-RenderKitProjectDiscovery {
             -ConflictStatus $conflictStatus |
             Out-Null
     }
-
+    
+    Update-RenderKitDiscoveredProjectAvailability | Out-Null
     Update-RenderKitDiscoveredProjectConflicts | Out-Null
 
     $candidateCount = @($validCandidates).Count + @($validationFailures).Count
