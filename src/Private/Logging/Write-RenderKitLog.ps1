@@ -74,3 +74,4 @@ function Write-RenderKitLogFileEntry {
         Write-Warning "RenderKit could not write to log file '$Path': $($_.Exception.Message)"
     }
 }
+}
