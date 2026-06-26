@@ -90,10 +90,15 @@ function New-RenderKitJobProgress {
         [Nullable[double]]$Percent
     )
 
-    if ($null -eq $Percent -and $Total -gt 0) {
-        $Percent = [math]::Round(($Current / $Total) * 100, 2)
+    if ($null -eq $Percent) {
+        if ($Total -gt 0) {
+            $Percent = [math]::Round(($Current / $Total) * 100, 2)
+        }
+        else {
+            $Percent = 0
+        }
     }
-
+    
     return [PSCustomObject]@{
         phase        = $Phase
         message      = $Message
