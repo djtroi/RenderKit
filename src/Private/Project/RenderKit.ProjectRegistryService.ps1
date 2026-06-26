@@ -187,16 +187,16 @@ function Resolve-RenderKitProjectRegistryEntry {
     )
 
     $registry = Read-RenderKitProjectRegistry
-    $matches = @($registry.projects | Where-Object {
+    $found = @($registry.projects | Where-Object {
         [string]$_.name -eq $ProjectName -and
         [bool]$_.exists -and
         (Test-Path -LiteralPath ([string]$_.rootPath) -PathType Container)
     })
 
-    if ($matches.Count -eq 0) {
+    if ($found.Count -eq 0) {
         return $null
     }
-    if ($matches.Count -gt 1) {
+    if ($found.Count -gt 1) {
         throw "Multiple RenderKit projects named '$ProjectName' are registered. Provide -Path to disambiguate."
     }
 
