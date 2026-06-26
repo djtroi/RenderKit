@@ -20,6 +20,13 @@
 - Added EventStore v1.1 fields for event id aliases, event schema version, category, retention, actor context, data/payload compatibility, processing attempts, structured last errors, and reserved integrity metadata.
 - Added safe job handler metadata catalogs with handler ids, versions, descriptions, payload schema versions, capabilities, idempotency, progress support, and cancellation support without exposing executable scriptblocks.
 - Added Pester coverage for storage, persistence, artifact versioning, project registry/lifecycle, repair, domain events, event-to-job automation, durable jobs, worker leases/heartbeat, handler catalog metadata, and engine facade contracts.
+- Added `Update-RenderKitDiscoveredProjectAvailability`, which refreshes every stored discovered project’s `available` flag from the current filesystem state and updates timestamps when availability changes.
+- Added actor-context guards before `Update-RenderKitEngineJobProgress`, `Set-RenderKitEngineJobSucceeded`, and `Set-RenderKitEngineJobFailed` can mutate job state; missing actor context now returns `RK_ACCESS_CONTEXT_MISSING` before any job mutation happens.
+- Added regression coverage to verify progress/succeeded/failed mutations without actor context are rejected and leave the running job unchanged.
+- Added a guard that rejects paths containing no usable folder name, preventing empty JSON folder nodes from being written.
+- Added regression coverage for the reported leading-backslash case, verifying the resulting template starts directly with `test1`, then `test2`, then `test3`.
+- Added `Write-RenderKitLogFileEntry`, which recreates the log directory and log file if missing before appending, and converts remaining write failures into warnings instead of letting logging break commands like `Remove-Project`.
+- Added regression coverage for the reported case: initialize project logging, delete `renderkit.log`, then write another log entry without throwing and verify the file is recreated.
 
 ### Changed
 - Changed `Get-Project`to read `DiscoveredProjects.json`by default and to run internal indexed discovery only when `-Refresh`is supplied.
@@ -30,6 +37,7 @@
 - Changed project commands and import/export flows to update project registry entries and lifecycle state consistently through internal services.
 - Changed event and job documentation to describe the vNext envelopes, worker semantics, bridge behavior, and host-facing engine contracts.
 - Changed docs index pages to include storage, artifact versioning, project registry, project lifecycle, events, jobs, workers, automation, repair, and engine contracts.
+- Changed `Export-Project` parameter handling: `Export-Project` nor correctly detects if the second parameter `-DestinationPath`is an existing directory or a path ending with a `/` or `\`. In these cases it atuomatically generates the default filename `<ProjectName>.rkit` for ManifestOnly or `<ProjectName>.rkitpkg` for SelftContained inside that folder, instead of strictly expecting a file path. 
 
 ### Fixed
 - Fixed resilience of JSON state updates by introducing atomic write, lock, backup, and validation behavior for internal state files.
@@ -37,6 +45,11 @@
 - Fixed PowerShell automatic-variable sensitivity in the engine project detail lookup by avoiding `$Matches`/`$matches` naming in new facade code.
 - Fixed `Import-Project` path handling so quoted user input is normalized, supported archive paths are validated, and accidentally swapped destination/archive arguments can be recovered.
 - Fixed `Remove-Project` success logging after project deletion by clearing stale logging state when the active log target points inside the removed project.
+- Fixed project registry upsert filtering so it replaces only the exact same `id` + `rootPath` entry, instead of dropping entries that share only the same project ID or only the same root path. This preserves duplicate-ID registry entries at different roots so conflict/repair flows can see them
+- Fixed `Add-FolderToTemplate` path handling by filtering out empty path segments after splitting on `/` or `\`, so inputs like `\test1\test2\test3` no longer create a template folder node with an empty `Name`. 
+- Fixed access denied error on directory export. Fixed an issue where passing an existing folder (e.g. `C:\install`) caused `ZipFile.Open()` to mistakenly attempt to open the directory as a file. Project roots located directly under root directories or second-level paths are no longer artifically blocker by RenderKit, as long as Windows/ACL write permissions are met. 
+- Fixed project logging so `Write-RenderKitLog` no longer calls `Add-Content` directly against a potentially deleted `renderkit.log`; it now routes file writes through `Write-RenderKitLogFileEntry`.
+- Fixed the debug-level comparison typo so debug entries are written when `-Level Debug` is used.
 
 
 ## 0.3.9 - 2026-06-18

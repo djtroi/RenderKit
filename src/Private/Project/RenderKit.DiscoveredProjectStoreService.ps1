@@ -325,6 +325,54 @@ function Set-RenderKitDiscoveredProjectEntry {
     } | Select-Object -First 1)
 }
 
+function Update-RenderKitDiscoveredProjectAvailability {
+    [CmdletBinding()]
+    param()
+
+    $storePath = Get-RenderKitDiscoveredProjectsPath
+    Invoke-RenderKitJsonFileTransaction `
+        -Path $storePath `
+        -DefaultValue (New-RenderKitDiscoveredProjectStore) `
+        -Depth 10 `
+        -Validator { param($value) Test-RenderKitDiscoveredProjectStore $value } `
+        -Update {
+            param($currentStore)
+
+            if (-not ($currentStore.PSObject.Properties.Name -contains 'projects') -or
+                $null -eq $currentStore.projects) {
+                $currentStore | Add-Member -NotePropertyName projects `
+                    -NotePropertyValue @() `
+                    -Force
+            }
+
+            $now = (Get-Date).ToUniversalTime().ToString('o')
+            foreach ($project in @($currentStore.projects)) {
+                $rootPath = [string]$project.rootPath
+                $available = -not [string]::IsNullOrWhiteSpace($rootPath) -and
+                    (Test-Path -LiteralPath $rootPath -PathType Container)
+
+                if (-not ($project.PSObject.Properties.Name -contains 'available')) {
+                    $project | Add-Member `
+                        -NotePropertyName available `
+                        -NotePropertyValue ([bool]$available) `
+                        -Force
+                    $project.updatedAtUtc = $now
+                    continue
+                }
+
+                if ([bool]$project.available -ne [bool]$available) {
+                    $project.available = [bool]$available
+                    $project.updatedAtUtc = $now
+                }
+            }
+
+            $currentStore.updatedAtUtc = $now
+            return $currentStore
+        } |
+        Out-Null
+
+    return Read-RenderKitDiscoveredProjectStore
+}
 
 function Update-RenderKitDiscoveredProjectConflicts {
     [CmdletBinding()]

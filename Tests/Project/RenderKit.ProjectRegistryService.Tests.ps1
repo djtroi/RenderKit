@@ -50,6 +50,32 @@ Describe 'RenderKit project registry service' {
         $registry.projects[0].name | Should -Be 'ClientA_Renamed'
     }
 
+    It 'preserves duplicate project ids registered at different roots' {
+        $rootA = Join-Path $TestDrive 'DuplicateA'
+        $rootB = Join-Path $TestDrive 'DuplicateB'
+        New-Item -ItemType Directory -Path $rootA | Out-Null
+        New-Item -ItemType Directory -Path $rootB | Out-Null
+
+        Set-RenderKitProjectRegistryEntry `
+            -ProjectId 'duplicate-project' `
+            -ProjectName 'DuplicateA' `
+            -ProjectRoot $rootA |
+            Out-Null
+        Set-RenderKitProjectRegistryEntry `
+            -ProjectId 'duplicate-project' `
+            -ProjectName 'DuplicateB' `
+            -ProjectRoot $rootB |
+            Out-Null
+
+        $registry = Read-RenderKitProjectRegistry
+        @($registry.projects).Count | Should -Be 2
+        @($registry.projects | Where-Object {
+            [string]$_.id -eq 'duplicate-project'
+        }).Count | Should -Be 2
+        @($registry.projects.rootPath) | Should -Contain ([System.IO.Path]::GetFullPath($rootA))
+        @($registry.projects.rootPath) | Should -Contain ([System.IO.Path]::GetFullPath($rootB))
+    }
+
     It 'resolves a unique project by name' {
         $root = Join-Path $TestDrive 'ClientB'
         New-Item -ItemType Directory -Path $root | Out-Null

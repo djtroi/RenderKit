@@ -527,7 +527,14 @@ function Update-RenderKitEngineJobProgress {
         -CausationId $CausationId `
         -Source $Source
 
-    try {
+    if (-not (Test-RenderKitEngineActorContext -OperationContext $context)) {
+        return New-RenderKitEngineFailureResult `
+            -OperationContext $context `
+            -Code 'RK_ACCESS_CONTEXT_MISSING' `
+            -Message 'Updating RenderKit job progress requires an actor context.'
+    }
+
+        try {
         $job = Update-RenderKitJobProgress `
             -JobId $JobId `
             -Phase $Phase `
@@ -567,6 +574,13 @@ function Set-RenderKitEngineJobSucceeded {
         -CausationId $CausationId `
         -Source $Source
 
+        if (-not (Test-RenderKitEngineActorContext -OperationContext $context)) {
+        return New-RenderKitEngineFailureResult `
+            -OperationContext $context `
+            -Code 'RK_ACCESS_CONTEXT_MISSING' `
+            -Message 'Marking a RenderKit job as succeeded requires an actor context.'
+    }
+
     try {
         Set-RenderKitJobResult -JobId $JobId -Result $Result | Out-Null
         Set-RenderKitJobStatus -JobId $JobId -Status Succeeded
@@ -605,6 +619,13 @@ function Set-RenderKitEngineJobFailed {
         -CorrelationId $CorrelationId `
         -CausationId $CausationId `
         -Source $Source
+
+        if (-not (Test-RenderKitEngineActorContext -OperationContext $context)) {
+        return New-RenderKitEngineFailureResult `
+            -OperationContext $context `
+            -Code 'RK_ACCESS_CONTEXT_MISSING' `
+            -Message 'Marking a RenderKit job as failed requires an actor context.'
+    }
 
     try {
         Set-RenderKitJobStatus `

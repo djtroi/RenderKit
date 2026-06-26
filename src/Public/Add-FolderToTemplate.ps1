@@ -62,7 +62,14 @@ https://github.com/djtroi/RenderKit
         $json.Folders = [System.Collections.ArrayList]@($json.Folders)
     }
 
-    $parts = $FolderPath -split '[\\/]'
+    $parts = @($FolderPath -split '[\\/]' | Where-Object {
+        -not [string]::IsNullOrWhiteSpace([string]$_)
+    })
+    if ($parts.Count -eq 0) {
+        Write-RenderKitLog -Level Error -Message "Folder path '$FolderPath' does not contain a folder name."
+        throw "Folder path '$FolderPath' does not contain a folder name."
+    }
+    
     $currentLevel = $json.Folders
 
     foreach ($part in $parts) {
