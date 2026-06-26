@@ -48,6 +48,13 @@ function Invoke-BackupProjectJob {
             mergeValidationCount       = 0
             mergeValidationFailedCount = 0
             mergeValidations           = @()
+            qualityValidationCount     = 0
+            qualityValidationFailedCount = 0
+            qualityValidations         = @()
+            qualityValidation          = [PSCustomObject]@{
+                state  = 'Skipped'
+                passed = $true
+            }
             proxyAssetCount            = 0
             previewAssetCount          = 0
             scheduler                  = [PSCustomObject]@{
@@ -63,6 +70,8 @@ function Invoke-BackupProjectJob {
     $resumeState.progress.mergedAssetCount = [int]$encodingResult.mergedAssetCount
     $resumeState.progress.validatedMergedAssetCount = [int]$encodingResult.mergeValidationCount
     $resumeState.progress.failedMergeValidationCount = [int]$encodingResult.mergeValidationFailedCount
+    $resumeState.progress.qualityValidationCount = [int]$encodingResult.qualityValidationCount
+    $resumeState.progress.failedQualityValidationCount = [int]$encodingResult.qualityValidationFailedCount
     $resumeState.progress.schedulerUsedParallel = [bool]$encodingResult.scheduler.usedParallel
     $progressStatePath = Get-BackupProgressStatePath -JobId ([string]$Job.id)
     $resumeState.progress.statePath = $progressStatePath
@@ -91,6 +100,10 @@ function Invoke-BackupProjectJob {
         -NotePropertyValue @($encodingResult.mergeValidations) `
         -Force
     $resumeState | Add-Member `
+        -NotePropertyName qualityValidation `
+        -NotePropertyValue $encodingResult.qualityValidation `
+        -Force
+    $resumeState | Add-Member `
         -NotePropertyName schedulerResult `
         -NotePropertyValue $encodingResult.scheduler `
         -Force
@@ -108,6 +121,10 @@ function Invoke-BackupProjectJob {
         mergeValidationCount = [int]$encodingResult.mergeValidationCount
         mergeValidationFailedCount = [int]$encodingResult.mergeValidationFailedCount
         mergeValidations = @($encodingResult.mergeValidations)
+        qualityValidationCount = [int]$encodingResult.qualityValidationCount
+        qualityValidationFailedCount = [int]$encodingResult.qualityValidationFailedCount
+        qualityValidations = @($encodingResult.qualityValidations)
+        qualityValidation = $encodingResult.qualityValidation
         proxyAssetCount   = [int]$encodingResult.proxyAssetCount
         previewAssetCount = [int]$encodingResult.previewAssetCount
         scheduler        = $encodingResult.scheduler
@@ -116,6 +133,9 @@ function Invoke-BackupProjectJob {
             commandCount = $encodingPlan.summary.commandCount
             mergeCount   = $encodingPlan.summary.mergeCount
             mergeValidationCount = $encodingPlan.summary.mergeValidationCount
+            qualitySampleCount = $encodingPlan.summary.qualitySampleCount
+            qualityDecodeCommandCount = $encodingPlan.summary.qualityDecodeCommandCount
+            qualityMetricCommandCount = $encodingPlan.summary.qualityMetricCommandCount
             proxyCommandCount = $encodingPlan.summary.proxyCommandCount
             previewCommandCount = $encodingPlan.summary.previewCommandCount
             scheduler    = $encodingPlan.scheduler

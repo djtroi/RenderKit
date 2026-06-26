@@ -173,13 +173,18 @@ function Get-BackupEncodingProfile {
         [ValidateSet('Draft', 'Balanced', 'High', 'Smallest', 'Lossless')]
         [string]$QualityPreset = 'Balanced',
         [ValidateSet('Auto', 'AAC_128', 'AAC_192', 'Opus_96', 'Opus_128', 'Copy', 'Lossless')]
-        [string]$AudioProfile = 'Auto'
+        [string]$AudioProfile = 'Auto',
+        [object]$GpuCapabilities
     )
 
     $resolvedCodec = Resolve-BackupVideoCodec `
         -VideoCodec $VideoCodec `
         -CompressionPreset $CompressionPreset
-    $resolvedDevice = if ($EncoderDevice -eq 'Auto') { 'CPU' } else { $EncoderDevice }
+    $encoderSelection = Resolve-BackupEncoderDeviceFromCapabilities `
+        -VideoCodec $resolvedCodec `
+        -EncoderDevice $EncoderDevice `
+        -GpuCapabilities $GpuCapabilities
+    $resolvedDevice = [string]$encoderSelection.device
     $resolvedAudioProfile = Resolve-BackupAudioProfile `
         -AudioProfile $AudioProfile `
         -VideoCodec $resolvedCodec `
@@ -188,14 +193,7 @@ function Get-BackupEncodingProfile {
         -QualityPreset $QualityPreset `
         -VideoCodec $resolvedCodec
 
-    $encoderName = if ($resolvedDevice -eq 'CPU') {
-        Get-BackupCpuEncoderName -VideoCodec $resolvedCodec
-    }
-    else {
-        Get-BackupHardwareEncoderName `
-            -VideoCodec $resolvedCodec `
-            -EncoderDevice $resolvedDevice
-    }
+    $encoderName = [string]$encoderSelection.encoderName
 
     $container = if ($resolvedCodec -eq 'AV1' -or $resolvedAudioProfile -like 'Opus*' -or $resolvedAudioProfile -eq 'Lossless') {
         'mkv'
@@ -235,6 +233,7 @@ function Get-BackupEncodingProfile {
         qualityPreset   = $QualityPreset
         qualityValue    = $qualityValue
         audioProfile    = $resolvedAudioProfile
+        encoderSelection = $encoderSelection
         videoArgs       = @($videoArgs)
         audioArgs       = @(Get-BackupAudioArgs -AudioProfile $resolvedAudioProfile)
     }
@@ -1565,12 +1564,25 @@ function New-BackupEncodingPlan {
         }
     }
 
+    $gpuCapabilities = $null
+    try {
+        $gpuCapabilities = Get-BackupGpuCapabilityReport
+    }
+    catch {
+        $gpuCapabilities = New-BackupGpuCapabilityReport `
+            -EncoderNames @() `
+            -VideoControllerNames @() `
+            -DetectedCommands @() `
+            -Source 'Failed'
+    }
+
     $profile = Get-BackupEncodingProfile `
         -CompressionPreset ([string]$Payload.archive.compressionPreset) `
         -VideoCodec ([string]$encoding.videoCodec) `
         -EncoderDevice ([string]$encoding.encoderDevice) `
         -QualityPreset ([string]$encoding.qualityPreset) `
-        -AudioProfile ([string]$encoding.audioProfile)
+        -AudioProfile ([string]$encoding.audioProfile) `
+        -GpuCapabilities $gpuCapabilities
     $ffmpeg = Get-BackupFfmpegCommand
     $ffprobe = Get-BackupFfprobeCommand
     $commands = New-Object System.Collections.Generic.List[object]
@@ -1723,6 +1735,12 @@ function New-BackupEncodingPlan {
         }
     }
 
+    $qualityValidation = New-BackupQualityValidationPlan `
+        -Payload $Payload `
+        -Profile $profile `
+        -Merges @($merges.ToArray()) `
+        -FfmpegPath $(if ($ffmpeg) { [string]$ffmpeg.Source } else { 'ffmpeg' }) `
+        -JobId ([string]$Job.id)
     $scheduler = New-BackupSchedulerPlan `
         -Payload $Payload `
         -Profile $profile `
@@ -1732,7 +1750,7 @@ function New-BackupEncodingPlan {
         -PreviewCommands @($previewCommands.ToArray())
     Set-BackupCommandProgressMetadata `
         -JobId ([string]$Job.id) `
-        -Commands (@($commands.ToArray()) + @($merges.ToArray()) + @($proxyCommands.ToArray()) + @($previewCommands.ToArray())) `
+        -Commands (@($commands.ToArray()) + @($merges.ToArray()) + @($qualityValidation.decodeCommands) + @($qualityValidation.metricCommands | Where-Object { [string]$_.state -eq 'Planned' }) + @($proxyCommands.ToArray()) + @($previewCommands.ToArray())) `
         -MaxAttemptsPerChunk $(if ($Payload.control -and $Payload.control.retry -and $Payload.control.retry.maxAttemptsPerChunk) { [int]$Payload.control.retry.maxAttemptsPerChunk } else { 3 }) `
         -RetryDelaySeconds $(if ($Payload.control -and $Payload.control.retry -and $Payload.control.retry.retryDelaySeconds) { [int]$Payload.control.retry.retryDelaySeconds } else { 1 })
 
@@ -1749,11 +1767,20 @@ function New-BackupEncodingPlan {
         }
         profile       = $profile
         encoding      = $encoding
+        gpuDetection  = [PSCustomObject]@{
+            plan         = if ($encoding.PSObject.Properties.Name -contains 'gpuDetection') { $encoding.gpuDetection } else { $null }
+            capabilities = $gpuCapabilities
+            selection    = $profile.encoderSelection
+        }
+        qualityValidation = $qualityValidation
         scheduler     = $scheduler
         summary       = [PSCustomObject]@{
             commandCount        = [int]$commands.Count
             mergeCount          = [int]$merges.Count
             mergeValidationCount = [int]$merges.Count
+            qualitySampleCount  = [int]$qualityValidation.summary.sampleCount
+            qualityDecodeCommandCount = [int]$qualityValidation.summary.decodeCommandCount
+            qualityMetricCommandCount = [int]$qualityValidation.summary.metricCommandCount
             proxyCommandCount   = [int]$proxyCommands.Count
             previewCommandCount = [int]$previewCommands.Count
             requiresFfmpeg      = ([int]$commands.Count + [int]$merges.Count + [int]$proxyCommands.Count + [int]$previewCommands.Count) -gt 0
@@ -1761,6 +1788,8 @@ function New-BackupEncodingPlan {
         }
         commands      = @($commands.ToArray())
         merges        = @($merges.ToArray())
+        qualityDecodeCommands = @($qualityValidation.decodeCommands)
+        qualityMetricCommands = @($qualityValidation.metricCommands)
         proxyCommands = @($proxyCommands.ToArray())
         previewCommands = @($previewCommands.ToArray())
     }
@@ -2725,6 +2754,14 @@ function Invoke-BackupEncodingPlan {
             mergeValidationCount       = 0
             mergeValidationFailedCount = 0
             mergeValidations           = @()
+            qualityValidationCount     = 0
+            qualityValidationFailedCount = 0
+            qualityValidations         = @()
+            qualityValidation          = [PSCustomObject]@{
+                state   = 'Skipped'
+                passed  = $true
+                reason  = 'EncodingSkipped'
+            }
             proxyAssetCount            = 0
             previewAssetCount          = 0
             scheduler                  = [PSCustomObject]@{
@@ -2799,6 +2836,11 @@ function Invoke-BackupEncodingPlan {
             Out-Null
     }
 
+    $qualityValidationResult = Invoke-BackupQualityValidationPlan `
+        -Job $Job `
+        -Plan $Plan.qualityValidation `
+        -Scheduler $Plan.scheduler
+
     $proxySchedule = Invoke-BackupScheduledCommandBatch `
         -Job $Job `
         -Commands @($Plan.proxyCommands) `
@@ -2818,12 +2860,17 @@ function Invoke-BackupEncodingPlan {
         mergeValidationCount       = @($mergeValidations.ToArray()).Count
         mergeValidationFailedCount = 0
         mergeValidations           = @($mergeValidations.ToArray())
+        qualityValidationCount     = @($qualityValidationResult.decodeResults).Count
+        qualityValidationFailedCount = if ($qualityValidationResult.evaluation) { @($qualityValidationResult.evaluation.failedRules).Count } else { 0 }
+        qualityValidations         = @($qualityValidationResult.decodeResults)
+        qualityValidation          = $qualityValidationResult
         proxyAssetCount            = @($Plan.proxyCommands).Count
         previewAssetCount          = @($Plan.previewCommands).Count
         scheduler                  = [PSCustomObject]@{
-            usedParallel = [bool]($encodeSchedule.usedParallel -or $mergeSchedule.usedParallel -or $proxySchedule.usedParallel -or $previewSchedule.usedParallel)
+            usedParallel = [bool]($encodeSchedule.usedParallel -or $mergeSchedule.usedParallel -or $qualityValidationResult.decodeSchedule.usedParallel -or $proxySchedule.usedParallel -or $previewSchedule.usedParallel)
             encode       = $encodeSchedule
             merge        = $mergeSchedule
+            qualityValidation = $qualityValidationResult.decodeSchedule
             proxy        = $proxySchedule
             preview      = $previewSchedule
         }

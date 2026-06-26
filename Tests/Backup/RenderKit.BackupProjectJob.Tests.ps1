@@ -72,7 +72,13 @@ Describe 'RenderKit BackupProject job planning' {
                 Name = 'Fast SSD'
                 Path = (Join-Path $TestDrive 'fast')
                 Kind = 'LocalFileSystem'
-            }
+            } `
+            -StorageTierProfile @('HDD', 'NAS', 'CloudS3') `
+            -StorageTierPath @(
+                (Join-Path $TestDrive 'hdd'),
+                '\\nas\renderkit\SmokeProject',
+                's3://renderkit-backups/SmokeProject'
+            )
 
         $result.JobType | Should -Be 'BackupProject'
         $result.Status | Should -Be 'Queued'
@@ -81,6 +87,15 @@ Describe 'RenderKit BackupProject job planning' {
         $result.Payload.encoding.videoCodec | Should -Be 'AV1'
         $result.Payload.encoding.encoderDevice | Should -Be 'CPU'
         $result.Payload.encoding.audioProfile | Should -Be 'Opus_96'
+        $result.Payload.encoding.gpuDetection.enabled | Should -BeTrue
+        $result.Payload.encoding.gpuDetection.providers | Should -Contain 'Nvidia'
+        $result.Payload.encoding.gpuDetection.codecSupport | Should -Contain 'AV1'
+        $result.Payload.encoding.gpuDetection.cache.enabled | Should -BeTrue
+        $result.Payload.encoding.gpuDetection.benchmark.state | Should -Be 'AvailableOnWorker'
+        $result.Payload.encoding.qualityValidation.enabled | Should -BeTrue
+        $result.Payload.encoding.qualityValidation.decode.required | Should -BeTrue
+        $result.Payload.encoding.qualityValidation.metrics.names | Should -Contain 'VMAF'
+        $result.Payload.encoding.qualityValidation.thresholds.minVmaf | Should -Be 82.0
         $result.Payload.encoding.proxy.enabled | Should -BeTrue
         $result.Payload.encoding.preview.enabled | Should -BeTrue
         $result.Payload.chunking.enabled | Should -BeTrue
@@ -93,6 +108,8 @@ Describe 'RenderKit BackupProject job planning' {
         $result.Payload.scheduler.policy.primaryVideo | Should -Be 'OneChunkAtATime'
         $result.Payload.progress.source.ffmpegProgress | Should -Be 'pipe:1'
         $result.Payload.progress.metrics | Should -Contain 'EtaSeconds'
+        $result.Payload.progress.stages | Should -Contain 'QualityDecode'
+        $result.Payload.progress.stages | Should -Contain 'QualityValidationComplete'
         $result.Payload.progress.statePath | Should -Be $result.Payload.resume.progressStatePath
         Test-Path -LiteralPath (Split-Path -Path $result.Payload.progress.statePath -Parent) |
             Should -BeTrue
@@ -113,6 +130,36 @@ Describe 'RenderKit BackupProject job planning' {
             Should -BeTrue
         $result.Payload.execution.requireIdle | Should -BeTrue
         $result.Payload.storageTiers[0].name | Should -Be 'Fast SSD'
+        $result.Payload.storageTiers[0].profile | Should -Be 'FastSSD'
+        $result.Payload.storageTiers[1].profile | Should -Be 'HDD'
+        $result.Payload.storageTiers[2].profile | Should -Be 'NAS'
+        $result.Payload.storageTiers[3].profile | Should -Be 'CloudS3'
+        $result.Payload.storageTiers[0].fallback.toTierId | Should -Be $result.Payload.storageTiers[1].id
+        $result.Payload.storageTiers[3].target.kind | Should -Be 'Uri'
+        $result.Payload.storageCascade.mode | Should -Be 'Cascading'
+        $result.Payload.storageCascade.strategy | Should -Be 'FastestWritableFirstThenCascade'
+        $result.Payload.storageCascade.supportedProfiles | Should -Contain 'Tape'
+        $result.Payload.storageCascade.stages[0].action | Should -Be 'WritePrimary'
+        $result.Payload.storageCascade.stages[1].action | Should -Be 'CascadeCopy'
+        $result.Payload.copyVerify.enabled | Should -BeTrue
+        $result.Payload.copyVerify.verify.afterEveryTier | Should -BeTrue
+        $result.Payload.copyVerify.verify.releaseRequires |
+            Should -Be 'ArchiveIntegrityAndRequiredStorageTiersVerified'
+        $result.Payload.source.deletePolicy.requiresStorageCascadeVerification |
+            Should -BeTrue
+        $result.Payload.source.deletePolicy.requiresDecodeValidation |
+            Should -BeTrue
+        $result.Payload.source.deletePolicy.releaseCondition |
+            Should -Be 'ArchiveIntegrityDecodeAndRequiredStorageTiersVerified'
+        $result.Payload.safeDelete.mode | Should -Be 'RemoveSourceAfterVerified'
+        $result.Payload.safeDelete.rules.requiresArchiveIntegrity | Should -BeTrue
+        $result.Payload.safeDelete.rules.requiresDecodeValidation | Should -BeTrue
+        $result.Payload.safeDelete.rules.requiresStorageCascadeVerification | Should -BeTrue
+        $result.Payload.safeDelete.rules.requiredStorageTierIds |
+            Should -Contain $result.Payload.storageTiers[0].id
+        $result.Payload.advancedFeatures.gpuDetection.cache.enabled | Should -BeTrue
+        $result.Payload.advancedFeatures.gpuDetection.benchmark.enabled | Should -BeTrue
+        $result.Payload.advancedFeatures.qualityValidation.thresholds.minVmaf | Should -Be 82.0
         $result.Payload.mediaAnalysis.summary.mediaFileCount | Should -Be 1
         $result.Payload.resume.jobId | Should -Be $result.JobId
         Test-Path -LiteralPath $result.Payload.resume.statePath |
@@ -128,6 +175,321 @@ Describe 'RenderKit BackupProject job planning' {
             Test-Path -LiteralPath $jobs[0].payload.resume.statePath |
                 Should -BeTrue
         }
+    }
+
+    It 'builds storage tier cascade profiles with fallbacks' {
+        $cascade = InModuleScope RenderKit -Parameters @{
+            FastPath = (Join-Path $TestDrive 'fast')
+            HddPath = (Join-Path $TestDrive 'hdd')
+        } {
+            $tiers = ConvertTo-BackupProjectStorageTier `
+                -StorageTier @(
+                    @{
+                        Name = 'Fast SSD'
+                        Profile = 'FastSSD'
+                        Path = $FastPath
+                        Required = $true
+                    }
+                    @{
+                        Name = 'Nearline HDD'
+                        Profile = 'HDD'
+                        Path = $HddPath
+                    }
+                    @{
+                        Name = 'LTO Archive'
+                        Profile = 'Tape'
+                        Uri = 'ltfs://library/A00001'
+                    }
+                ) `
+                -DestinationRoot $FastPath
+            [PSCustomObject]@{
+                tiers = @($tiers)
+                plan  = New-BackupStorageCascadePlan -StorageTiers @($tiers)
+            }
+        }
+
+        $cascade.tiers.Count | Should -Be 3
+        $cascade.tiers[0].profile | Should -Be 'FastSSD'
+        $cascade.tiers[0].required | Should -BeTrue
+        $cascade.tiers[0].fallback.toTierId | Should -Be $cascade.tiers[1].id
+        $cascade.tiers[1].copy.mode | Should -Be 'CascadeFromPreviousVerifiedTier'
+        $cascade.tiers[2].adapter | Should -Be 'LTFS'
+        $cascade.tiers[2].target.kind | Should -Be 'Uri'
+        $cascade.plan.mode | Should -Be 'Cascading'
+        $cascade.plan.finalTierIds | Should -Contain $cascade.tiers[2].id
+        $cascade.plan.fallbackPolicy.defaultAction | Should -Be 'UseNextAvailableTier'
+        $cascade.plan.interactive.command | Should -Be 'Backup-Project -ConfigureStorageTiers'
+    }
+
+    It 'copies and verifies archive artifacts across required storage tiers' {
+        $verified = InModuleScope RenderKit -Parameters @{
+            SourcePath = (Join-Path $TestDrive 'primary\backup.zip')
+            Primary   = (Join-Path $TestDrive 'primary')
+            Secondary = (Join-Path $TestDrive 'secondary')
+        } {
+            New-Item -ItemType Directory -Path $Primary -Force | Out-Null
+            Set-Content -LiteralPath $SourcePath -Value 'archive-bytes' -Encoding UTF8
+            $sourceItem = Get-Item -LiteralPath $SourcePath
+            $hash = Get-FileHash -LiteralPath $SourcePath -Algorithm SHA256
+            $tiers = ConvertTo-BackupProjectStorageTier `
+                -StorageTier @(
+                    @{
+                        Name = 'Fast SSD'
+                        Profile = 'FastSSD'
+                        Path = $Primary
+                        Required = $true
+                        RetryDelaySeconds = 0
+                    }
+                    @{
+                        Name = 'Nearline HDD'
+                        Profile = 'HDD'
+                        Path = $Secondary
+                        Required = $true
+                        RetryDelaySeconds = 0
+                    }
+                ) `
+                -DestinationRoot $Primary `
+                -ArchivePath $SourcePath
+            $cascade = New-BackupStorageCascadePlan -StorageTiers @($tiers)
+            $report = Invoke-BackupStorageTierCopyVerifyChain `
+                -ArchivePath $SourcePath `
+                -StorageTiers @($tiers) `
+                -StorageCascade $cascade `
+                -ExpectedHash ([string]$hash.Hash) `
+                -ExpectedSizeBytes ([int64]$sourceItem.Length) `
+                -Algorithm SHA256 `
+                -ArchiveIntegrityPassed $true
+            [PSCustomObject]@{
+                report = $report
+                secondaryPath = Join-Path $Secondary (Split-Path -Path $SourcePath -Leaf)
+            }
+        }
+
+        $verified.report.state | Should -Be 'Verified'
+        $verified.report.summary.verifiedTierCount | Should -Be 2
+        $verified.report.release.canReleaseSource | Should -BeTrue
+        $verified.report.tiers[0].health.state | Should -Be 'Healthy'
+        $verified.report.tiers[1].copied | Should -BeTrue
+        $verified.report.tiers[1].verified | Should -BeTrue
+        Test-Path -LiteralPath $verified.secondaryPath | Should -BeTrue
+    }
+
+    It 'blocks source release when a required tier cannot be verified' {
+        $blocked = InModuleScope RenderKit -Parameters @{
+            SourcePath = (Join-Path $TestDrive 'blocked-primary\backup.zip')
+            Primary   = (Join-Path $TestDrive 'blocked-primary')
+        } {
+            New-Item -ItemType Directory -Path $Primary -Force | Out-Null
+            Set-Content -LiteralPath $SourcePath -Value 'archive-bytes' -Encoding UTF8
+            $sourceItem = Get-Item -LiteralPath $SourcePath
+            $hash = Get-FileHash -LiteralPath $SourcePath -Algorithm SHA256
+            $tiers = ConvertTo-BackupProjectStorageTier `
+                -StorageTier @(
+                    @{
+                        Name = 'Fast SSD'
+                        Profile = 'FastSSD'
+                        Path = $Primary
+                        Required = $true
+                        RetryDelaySeconds = 0
+                    }
+                    @{
+                        Name = 'Required Cloud Copy'
+                        Profile = 'CloudS3'
+                        Uri = 's3://renderkit-required/backup.zip'
+                        Required = $true
+                        RetryDelaySeconds = 0
+                    }
+                ) `
+                -DestinationRoot $Primary `
+                -ArchivePath $SourcePath
+            $cascade = New-BackupStorageCascadePlan -StorageTiers @($tiers)
+            Invoke-BackupStorageTierCopyVerifyChain `
+                -ArchivePath $SourcePath `
+                -StorageTiers @($tiers) `
+                -StorageCascade $cascade `
+                -ExpectedHash ([string]$hash.Hash) `
+                -ExpectedSizeBytes ([int64]$sourceItem.Length) `
+                -Algorithm SHA256 `
+                -ArchiveIntegrityPassed $true
+        }
+
+        $blocked.state | Should -Be 'Blocked'
+        $blocked.release.canReleaseSource | Should -BeFalse
+        $blocked.release.failedRequiredTierIds | Should -Contain 'tier-2'
+        $blocked.tiers[1].state | Should -Be 'AdapterRequired'
+    }
+
+    It 'allows safe delete only after archive, decode, and tier checks pass' {
+        $decision = InModuleScope RenderKit {
+            $policy = New-BackupSafeDeletePolicy -RequiredStorageTierIds @('tier-1', 'tier-2')
+            Test-BackupSafeDeletePolicy `
+                -Policy $policy `
+                -ArchiveInfo ([PSCustomObject]@{
+                    contentIntegrity = [PSCustomObject]@{
+                        checked = $true
+                        isMatch = $true
+                    }
+                }) `
+                -StorageVerification ([PSCustomObject]@{
+                    state = 'Verified'
+                    release = [PSCustomObject]@{
+                        canReleaseSource = $true
+                        primaryTierVerified = $true
+                        failedRequiredTierIds = @()
+                    }
+                    tiers = @(
+                        [PSCustomObject]@{ tierId = 'tier-1'; verified = $true }
+                        [PSCustomObject]@{ tierId = 'tier-2'; verified = $true }
+                    )
+                }) `
+                -MergeValidations @(
+                    [PSCustomObject]@{
+                        assetId = 'main'
+                        succeeded = $true
+                    }
+                ) `
+                -DryRun $false `
+                -DeleteRequested $true
+        }
+
+        $decision.state | Should -Be 'Allowed'
+        $decision.canDelete | Should -BeTrue
+        $decision.reason | Should -Be 'SafeDeleteChecksPassed'
+        $decision.failedRules.Count | Should -Be 0
+        $decision.passedRules.reason | Should -Contain 'DecodeValidationPassed'
+    }
+
+    It 'blocks safe delete when decode validation fails' {
+        $decision = InModuleScope RenderKit {
+            $policy = New-BackupSafeDeletePolicy -RequiredStorageTierIds @('tier-1')
+            Test-BackupSafeDeletePolicy `
+                -Policy $policy `
+                -ArchiveInfo ([PSCustomObject]@{
+                    contentIntegrity = [PSCustomObject]@{
+                        checked = $true
+                        isMatch = $true
+                    }
+                }) `
+                -StorageVerification ([PSCustomObject]@{
+                    state = 'Verified'
+                    release = [PSCustomObject]@{
+                        canReleaseSource = $true
+                        primaryTierVerified = $true
+                        failedRequiredTierIds = @()
+                    }
+                    tiers = @(
+                        [PSCustomObject]@{ tierId = 'tier-1'; verified = $true }
+                    )
+                }) `
+                -MergeValidations @(
+                    [PSCustomObject]@{
+                        assetId = 'main'
+                        succeeded = $false
+                    }
+                ) `
+                -DryRun $false `
+                -DeleteRequested $true
+        }
+
+        $decision.state | Should -Be 'Blocked'
+        $decision.canDelete | Should -BeFalse
+        $decision.failedRules.reason | Should -Contain 'DecodeValidationFailed'
+        $decision.evidence.decodeValidation.failedAssetIds | Should -Contain 'main'
+    }
+
+    It 'blocks safe delete when the policy keeps the source' {
+        $decision = InModuleScope RenderKit {
+            $policy = New-BackupSafeDeletePolicy -Mode KeepSource -RequiredStorageTierIds @('tier-1')
+            Test-BackupSafeDeletePolicy `
+                -Policy $policy `
+                -ArchiveInfo ([PSCustomObject]@{
+                    contentIntegrity = [PSCustomObject]@{
+                        checked = $true
+                        isMatch = $true
+                    }
+                }) `
+                -StorageVerification ([PSCustomObject]@{
+                    state = 'Verified'
+                    release = [PSCustomObject]@{
+                        canReleaseSource = $true
+                        primaryTierVerified = $true
+                        failedRequiredTierIds = @()
+                    }
+                    tiers = @(
+                        [PSCustomObject]@{ tierId = 'tier-1'; verified = $true }
+                    )
+                }) `
+                -MergeValidations @() `
+                -DryRun $false `
+                -DeleteRequested $true
+        }
+
+        $decision.state | Should -Be 'Blocked'
+        $decision.canDelete | Should -BeFalse
+        $decision.failedRules.reason | Should -Contain 'PolicyKeepsSource'
+    }
+
+    It 'removes the source project only after the storage verify chain succeeds' {
+        $projectParent = Join-Path $TestDrive 'verify-projects'
+        $projectRoot = Join-Path $projectParent 'VerifyProject'
+        $metadataRoot = Join-Path $projectRoot '.renderkit'
+        $primary = Join-Path $TestDrive 'verify-primary'
+        $secondary = Join-Path $TestDrive 'verify-secondary'
+        New-Item -ItemType Directory -Path $metadataRoot -Force | Out-Null
+        Set-Content `
+            -LiteralPath (Join-Path $projectRoot 'notes.txt') `
+            -Value 'notes' `
+            -Encoding UTF8
+        [PSCustomObject]@{
+            tool = 'RenderKit'
+            schemaVersion = '1.0'
+            project = [PSCustomObject]@{
+                id = 'verify-project'
+                name = 'VerifyProject'
+                createdAt = (Get-Date).ToString('o')
+            }
+            lifecycle = [PSCustomObject]@{
+                status = 'Draft'
+            }
+        } |
+            ConvertTo-Json -Depth 8 |
+            Set-Content `
+                -LiteralPath (Join-Path $metadataRoot 'project.json') `
+                -Encoding UTF8
+
+        $result = Backup-Project `
+            -ProjectName VerifyProject `
+            -Path $projectParent `
+            -DestinationRoot $primary `
+            -StorageTier @(
+                @{
+                    Name = 'Fast SSD'
+                    Profile = 'FastSSD'
+                    Path = $primary
+                    Required = $true
+                    RetryDelaySeconds = 0
+                }
+                @{
+                    Name = 'HDD'
+                    Profile = 'HDD'
+                    Path = $secondary
+                    Required = $true
+                    RetryDelaySeconds = 0
+                }
+            )
+
+        $result.SourceRemoved | Should -BeTrue
+        Test-Path -LiteralPath $projectRoot | Should -BeFalse
+        Test-Path -LiteralPath $result.BackupPath | Should -BeTrue
+        $secondaryArchive = Join-Path $secondary (Split-Path -Path $result.BackupPath -Leaf)
+        Test-Path -LiteralPath $secondaryArchive | Should -BeTrue
+        $result.Archive.storageVerification.release.canReleaseSource | Should -BeTrue
+        $result.Archive.storageVerification.summary.verifiedTierCount | Should -Be 2
+        $result.Archive.storageVerification.tiers[1].targetHash |
+            Should -Be $result.Archive.hash
+        $result.Archive.safeDelete.state | Should -Be 'Allowed'
+        $result.Archive.safeDelete.canDelete | Should -BeTrue
+        $result.Archive.safeDelete.failedRules.Count | Should -Be 0
     }
 
     It 'records pause, resume, and cancel requests for a background BackupProject job' {
@@ -400,6 +762,9 @@ Describe 'RenderKit BackupProject job planning' {
         $plan.profile.videoCodec | Should -Be 'H265'
         $plan.profile.encoderDevice | Should -Be 'CPU'
         $plan.profile.encoderName | Should -Be 'libx265'
+        $plan.profile.encoderSelection.source | Should -Be 'UserRequested'
+        $plan.gpuDetection.capabilities.cache.enabled | Should -BeTrue
+        $plan.gpuDetection.selection.device | Should -Be 'CPU'
         $plan.profile.qualityPreset | Should -Be 'High'
         $plan.profile.audioProfile | Should -Be 'AAC_192'
         $plan.summary.commandCount | Should -Be 2
@@ -790,6 +1155,111 @@ Describe 'RenderKit BackupProject job planning' {
         $profiles[2].audioArgs | Should -Contain '192k'
     }
 
+    It 'detects hardware encoder capabilities from ffmpeg encoders and GPU hints' {
+        $report = InModuleScope RenderKit {
+            $encoderNames = ConvertFrom-BackupFfmpegEncoderList -Text @(
+                ' V....D h264_nvenc           NVIDIA NVENC H.264 encoder'
+                ' V....D hevc_nvenc           NVIDIA NVENC hevc encoder'
+                ' V....D av1_nvenc            NVIDIA NVENC av1 encoder'
+                ' V....D h264_qsv             H.264 Quick Sync Video encoder'
+                ' V....D hevc_qsv             HEVC Quick Sync Video encoder'
+                ' V....D av1_qsv              AV1 Quick Sync Video encoder'
+                ' V....D h264_amf             AMD AMF H.264 encoder'
+                ' V....D hevc_amf             AMD AMF HEVC encoder'
+                ' V....D av1_amf              AMD AMF AV1 encoder'
+            )
+            New-BackupGpuCapabilityReport `
+                -EncoderNames @($encoderNames) `
+                -VideoControllerNames @(
+                    'NVIDIA GeForce RTX 4080'
+                    'Intel Arc Graphics'
+                    'AMD Radeon RX 7900'
+                ) `
+                -DetectedCommands @('nvidia-smi') `
+                -FfmpegPath 'ffmpeg' `
+                -Source 'Test'
+        }
+
+        $report.ffmpeg.encoderNames | Should -Contain 'av1_nvenc'
+        $report.summary.hardwareProviderCount | Should -Be 3
+        $report.summary.av1HardwareEncoderAvailable | Should -BeTrue
+        $nvidia = @($report.providers | Where-Object { $_.id -eq 'Nvidia' })[0]
+        $intel = @($report.providers | Where-Object { $_.id -eq 'IntelQuickSync' })[0]
+        $amd = @($report.providers | Where-Object { $_.id -eq 'AMD' })[0]
+        $nvidia.codecCapabilities.AV1.usableForAuto | Should -BeTrue
+        $intel.codecCapabilities.AV1.encoderName | Should -Be 'av1_qsv'
+        $amd.codecCapabilities.AV1.usableForAuto | Should -BeTrue
+        $report.recommendations.AV1.device | Should -Be 'Nvidia'
+    }
+
+    It 'uses GPU capabilities for automatic encoder selection' {
+        $profile = InModuleScope RenderKit {
+            $capabilities = New-BackupGpuCapabilityReport `
+                -EncoderNames @('h264_nvenc', 'hevc_nvenc', 'av1_nvenc') `
+                -VideoControllerNames @('NVIDIA GeForce RTX 4080') `
+                -DetectedCommands @('nvidia-smi') `
+                -FfmpegPath 'ffmpeg' `
+                -Source 'Test'
+            Get-BackupEncodingProfile `
+                -CompressionPreset Smallest `
+                -VideoCodec Auto `
+                -EncoderDevice Auto `
+                -QualityPreset Smallest `
+                -AudioProfile Auto `
+                -GpuCapabilities $capabilities
+        }
+
+        $profile.videoCodec | Should -Be 'AV1'
+        $profile.encoderDevice | Should -Be 'Nvidia'
+        $profile.encoderName | Should -Be 'av1_nvenc'
+        $profile.encoderSelection.source | Should -Be 'GpuCapabilityAuto'
+        $profile.audioProfile | Should -Be 'Opus_96'
+    }
+
+    It 'falls back to CPU when Auto has no usable hardware encoder for the codec' {
+        $profile = InModuleScope RenderKit {
+            $capabilities = New-BackupGpuCapabilityReport `
+                -EncoderNames @('h264_qsv', 'hevc_qsv') `
+                -VideoControllerNames @('Intel UHD Graphics') `
+                -FfmpegPath 'ffmpeg' `
+                -Source 'Test'
+            Get-BackupEncodingProfile `
+                -CompressionPreset Smallest `
+                -VideoCodec AV1 `
+                -EncoderDevice Auto `
+                -QualityPreset Balanced `
+                -AudioProfile Auto `
+                -GpuCapabilities $capabilities
+        }
+
+        $profile.videoCodec | Should -Be 'AV1'
+        $profile.encoderDevice | Should -Be 'CPU'
+        $profile.encoderName | Should -Be 'libsvtav1'
+        $profile.encoderSelection.source | Should -Be 'CpuFallback'
+        $profile.encoderSelection.reason | Should -Be 'NoUsableHardwareEncoderDetected'
+    }
+
+    It 'persists and reads the GPU capability cache' {
+        $cached = InModuleScope RenderKit -Parameters @{
+            CachePath = (Join-Path $TestDrive 'gpu-cache\gpu-capabilities.json')
+        } {
+            $report = New-BackupGpuCapabilityReport `
+                -EncoderNames @('h264_nvenc', 'hevc_nvenc', 'av1_nvenc') `
+                -VideoControllerNames @('NVIDIA RTX Test Adapter') `
+                -DetectedCommands @('nvidia-smi') `
+                -FfmpegPath 'ffmpeg' `
+                -CachePath $CachePath `
+                -Source 'Test'
+            Save-BackupGpuCapabilityCache -Report $report -Path $CachePath | Out-Null
+            Read-BackupGpuCapabilityCache -Path $CachePath
+        }
+
+        $cached | Should -Not -BeNullOrEmpty
+        $cached.cache.source | Should -Be 'Cache'
+        $cached.recommendations.AV1.device | Should -Be 'Nvidia'
+        $cached.providers[0].codecCapabilities.AV1.usableForAuto | Should -BeTrue
+    }
+
     It 'parses ffmpeg progress lines into percentages' {
         $progress = InModuleScope RenderKit {
             ConvertFrom-BackupFfmpegProgressLine `
@@ -925,6 +1395,16 @@ Describe 'RenderKit BackupProject job planning' {
                 } `
                 -Pipeline ([PSCustomObject]@{
                     archiveFormat = 'Zip'
+                    encoding = [PSCustomObject]@{
+                        videoCodec = 'Auto'
+                        encoderDevice = 'Auto'
+                        qualityPreset = 'Balanced'
+                        audioProfile = 'Auto'
+                        gpuDetection = New-BackupGpuDetectionPlan `
+                            -VideoCodec Auto `
+                            -EncoderDevice Auto `
+                            -CompressionPreset Balanced
+                    }
                     chunking = [PSCustomObject]@{
                         enabled = $true
                         durationSeconds = 600
@@ -982,6 +1462,39 @@ Describe 'RenderKit BackupProject job planning' {
                             format = 'jsonl'
                         }
                     }
+                    storageCascade = [PSCustomObject]@{
+                        schemaVersion = '1.0'
+                        enabled = $true
+                        mode = 'Cascading'
+                        strategy = 'FastestWritableFirstThenCascade'
+                        primaryTierId = 'tier-1'
+                        stages = @(
+                            [PSCustomObject]@{
+                                tierId = 'tier-1'
+                                action = 'WritePrimary'
+                            }
+                            [PSCustomObject]@{
+                                tierId = 'tier-2'
+                                action = 'CascadeCopy'
+                            }
+                        )
+                    }
+                    copyVerify = [PSCustomObject]@{
+                        schemaVersion = '1.0'
+                        enabled = $true
+                        algorithm = 'SHA256'
+                        verify = [PSCustomObject]@{
+                            afterEveryTier = $true
+                            releaseRequires = 'ArchiveIntegrityAndRequiredStorageTiersVerified'
+                            requiredTierIds = @('tier-1')
+                        }
+                        retry = [PSCustomObject]@{
+                            maxAttempts = 3
+                        }
+                    }
+                    safeDelete = New-BackupSafeDeletePolicy `
+                        -Mode KeepSource `
+                        -RequiredStorageTierIds @('tier-1')
                 }) `
                 -StorageTiers @(
                     [PSCustomObject]@{
@@ -994,6 +1507,8 @@ Describe 'RenderKit BackupProject job planning' {
         $manifest.schemaVersion | Should -Be '2.0'
         $manifest.profile.configProfile | Should -Be 'legacy'
         $manifest.pipeline.archiveFormat | Should -Be 'Zip'
+        $manifest.pipeline.encoding.gpuDetection.mode | Should -Be 'AutoSelectBestAvailable'
+        $manifest.pipeline.encoding.gpuDetection.cache.enabled | Should -BeTrue
         $manifest.pipeline.chunking.enabled | Should -BeTrue
         $manifest.pipeline.merge.validation.enabled | Should -BeTrue
         $manifest.pipeline.scheduler.maxParallelJobs | Should -Be 4
@@ -1003,7 +1518,15 @@ Describe 'RenderKit BackupProject job planning' {
         $manifest.pipeline.background.worker.startCommand | Should -Be 'Start-RenderKitJobWorker'
         $manifest.pipeline.background.recovery.crashedWorkerState | Should -Be 'DetectPreviousWorkerPid'
         $manifest.pipeline.background.logs.persistent | Should -BeTrue
+        $manifest.pipeline.storageCascade.mode | Should -Be 'Cascading'
+        $manifest.pipeline.storageCascade.stages[1].action | Should -Be 'CascadeCopy'
+        $manifest.pipeline.copyVerify.verify.afterEveryTier | Should -BeTrue
+        $manifest.pipeline.copyVerify.retry.maxAttempts | Should -Be 3
+        $manifest.pipeline.safeDelete.mode | Should -Be 'KeepSource'
+        $manifest.pipeline.safeDelete.rules.requiresDecodeValidation | Should -BeTrue
         $manifest.storageTiers[0].name | Should -Be 'Primary'
         $manifest.safety.deletePolicy.mode | Should -Be 'KeepSource'
+        $manifest.safety.safeDelete.mode | Should -Be 'KeepSource'
+        $manifest.safety.safeDelete.rules.requiresArchiveIntegrity | Should -BeTrue
     }
 }

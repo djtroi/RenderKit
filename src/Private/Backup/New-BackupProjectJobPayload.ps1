@@ -1,3 +1,298 @@
+function Resolve-BackupStorageTierProfileName {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param(
+        [string]$Profile
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Profile)) {
+        return 'LocalFileSystem'
+    }
+
+    $normalized = ([string]$Profile).Trim().ToLowerInvariant() -replace '[^a-z0-9]', ''
+    switch ($normalized) {
+        { $_ -in @('fastssd', 'ssd', 'fast') } { return 'FastSSD' }
+        { $_ -in @('hdd', 'harddisk', 'localhdd') } { return 'HDD' }
+        { $_ -in @('nas', 'networkshare', 'smb', 'nfs') } { return 'NAS' }
+        { $_ -in @('coldstorage', 'cold', 'archivevolume', 'offline') } { return 'ColdStorage' }
+        { $_ -in @('tape', 'ltfs', 'lto', 'tapelibrary') } { return 'Tape' }
+        { $_ -in @('clouds3', 's3', 'cloud', 'objectstorage') } { return 'CloudS3' }
+        { $_ -in @('localfilesystem', 'local', 'folder') } { return 'LocalFileSystem' }
+        default {
+            throw "Unknown backup storage tier profile '$Profile'. Use FastSSD, HDD, NAS, ColdStorage, Tape, or CloudS3."
+        }
+    }
+}
+
+function Get-BackupStorageTierProfile {
+    [CmdletBinding()]
+    param(
+        [string]$Profile = 'LocalFileSystem'
+    )
+
+    $profileName = Resolve-BackupStorageTierProfileName -Profile $Profile
+    switch ($profileName) {
+        'FastSSD' {
+            return [PSCustomObject]@{
+                name            = 'FastSSD'
+                displayName     = 'Fast SSD'
+                kind            = 'LocalFileSystem'
+                adapter         = 'FileSystem'
+                role            = 'Primary'
+                speedClass      = 'HotFast'
+                durabilityClass = 'WorkingCopy'
+                targetKind      = 'Path'
+                defaultRequired = $true
+                defaultVerify   = $true
+                capabilities    = @('PrimaryIngest', 'FastWrite', 'ChecksumVerify')
+            }
+        }
+        'HDD' {
+            return [PSCustomObject]@{
+                name            = 'HDD'
+                displayName     = 'HDD'
+                kind            = 'LocalFileSystem'
+                adapter         = 'FileSystem'
+                role            = 'Cascade'
+                speedClass      = 'Warm'
+                durabilityClass = 'Nearline'
+                targetKind      = 'Path'
+                defaultRequired = $false
+                defaultVerify   = $true
+                capabilities    = @('CascadeCopy', 'ChecksumVerify')
+            }
+        }
+        'NAS' {
+            return [PSCustomObject]@{
+                name            = 'NAS'
+                displayName     = 'NAS'
+                kind            = 'NetworkShare'
+                adapter         = 'SMBOrNFS'
+                role            = 'Cascade'
+                speedClass      = 'Network'
+                durabilityClass = 'SharedNearline'
+                targetKind      = 'Path'
+                defaultRequired = $false
+                defaultVerify   = $true
+                capabilities    = @('CascadeCopy', 'ChecksumVerify', 'NetworkTarget')
+            }
+        }
+        'ColdStorage' {
+            return [PSCustomObject]@{
+                name            = 'ColdStorage'
+                displayName     = 'Cold Storage'
+                kind            = 'ColdStorage'
+                adapter         = 'OfflineDisk'
+                role            = 'ColdArchive'
+                speedClass      = 'Cold'
+                durabilityClass = 'OfflineArchive'
+                targetKind      = 'Path'
+                defaultRequired = $false
+                defaultVerify   = $true
+                capabilities    = @('ColdArchive', 'ChecksumVerify', 'MayBeOffline')
+            }
+        }
+        'Tape' {
+            return [PSCustomObject]@{
+                name            = 'Tape'
+                displayName     = 'Tape Library'
+                kind            = 'TapeLibrary'
+                adapter         = 'LTFS'
+                role            = 'ColdArchive'
+                speedClass      = 'Sequential'
+                durabilityClass = 'TapeArchive'
+                targetKind      = 'Uri'
+                defaultRequired = $false
+                defaultVerify   = $true
+                capabilities    = @('ColdArchive', 'SequentialWrite', 'AdapterRequired')
+            }
+        }
+        'CloudS3' {
+            return [PSCustomObject]@{
+                name            = 'CloudS3'
+                displayName     = 'Cloud / S3'
+                kind            = 'S3ObjectStorage'
+                adapter         = 'S3'
+                role            = 'CloudArchive'
+                speedClass      = 'WAN'
+                durabilityClass = 'ObjectStorage'
+                targetKind      = 'Uri'
+                defaultRequired = $false
+                defaultVerify   = $true
+                capabilities    = @('CloudArchive', 'ObjectStorage', 'AdapterRequired')
+            }
+        }
+        default {
+            return [PSCustomObject]@{
+                name            = 'LocalFileSystem'
+                displayName     = 'Local Folder'
+                kind            = 'LocalFileSystem'
+                adapter         = 'FileSystem'
+                role            = 'Cascade'
+                speedClass      = 'Warm'
+                durabilityClass = 'LocalCopy'
+                targetKind      = 'Path'
+                defaultRequired = $false
+                defaultVerify   = $true
+                capabilities    = @('CascadeCopy', 'ChecksumVerify')
+            }
+        }
+    }
+}
+
+function ConvertTo-BackupStorageTierProfileInput {
+    [CmdletBinding()]
+    param(
+        [string[]]$Profile,
+        [string[]]$Path
+    )
+
+    $tiers = New-Object System.Collections.Generic.List[hashtable]
+    for ($index = 0; $index -lt @($Profile).Count; $index++) {
+        $profileName = Resolve-BackupStorageTierProfileName -Profile ([string]$Profile[$index])
+        $target = if ($Path -and @($Path).Count -gt $index) { [string]$Path[$index] } else { $null }
+        $tiers.Add(@{
+                Profile = $profileName
+                Path    = $target
+                Order   = ($index + 1)
+                Source  = 'ProfileParameter'
+            })
+    }
+
+    return @($tiers.ToArray())
+}
+
+function Read-BackupStorageTierInteractiveConfiguration {
+    [CmdletBinding()]
+    param()
+
+    Write-Information 'Available storage tier profiles: FastSSD, HDD, NAS, ColdStorage, Tape, CloudS3' -InformationAction Continue
+    $tiers = New-Object System.Collections.Generic.List[hashtable]
+    $order = 0
+    while ($true) {
+        $profileInput = Read-Host 'Storage profile, blank to finish'
+        if ([string]::IsNullOrWhiteSpace($profileInput)) {
+            break
+        }
+
+        $profileName = Resolve-BackupStorageTierProfileName -Profile $profileInput
+        $profile = Get-BackupStorageTierProfile -Profile $profileName
+        $name = Read-Host ("Display name [{0}]" -f $profile.displayName)
+        if ([string]::IsNullOrWhiteSpace($name)) {
+            $name = [string]$profile.displayName
+        }
+        $target = Read-Host ("Target {0} path/URI" -f $profile.targetKind)
+        $requiredAnswer = Read-Host 'Required tier? [y/N]'
+        $fallbackTo = Read-Host 'Fallback tier id/name, blank for next tier'
+        $order++
+
+        $tier = @{
+            Profile  = $profileName
+            Name     = $name
+            Path     = $target
+            Order    = $order
+            Required = $requiredAnswer -match '^(y|yes|j|ja)$'
+            Source   = 'Interactive'
+        }
+        if (-not [string]::IsNullOrWhiteSpace($fallbackTo)) {
+            $tier.FallbackTo = $fallbackTo
+        }
+        $tiers.Add($tier)
+
+        $more = Read-Host 'Add another storage tier? [y/N]'
+        if ($more -notmatch '^(y|yes|j|ja)$') {
+            break
+        }
+    }
+
+    return @($tiers.ToArray())
+}
+
+function Resolve-BackupStorageTierProfileFromHashtable {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$Tier,
+        [int]$Index
+    )
+
+    foreach ($key in 'Profile', 'ProfileName') {
+        if ($Tier.ContainsKey($key) -and -not [string]::IsNullOrWhiteSpace([string]$Tier[$key])) {
+            return Resolve-BackupStorageTierProfileName -Profile ([string]$Tier[$key])
+        }
+    }
+
+    $hint = @(
+        if ($Tier.ContainsKey('Name')) { [string]$Tier.Name }
+        if ($Tier.ContainsKey('Kind')) { [string]$Tier.Kind }
+    ) -join ' '
+
+    if ($hint -match '(?i)ssd') { return 'FastSSD' }
+    if ($hint -match '(?i)nas|network|smb|nfs') { return 'NAS' }
+    if ($hint -match '(?i)tape|ltfs|lto') { return 'Tape' }
+    if ($hint -match '(?i)s3|cloud|object') { return 'CloudS3' }
+    if ($hint -match '(?i)cold|offline') { return 'ColdStorage' }
+    if ($hint -match '(?i)hdd|hard') { return 'HDD' }
+
+    if ($Index -eq 1) {
+        return 'FastSSD'
+    }
+
+    return 'HDD'
+}
+
+function New-BackupStorageCascadePlan {
+    [CmdletBinding()]
+    param(
+        [object[]]$StorageTiers
+    )
+
+    $orderedTiers = @($StorageTiers | Sort-Object order, id)
+    $stages = New-Object System.Collections.Generic.List[object]
+    for ($index = 0; $index -lt $orderedTiers.Count; $index++) {
+        $tier = $orderedTiers[$index]
+        $stages.Add([PSCustomObject]@{
+                index            = $index
+                tierId           = [string]$tier.id
+                tierName         = [string]$tier.name
+                profile          = [string]$tier.profile
+                action           = if ($index -eq 0) { 'WritePrimary' } else { 'CascadeCopy' }
+                sourceTierId     = if ($index -eq 0) { $null } else { [string]$orderedTiers[$index - 1].id }
+                targetKind       = [string]$tier.target.kind
+                target           = [string]$tier.target.value
+                verify           = $tier.verify
+                required         = [bool]$tier.required
+                fallbackToTierId = $tier.fallback.toTierId
+                adapter          = [string]$tier.adapter
+            })
+    }
+
+    return [PSCustomObject]@{
+        schemaVersion     = '1.0'
+        enabled           = $orderedTiers.Count -gt 0
+        mode              = if ($orderedTiers.Count -gt 1) { 'Cascading' } else { 'SingleTarget' }
+        strategy          = 'FastestWritableFirstThenCascade'
+        primaryTierId     = if ($orderedTiers.Count -gt 0) { [string]$orderedTiers[0].id } else { $null }
+        finalTierIds      = @($orderedTiers | Where-Object { [string]$_.role -in @('ColdArchive', 'CloudArchive', 'Cascade') } | ForEach-Object { [string]$_.id })
+        requiredTierIds   = @($orderedTiers | Where-Object { [bool]$_.required } | ForEach-Object { [string]$_.id })
+        optionalTierIds   = @($orderedTiers | Where-Object { -not [bool]$_.required } | ForEach-Object { [string]$_.id })
+        supportedProfiles = @('FastSSD', 'HDD', 'NAS', 'ColdStorage', 'Tape', 'CloudS3')
+        interactive       = [PSCustomObject]@{
+            enabled      = $true
+            command      = 'Backup-Project -ConfigureStorageTiers'
+            profileParam = '-StorageTierProfile'
+            pathParam    = '-StorageTierPath'
+        }
+        fallbackPolicy   = [PSCustomObject]@{
+            enabled         = $orderedTiers.Count -gt 1
+            defaultAction   = 'UseNextAvailableTier'
+            failJobWhenRequiredTierFails = $true
+        }
+        stages           = @($stages.ToArray())
+    }
+}
+
 function ConvertTo-BackupProjectStorageTier {
     [CmdletBinding()]
     param(
@@ -15,21 +310,52 @@ function ConvertTo-BackupProjectStorageTier {
 
         $index++
         $tierName = if ($tier.ContainsKey('Name')) { [string]$tier.Name } else { "Tier$index" }
-        $tierPath = if ($tier.ContainsKey('Path')) { [string]$tier.Path } else { $null }
-        if ([string]::IsNullOrWhiteSpace($tierPath)) {
-            throw "Backup storage tier '$tierName' must provide a Path value."
+        $profileName = Resolve-BackupStorageTierProfileFromHashtable -Tier $tier -Index $index
+        $profile = Get-BackupStorageTierProfile -Profile $profileName
+        $tierTarget = if ($tier.ContainsKey('Path')) { [string]$tier.Path } elseif ($tier.ContainsKey('Uri')) { [string]$tier.Uri } else { $null }
+        if ([string]::IsNullOrWhiteSpace($tierTarget)) {
+            throw "Backup storage tier '$tierName' must provide a Path or Uri value."
         }
 
         $tiers.Add([PSCustomObject]@{
             id       = if ($tier.ContainsKey('Id')) { [string]$tier.Id } else { "tier-$index" }
             name     = $tierName
-            kind     = if ($tier.ContainsKey('Kind')) { [string]$tier.Kind } else { 'LocalFileSystem' }
-            role     = if ($tier.ContainsKey('Role')) { [string]$tier.Role } else { if ($index -eq 1) { 'Primary' } else { 'Cascade' } }
+            profile  = [string]$profile.name
+            kind     = if ($tier.ContainsKey('Kind')) { [string]$tier.Kind } else { [string]$profile.kind }
+            adapter  = [string]$profile.adapter
+            role     = if ($tier.ContainsKey('Role')) { [string]$tier.Role } else { if ($index -eq 1) { 'Primary' } else { [string]$profile.role } }
             order    = if ($tier.ContainsKey('Order')) { [int]$tier.Order } else { $index }
-            path     = $tierPath
+            path     = $tierTarget
+            uri      = if ($tier.ContainsKey('Uri')) { [string]$tier.Uri } else { $null }
+            target   = [PSCustomObject]@{
+                kind  = if ([string]$profile.targetKind -eq 'Uri' -or $tierTarget -match '^[a-z][a-z0-9+.-]*://') { 'Uri' } else { 'Path' }
+                value = $tierTarget
+            }
+            speedClass      = [string]$profile.speedClass
+            durabilityClass = [string]$profile.durabilityClass
+            capabilities    = @($profile.capabilities)
+            required        = if ($tier.ContainsKey('Required')) { [bool]$tier.Required } else { [bool]$profile.defaultRequired -or $index -eq 1 }
             verify   = [PSCustomObject]@{
-                enabled   = if ($tier.ContainsKey('Verify')) { [bool]$tier.Verify } else { $true }
+                enabled   = if ($tier.ContainsKey('Verify')) { [bool]$tier.Verify } else { [bool]$profile.defaultVerify }
                 algorithm = if ($tier.ContainsKey('VerifyAlgorithm')) { [string]$tier.VerifyAlgorithm } else { 'SHA256' }
+                mode      = if ($tier.ContainsKey('VerifyMode')) { [string]$tier.VerifyMode } else { 'HashAfterWrite' }
+            }
+            fallback = [PSCustomObject]@{
+                enabled   = if ($tier.ContainsKey('FallbackEnabled')) { [bool]$tier.FallbackEnabled } else { $true }
+                toTierId  = if ($tier.ContainsKey('FallbackTo')) { [string]$tier.FallbackTo } elseif ($tier.ContainsKey('FallbackTierId')) { [string]$tier.FallbackTierId } else { $null }
+                action    = if ($tier.ContainsKey('FallbackAction')) { [string]$tier.FallbackAction } else { 'UseNextAvailableTier' }
+                onFailure = @('Unavailable', 'WriteFailed', 'VerifyFailed')
+            }
+            copy     = [PSCustomObject]@{
+                mode              = if ($index -eq 1) { 'PrimaryWrite' } else { 'CascadeFromPreviousVerifiedTier' }
+                includeManifest   = $true
+                includeMetadata   = $true
+                maxRetries        = if ($tier.ContainsKey('MaxRetries')) { [int]$tier.MaxRetries } else { 2 }
+                retryDelaySeconds = if ($tier.ContainsKey('RetryDelaySeconds')) { [int]$tier.RetryDelaySeconds } else { 5 }
+                continueOnFailure = if ($tier.ContainsKey('ContinueOnFailure')) { [bool]$tier.ContinueOnFailure } else { -not ([bool]$profile.defaultRequired -or $index -eq 1) }
+            }
+            configuration = [PSCustomObject]@{
+                source = if ($tier.ContainsKey('Source')) { [string]$tier.Source } else { 'InlineHashtable' }
             }
             state    = 'Planned'
         })
@@ -43,23 +369,64 @@ function ConvertTo-BackupProjectStorageTier {
         }
 
         if (-not [string]::IsNullOrWhiteSpace($primaryPath)) {
+            $profile = Get-BackupStorageTierProfile -Profile 'FastSSD'
             $tiers.Add([PSCustomObject]@{
                 id     = 'tier-1'
                 name   = 'Primary'
-                kind   = 'LocalFileSystem'
+                profile = 'FastSSD'
+                kind   = [string]$profile.kind
+                adapter = [string]$profile.adapter
                 role   = 'Primary'
                 order  = 1
                 path   = $primaryPath
+                uri    = $null
+                target = [PSCustomObject]@{
+                    kind  = 'Path'
+                    value = $primaryPath
+                }
+                speedClass      = [string]$profile.speedClass
+                durabilityClass = [string]$profile.durabilityClass
+                capabilities    = @($profile.capabilities)
+                required        = $true
                 verify = [PSCustomObject]@{
                     enabled   = $true
                     algorithm = 'SHA256'
+                    mode      = 'HashAfterWrite'
+                }
+                fallback = [PSCustomObject]@{
+                    enabled   = $false
+                    toTierId  = $null
+                    action    = 'None'
+                    onFailure = @()
+                }
+                copy = [PSCustomObject]@{
+                    mode              = 'PrimaryWrite'
+                    includeManifest   = $true
+                    includeMetadata   = $true
+                    maxRetries        = 2
+                    retryDelaySeconds = 5
+                    continueOnFailure = $false
+                }
+                configuration = [PSCustomObject]@{
+                    source = 'DestinationRoot'
                 }
                 state  = 'Planned'
             })
         }
     }
 
-    return @($tiers.ToArray() | Sort-Object order, id)
+    $orderedTiers = @($tiers.ToArray() | Sort-Object order, id)
+    for ($tierIndex = 0; $tierIndex -lt $orderedTiers.Count; $tierIndex++) {
+        $current = $orderedTiers[$tierIndex]
+        if ($current.fallback -and
+            [bool]$current.fallback.enabled -and
+            [string]::IsNullOrWhiteSpace([string]$current.fallback.toTierId) -and
+            $tierIndex + 1 -lt $orderedTiers.Count) {
+            $current.fallback.toTierId = [string]$orderedTiers[$tierIndex + 1].id
+        }
+    }
+
+    return @($orderedTiers)
 }
 
 function New-BackupProjectJobPayload {
@@ -139,6 +506,20 @@ function New-BackupProjectJobPayload {
         -StorageTier $StorageTier `
         -DestinationRoot ([string]$ArchiveDescriptor.DestinationRoot) `
         -ArchivePath ([string]$ArchiveDescriptor.ArchivePath)
+    $storageCascade = New-BackupStorageCascadePlan -StorageTiers @($storageTiers)
+    $copyVerify = New-BackupCopyVerifyPlan `
+        -StorageTiers @($storageTiers) `
+        -StorageCascade $storageCascade
+    $safeDelete = New-BackupSafeDeletePolicy `
+        -Mode $deletePolicyMode `
+        -RequiredStorageTierIds @($storageCascade.requiredTierIds)
+    $gpuDetection = New-BackupGpuDetectionPlan `
+        -VideoCodec $VideoCodec `
+        -EncoderDevice $EncoderDevice `
+        -CompressionPreset $CompressionPreset
+    $qualityValidation = New-BackupQualityValidationPolicy `
+        -QualityPreset $QualityPreset `
+        -CompressionMode $CompressionMode
     $systemRules = New-RenderKitSystemRulesPolicy `
         -RequireIdle ([bool]$RequireIdle) `
         -MinIdleMinutes $MinIdleMinutes `
@@ -171,8 +552,13 @@ function New-BackupProjectJobPayload {
             deletePolicy    = [PSCustomObject]@{
                 mode                           = $deletePolicyMode
                 requiresArchiveIntegrity       = $true
+                requiresDecodeValidation       = $true
+                decodeValidationScope          = 'WhenProducedMediaExists'
                 requiresPrimaryTierVerification = $true
+                requiresStorageCascadeVerification = $true
                 requiresAllTierVerification    = $false
+                requiredStorageTierIds          = @($storageCascade.requiredTierIds)
+                releaseCondition                = 'ArchiveIntegrityDecodeAndRequiredStorageTiersVerified'
             }
         }
         profile          = [PSCustomObject]@{
@@ -186,6 +572,8 @@ function New-BackupProjectJobPayload {
             encoderDevice    = $EncoderDevice
             qualityPreset    = $QualityPreset
             audioProfile     = $AudioProfile
+            gpuDetection     = $gpuDetection
+            qualityValidation = $qualityValidation
             proxy            = [PSCustomObject]@{
                 enabled     = [bool]$CreateProxy
                 height      = 720
@@ -277,8 +665,14 @@ function New-BackupProjectJobPayload {
                 'Encoding',
                 'Merging',
                 'ValidatingMerge',
+                'QualityDecode',
+                'QualityMetrics',
+                'QualityValidationComplete',
                 'CreatingProxy',
                 'CreatingPreview',
+                'CopyingToStorageTier',
+                'VerifyingStorageTier',
+                'CopyVerifyComplete',
                 'EncodingComplete'
             )
         }
@@ -327,6 +721,8 @@ function New-BackupProjectJobPayload {
             }
         }
         systemRules       = $systemRules
+        copyVerify        = $copyVerify
+        safeDelete        = $safeDelete
         mediaAnalysis    = [PSCustomObject]@{
             schemaVersion = [string]$mediaAnalysis.schemaVersion
             probe         = $mediaAnalysis.probe
@@ -344,6 +740,7 @@ function New-BackupProjectJobPayload {
             lastCompletedChunkId = $null
         }
         storageTiers     = @($storageTiers)
+        storageCascade   = $storageCascade
         execution        = [PSCustomObject]@{
             mode                   = if ($Background) { 'Background' } else { 'Immediate' }
             queueName              = $QueueName
@@ -362,9 +759,9 @@ function New-BackupProjectJobPayload {
             systemRules             = $systemRules
         }
         advancedFeatures = [PSCustomObject]@{
-            gpuDetection      = [PSCustomObject]@{ enabled = $true; state = 'Planned' }
+            gpuDetection      = $gpuDetection
             deduplication     = [PSCustomObject]@{ enabled = $true; state = 'Planned' }
-            qualityValidation = [PSCustomObject]@{ enabled = $true; state = 'Planned'; metrics = @('DecodeProbe') }
+            qualityValidation = $qualityValidation
             tapeTargets       = [PSCustomObject]@{ enabled = $true; state = 'AdapterPlanned' }
             cloudTargets      = [PSCustomObject]@{ enabled = $true; state = 'AdapterPlanned' }
             idleDetection     = [PSCustomObject]@{ enabled = [bool]$RequireIdle; state = 'Planned' }
