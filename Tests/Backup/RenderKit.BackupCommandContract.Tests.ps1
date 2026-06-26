@@ -41,6 +41,10 @@ Describe 'RenderKit backup command contracts' {
 
         $command.Parameters.Keys | Should -Contain 'Background'
         $command.Parameters['Background'].Aliases | Should -Contain 'AsJob'
+        $command.Parameters.Keys | Should -Contain 'StartWorker'
+        $command.Parameters.Keys | Should -Contain 'Watch'
+        $command.Parameters.Keys | Should -Contain 'PollIntervalSeconds'
+        $command.Parameters.Keys | Should -Contain 'NoProgressBar'
         $command.Parameters.Keys | Should -Contain 'ConfigProfile'
         $command.Parameters.Keys | Should -Contain 'ArchiveFormat'
         $command.Parameters.Keys | Should -Contain 'CompressionMode'
@@ -60,9 +64,23 @@ Describe 'RenderKit backup command contracts' {
         $command.Parameters.Keys | Should -Contain 'MaxCpuPercent'
         $command.Parameters.Keys | Should -Contain 'MaxGpuPercent'
         $command.Parameters.Keys | Should -Contain 'RequireIdle'
+        $command.Parameters.Keys | Should -Contain 'ReportFormat'
+        $command.Parameters.Keys | Should -Contain 'ReportRoot'
+        $command.Parameters.Keys | Should -Contain 'SimulateFailure'
+        $command.Parameters.Keys | Should -Contain 'MaxChunkRetryAttempts'
+        $command.Parameters.Keys | Should -Contain 'ChunkRetryDelaySeconds'
+        $command.Parameters.Keys | Should -Contain 'SimulatedFailureCount'
     }
 
     It 'exposes backup job control commands' {
+        Get-Command -Module RenderKit -Name Get-BackupJob |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Pause-BackupJob |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Resume-BackupJob |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Stop-BackupJob |
+            Should -Not -BeNullOrEmpty
         Get-Command -Module RenderKit -Name Suspend-BackupProjectJob |
             Should -Not -BeNullOrEmpty
         Get-Command -Module RenderKit -Name Resume-BackupProjectJob |
@@ -76,6 +94,14 @@ Describe 'RenderKit backup command contracts' {
         Get-Command -Module RenderKit -Name Get-RenderKitJobWorkerStatus |
             Should -Not -BeNullOrEmpty
 
+        (Get-Command -Module RenderKit -Name Get-BackupJob).Parameters.Keys |
+            Should -Contain 'Watch'
+        (Get-Command -Module RenderKit -Name Pause-BackupJob).Parameters.Keys |
+            Should -Contain 'JobId'
+        (Get-Command -Module RenderKit -Name Resume-BackupJob).Parameters.Keys |
+            Should -Contain 'Reason'
+        (Get-Command -Module RenderKit -Name Stop-BackupJob).Parameters.Keys |
+            Should -Contain 'JobId'
         (Get-Command -Module RenderKit -Name Suspend-BackupProjectJob).Parameters.Keys |
             Should -Contain 'JobId'
         (Get-Command -Module RenderKit -Name Resume-BackupProjectJob).Parameters.Keys |

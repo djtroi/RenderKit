@@ -20,6 +20,12 @@ function Invoke-BackupProjectJob {
         -Percent 0 |
         Out-Null
 
+    Invoke-BackupFailureAbortSimulationIfRequested `
+        -Job $Job `
+        -Payload $payload `
+        -StageName 'PlanningEncoding' |
+        Out-Null
+
     $encodingPlan = New-BackupEncodingPlan -Job $Job -Payload $payload
     $resumeState = New-BackupResumeState -Job $Job -Payload $payload
     $resumeState | Add-Member -NotePropertyName encodingPlan -NotePropertyValue $encodingPlan -Force

@@ -159,6 +159,15 @@ Describe 'RenderKit BackupProject job planning' {
             Should -Contain $result.Payload.storageTiers[0].id
         $result.Payload.advancedFeatures.gpuDetection.cache.enabled | Should -BeTrue
         $result.Payload.advancedFeatures.gpuDetection.benchmark.enabled | Should -BeTrue
+        $result.Payload.advancedFeatures.deduplication.enabled | Should -BeTrue
+        $result.Payload.advancedFeatures.deduplication.mode |
+            Should -Be 'ContentHashCanonicalManifest'
+        $result.Payload.reports.enabled | Should -BeTrue
+        $result.Payload.reports.formats | Should -Contain 'Json'
+        $result.Payload.reports.formats | Should -Contain 'Html'
+        $result.Payload.reports.formats | Should -Contain 'Text'
+        $result.Payload.advancedFeatures.reports.mode |
+            Should -Be 'SidecarAuditReports'
         $result.Payload.advancedFeatures.qualityValidation.thresholds.minVmaf | Should -Be 82.0
         $result.Payload.mediaAnalysis.summary.mediaFileCount | Should -Be 1
         $result.Payload.resume.jobId | Should -Be $result.JobId
@@ -319,6 +328,157 @@ Describe 'RenderKit BackupProject job planning' {
         $blocked.tiers[1].state | Should -Be 'AdapterRequired'
     }
 
+    It 'adds failure-recovery policy and custom chunk retry limits to queued jobs' {
+        $projectParent = Join-Path $TestDrive 'failure-policy-projects'
+        $projectRoot = Join-Path $projectParent 'FailurePolicyProject'
+        $metadataRoot = Join-Path $projectRoot '.renderkit'
+        New-Item -ItemType Directory -Path $metadataRoot -Force | Out-Null
+        Set-Content `
+            -LiteralPath (Join-Path $projectRoot 'notes.txt') `
+            -Value 'notes' `
+            -Encoding UTF8
+        [PSCustomObject]@{
+            tool = 'RenderKit'
+            schemaVersion = '1.0'
+            project = [PSCustomObject]@{
+                id = 'failure-policy-project'
+                name = 'FailurePolicyProject'
+                createdAt = (Get-Date).ToString('o')
+            }
+            lifecycle = [PSCustomObject]@{
+                status = 'Draft'
+            }
+        } |
+            ConvertTo-Json -Depth 8 |
+            Set-Content `
+                -LiteralPath (Join-Path $metadataRoot 'project.json') `
+                -Encoding UTF8
+
+        $queued = Backup-Project `
+            -ProjectName FailurePolicyProject `
+            -Path $projectParent `
+            -Background `
+            -KeepSourceProject `
+            -SimulateFailure CorruptChunk `
+            -MaxChunkRetryAttempts 4 `
+            -ChunkRetryDelaySeconds 0 `
+            -SimulatedFailureCount 2
+
+        $queued.Payload.failureRecovery.enabled | Should -BeTrue
+        $queued.Payload.failureRecovery.strategy |
+            Should -Be 'DetectClassifyRetryOrBlockRelease'
+        $queued.Payload.failureRecovery.simulation.scenarios |
+            Should -Contain 'CorruptChunk'
+        $queued.Payload.failureRecovery.simulation.failAttempts |
+            Should -Be 2
+        $queued.Payload.control.retry.maxAttemptsPerChunk |
+            Should -Be 4
+        $queued.Payload.control.retry.retryDelaySeconds |
+            Should -Be 0
+        $queued.Payload.advancedFeatures.failureRecovery.retry.chunk.maxAttempts |
+            Should -Be 4
+    }
+
+    It 'classifies missing targets and full disks before storage copy starts' {
+        $health = InModuleScope RenderKit -Parameters @{
+            TargetPath = (Join-Path $TestDrive 'failure-health-target')
+        } {
+            $tiers = ConvertTo-BackupProjectStorageTier `
+                -StorageTier @(
+                    @{
+                        Name = 'Fast SSD'
+                        Profile = 'FastSSD'
+                        Path = $TargetPath
+                        Required = $true
+                    }
+                ) `
+                -DestinationRoot $TargetPath
+            $missingPolicy = New-BackupFailureRecoveryPolicy `
+                -SimulateFailure MissingTarget
+            $missingTiers = Set-BackupFailureSimulationOnStorageTiers `
+                -StorageTiers @($tiers) `
+                -Simulation $missingPolicy.simulation
+            $missing = Test-BackupStorageTierHealth `
+                -Tier $missingTiers[0] `
+                -RequiredBytes 1024 `
+                -CreateTargetRoot
+
+            $fullPolicy = New-BackupFailureRecoveryPolicy `
+                -SimulateFailure FullDisk
+            $fullTiers = Set-BackupFailureSimulationOnStorageTiers `
+                -StorageTiers @($tiers) `
+                -Simulation $fullPolicy.simulation
+            $full = Test-BackupStorageTierHealth `
+                -Tier $fullTiers[0] `
+                -RequiredBytes 1024 `
+                -CreateTargetRoot
+
+            [PSCustomObject]@{
+                missing = $missing
+                full    = $full
+            }
+        }
+
+        $health.missing.healthy | Should -BeFalse
+        $health.missing.reason | Should -Be 'MissingTarget'
+        $health.missing.failureClass.category |
+            Should -Be 'MissingStorageTarget'
+        $health.full.healthy | Should -BeFalse
+        $health.full.state | Should -Be 'InsufficientSpace'
+        $health.full.reason | Should -Be 'InsufficientFreeSpace'
+        $health.full.failureClass.category |
+            Should -Be 'InsufficientStorageCapacity'
+    }
+
+    It 'retries a transient storage copy failure and verifies the tier' {
+        $verified = InModuleScope RenderKit -Parameters @{
+            SourcePath = (Join-Path $TestDrive 'transient-primary\backup.zip')
+            Primary   = (Join-Path $TestDrive 'transient-primary')
+        } {
+            New-Item -ItemType Directory -Path $Primary -Force | Out-Null
+            Set-Content -LiteralPath $SourcePath -Value 'archive-bytes' -Encoding UTF8
+            $sourceItem = Get-Item -LiteralPath $SourcePath
+            $hash = Get-FileHash -LiteralPath $SourcePath -Algorithm SHA256
+            $tiers = ConvertTo-BackupProjectStorageTier `
+                -StorageTier @(
+                    @{
+                        Name = 'Fast SSD'
+                        Profile = 'FastSSD'
+                        Path = $Primary
+                        Required = $true
+                        MaxRetries = 2
+                        RetryDelaySeconds = 0
+                    }
+                ) `
+                -DestinationRoot $Primary `
+                -ArchivePath $SourcePath
+            $policy = New-BackupFailureRecoveryPolicy `
+                -SimulateFailure TransientStorageCopy `
+                -SimulatedFailureCount 1
+            $tiers = Set-BackupFailureSimulationOnStorageTiers `
+                -StorageTiers @($tiers) `
+                -Simulation $policy.simulation
+            $cascade = New-BackupStorageCascadePlan -StorageTiers @($tiers)
+            Invoke-BackupStorageTierCopyVerifyChain `
+                -ArchivePath $SourcePath `
+                -StorageTiers @($tiers) `
+                -StorageCascade $cascade `
+                -ExpectedHash ([string]$hash.Hash) `
+                -ExpectedSizeBytes ([int64]$sourceItem.Length) `
+                -Algorithm SHA256 `
+                -ArchiveIntegrityPassed $true
+        }
+
+        $verified.state | Should -Be 'Verified'
+        $verified.tiers[0].verified | Should -BeTrue
+        $verified.tiers[0].attempts.Count | Should -Be 2
+        $verified.tiers[0].attempts[0].state | Should -Be 'Failed'
+        $verified.tiers[0].attempts[0].failureClass.scenario |
+            Should -Be 'TransientStorageCopy'
+        $verified.tiers[0].attempts[1].state | Should -Be 'Verified'
+        $verified.release.canReleaseSource | Should -BeTrue
+    }
+
     It 'allows safe delete only after archive, decode, and tier checks pass' {
         $decision = InModuleScope RenderKit {
             $policy = New-BackupSafeDeletePolicy -RequiredStorageTierIds @('tier-1', 'tier-2')
@@ -429,6 +589,87 @@ Describe 'RenderKit BackupProject job planning' {
         $decision.failedRules.reason | Should -Contain 'PolicyKeepsSource'
     }
 
+    It 'plans hash-based deduplication groups and archive exclusions' {
+        $plan = InModuleScope RenderKit -Parameters @{
+            Root = (Join-Path $TestDrive 'dedup-plan')
+        } {
+            New-Item -ItemType Directory -Path (Join-Path $Root 'Media') -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $Root 'Media\a.mov') -Value 'same-bytes' -Encoding UTF8
+            Set-Content -LiteralPath (Join-Path $Root 'Media\b.mov') -Value 'same-bytes' -Encoding UTF8
+            Set-Content -LiteralPath (Join-Path $Root 'Media\c.mov') -Value 'unique-bytes' -Encoding UTF8
+
+            $index = Get-BackupFileHashIndex `
+                -RootPath $Root `
+                -BasePath $Root `
+                -Algorithm SHA256
+            New-BackupDeduplicationPlan `
+                -SourceIndex $index `
+                -Policy (New-BackupDeduplicationPolicy)
+        }
+
+        $plan.enabled | Should -BeTrue
+        $plan.summary.sourceFileCount | Should -Be 3
+        $plan.summary.uniqueFileCount | Should -Be 2
+        $plan.summary.duplicateFileCount | Should -Be 1
+        $plan.summary.duplicateGroupCount | Should -Be 1
+        $plan.archive.excludedRelativePaths | Should -Contain 'Media/b.mov'
+        $plan.groups[0].canonicalRelativePath | Should -Be 'Media/a.mov'
+        $plan.groups[0].duplicateRelativePaths | Should -Contain 'Media/b.mov'
+    }
+
+    It 'archives only canonical duplicate content and verifies with dedup references' {
+        $result = InModuleScope RenderKit -Parameters @{
+            Root = (Join-Path $TestDrive 'dedup-archive\ProjectA')
+            Archive = (Join-Path $TestDrive 'dedup-archive\ProjectA.zip')
+        } {
+            New-Item -ItemType Directory -Path (Join-Path $Root 'Media') -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $Root 'Media\a.mov') -Value 'same-bytes' -Encoding UTF8
+            Set-Content -LiteralPath (Join-Path $Root 'Media\b.mov') -Value 'same-bytes' -Encoding UTF8
+            Set-Content -LiteralPath (Join-Path $Root 'Media\c.mov') -Value 'unique-bytes' -Encoding UTF8
+
+            $index = Get-BackupFileHashIndex `
+                -RootPath $Root `
+                -BasePath $Root `
+                -Algorithm SHA256
+            $dedup = New-BackupDeduplicationPlan `
+                -SourceIndex $index `
+                -Policy (New-BackupDeduplicationPolicy)
+            $archiveResult = Compress-Project `
+                -ProjectPath $Root `
+                -DestinationPath $Archive `
+                -DeduplicationPlan $dedup
+            $verified = Test-BackupArchiveContentIntegrity `
+                -ProjectPath $Root `
+                -ArchivePath $Archive `
+                -SourceIndex $index `
+                -DeduplicationPlan $dedup `
+                -Algorithm SHA256
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($Archive)
+            try {
+                $entries = @($zip.Entries | ForEach-Object { [string]$_.FullName })
+            }
+            finally {
+                $zip.Dispose()
+            }
+
+            [PSCustomObject]@{
+                archiveResult = $archiveResult
+                verified = $verified
+                entries = @($entries)
+                dedup = $dedup
+            }
+        }
+
+        $result.archiveResult.SourceFileCount | Should -Be 3
+        $result.archiveResult.ArchivedFileCount | Should -Be 2
+        $result.archiveResult.DeduplicatedFileCount | Should -Be 1
+        $result.verified.IsMatch | Should -BeTrue
+        $result.verified.DeduplicatedInArchiveCount | Should -Be 1
+        $result.verified.DeduplicationMismatchCount | Should -Be 0
+        $result.entries | Should -Contain 'ProjectA/Media/a.mov'
+        $result.entries | Should -Not -Contain 'ProjectA/Media/b.mov'
+    }
+
     It 'removes the source project only after the storage verify chain succeeds' {
         $projectParent = Join-Path $TestDrive 'verify-projects'
         $projectRoot = Join-Path $projectParent 'VerifyProject'
@@ -436,9 +677,18 @@ Describe 'RenderKit BackupProject job planning' {
         $primary = Join-Path $TestDrive 'verify-primary'
         $secondary = Join-Path $TestDrive 'verify-secondary'
         New-Item -ItemType Directory -Path $metadataRoot -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $projectRoot 'Media') -Force | Out-Null
         Set-Content `
             -LiteralPath (Join-Path $projectRoot 'notes.txt') `
             -Value 'notes' `
+            -Encoding UTF8
+        Set-Content `
+            -LiteralPath (Join-Path $projectRoot 'Media\a.mov') `
+            -Value 'same-media-bytes' `
+            -Encoding UTF8
+        Set-Content `
+            -LiteralPath (Join-Path $projectRoot 'Media\b.mov') `
+            -Value 'same-media-bytes' `
             -Encoding UTF8
         [PSCustomObject]@{
             tool = 'RenderKit'
@@ -490,6 +740,29 @@ Describe 'RenderKit BackupProject job planning' {
         $result.Archive.safeDelete.state | Should -Be 'Allowed'
         $result.Archive.safeDelete.canDelete | Should -BeTrue
         $result.Archive.safeDelete.failedRules.Count | Should -Be 0
+        $result.Archive.deduplication.summary.duplicateFileCount | Should -Be 1
+        $result.Archive.contentIntegrity.deduplicatedInArchiveCount | Should -Be 1
+        $result.Statistics.deduplication.estimatedSavedBytes | Should -BeGreaterThan 0
+        $result.Reports.state | Should -Be 'Written'
+        $result.Reports.summary.writtenCount | Should -Be 3
+        $jsonReport = @($result.Reports.files | Where-Object { $_.format -eq 'Json' })[0]
+        $htmlReport = @($result.Reports.files | Where-Object { $_.format -eq 'Html' })[0]
+        $textReport = @($result.Reports.files | Where-Object { $_.format -eq 'Text' })[0]
+        Test-Path -LiteralPath $jsonReport.path | Should -BeTrue
+        Test-Path -LiteralPath $htmlReport.path | Should -BeTrue
+        Test-Path -LiteralPath $textReport.path | Should -BeTrue
+
+        $json = Get-Content -LiteralPath $jsonReport.path -Raw | ConvertFrom-Json
+        $json.kind | Should -Be 'BackupAuditReport'
+        $json.source.removed | Should -BeTrue
+        $json.source.checksums.Count | Should -BeGreaterThan 0
+        $json.targets.tiers.Count | Should -Be 2
+        $json.archive.hash | Should -Be $result.Archive.hash
+        $json.savings.deduplicatedBytes | Should -BeGreaterThan 0
+        (Get-Content -LiteralPath $htmlReport.path -Raw) |
+            Should -Match 'RenderKit Backup Audit Report'
+        (Get-Content -LiteralPath $textReport.path -Raw) |
+            Should -Match 'SourceChecksums'
     }
 
     It 'records pause, resume, and cancel requests for a background BackupProject job' {
@@ -524,19 +797,31 @@ Describe 'RenderKit BackupProject job planning' {
             -Background `
             -KeepSourceProject
 
-        $pause = Suspend-BackupProjectJob `
+        $queued.Commands.Status | Should -Match 'Get-BackupJob'
+        $queued.Commands.Watch | Should -Match 'Get-BackupJob'
+        $queued.Commands.Pause | Should -Match 'Pause-BackupJob'
+        $queued.Commands.Worker | Should -Match 'MaxJobs 1'
+        $status = Get-BackupJob -JobId $queued.JobId
+        $status.JobId | Should -Be $queued.JobId
+        $status.Status | Should -Be 'Queued'
+        $status.ProjectName | Should -Be 'ControlProject'
+        $status.ArchivePath | Should -Be $queued.ArchivePath
+        $status.ControlState | Should -Be 'Running'
+        $status.Paths.progressStatePath | Should -Be $queued.Payload.progress.statePath
+
+        $pause = Pause-BackupJob `
             -JobId $queued.JobId `
             -Reason 'test pause'
         $pause.state | Should -Be 'PauseRequested'
         $pause.reason | Should -Be 'test pause'
 
-        $resume = Resume-BackupProjectJob `
+        $resume = Resume-BackupJob `
             -JobId $queued.JobId `
             -Reason 'test resume'
         $resume.state | Should -Be 'ResumeRequested'
         $resume.reason | Should -Be 'test resume'
 
-        $cancel = Stop-BackupProjectJob `
+        $cancel = Stop-BackupJob `
             -JobId $queued.JobId `
             -Reason 'test cancel'
         $cancel.state | Should -Be 'CancelRequested'
@@ -553,6 +838,53 @@ Describe 'RenderKit BackupProject job planning' {
         $controlState.state | Should -Be 'CancelRequested'
         $job.status | Should -Be 'Cancelled'
         $job.cancelRequestedAtUtc | Should -Not -BeNullOrEmpty
+    }
+
+    It 'turns abort simulation into a cancelled worker job' {
+        $projectParent = Join-Path $TestDrive 'abort-simulation-projects'
+        $projectRoot = Join-Path $projectParent 'AbortSimulationProject'
+        $metadataRoot = Join-Path $projectRoot '.renderkit'
+        New-Item -ItemType Directory -Path $metadataRoot -Force | Out-Null
+        Set-Content `
+            -LiteralPath (Join-Path $projectRoot 'notes.txt') `
+            -Value 'notes' `
+            -Encoding UTF8
+        [PSCustomObject]@{
+            tool = 'RenderKit'
+            schemaVersion = '1.0'
+            project = [PSCustomObject]@{
+                id = 'abort-simulation-project'
+                name = 'AbortSimulationProject'
+                createdAt = (Get-Date).ToString('o')
+            }
+            lifecycle = [PSCustomObject]@{
+                status = 'Draft'
+            }
+        } |
+            ConvertTo-Json -Depth 8 |
+            Set-Content `
+                -LiteralPath (Join-Path $metadataRoot 'project.json') `
+                -Encoding UTF8
+
+        $queued = Backup-Project `
+            -ProjectName AbortSimulationProject `
+            -Path $projectParent `
+            -Background `
+            -KeepSourceProject `
+            -SimulateFailure AbortRequested
+
+        $job = InModuleScope RenderKit -Parameters @{ JobId = $queued.JobId } {
+            Invoke-RenderKitJob -JobId $JobId
+        }
+        $controlState = Get-Content `
+            -LiteralPath $queued.Payload.control.statePath `
+            -Raw |
+            ConvertFrom-Json
+
+        $job.status | Should -Be 'Cancelled'
+        $job.progress.phase | Should -Be 'Cancelled'
+        $controlState.state | Should -Be 'CancelRequested'
+        $controlState.reason | Should -Match 'Simulated abort requested'
     }
 
     It 'analyzes project media files without requiring ffprobe' {
@@ -791,6 +1123,86 @@ Describe 'RenderKit BackupProject job planning' {
         $plan.proxyCommands[0].arguments | Should -Contain '-progress'
         $plan.previewCommands[0].arguments | Should -Contain 'fps=1/30,scale=960:-2'
         $plan.previewCommands[0].arguments | Should -Contain '-progress'
+    }
+
+    It 'injects corrupt chunk simulations into retryable encode commands' {
+        $plan = InModuleScope RenderKit {
+            $payload = [PSCustomObject]@{
+                archive = [PSCustomObject]@{
+                    mode = 'TranscodeAndArchive'
+                    compressionPreset = 'Balanced'
+                }
+                control = [PSCustomObject]@{
+                    retry = [PSCustomObject]@{
+                        maxAttemptsPerChunk = 4
+                        retryDelaySeconds = 0
+                    }
+                }
+                failureRecovery = New-BackupFailureRecoveryPolicy `
+                    -SimulateFailure CorruptChunk `
+                    -MaxChunkRetryAttempts 4 `
+                    -ChunkRetryDelaySeconds 0 `
+                    -SimulatedFailureCount 2
+                encoding = [PSCustomObject]@{
+                    videoCodec = 'H265'
+                    encoderDevice = 'CPU'
+                    qualityPreset = 'Balanced'
+                    audioProfile = 'AAC_128'
+                    proxy = [PSCustomObject]@{ enabled = $false }
+                    preview = [PSCustomObject]@{ enabled = $false }
+                }
+                mediaAnalysis = [PSCustomObject]@{
+                    files = @(
+                        [PSCustomObject]@{
+                            relativePath = 'Media/main.mp4'
+                            path = 'D:\Projects\ClientA\Media\main.mp4'
+                            mediaType = 'Video'
+                            metadata = [PSCustomObject]@{
+                                durationSeconds = 60.0
+                                videoStreams = @([PSCustomObject]@{ index = 0; codec = 'h264' })
+                                audioStreams = @([PSCustomObject]@{ index = 1; codec = 'aac' })
+                                hasVideo = $true
+                                hasAudio = $true
+                            }
+                        }
+                    )
+                }
+                chunkPlan = [PSCustomObject]@{
+                    assets = @(
+                        [PSCustomObject]@{
+                            id = 'asset-main'
+                            relativePath = 'Media/main.mp4'
+                            path = 'D:\Projects\ClientA\Media\main.mp4'
+                            mediaType = 'Video'
+                        }
+                    )
+                    chunks = @(
+                        [PSCustomObject]@{
+                            id = 'chunk-main-000000'
+                            assetId = 'asset-main'
+                            relativePath = 'Media/main.mp4'
+                            index = 0
+                            startSeconds = 0.0
+                            durationSeconds = 60.0
+                        }
+                    )
+                }
+            }
+            $job = [PSCustomObject]@{
+                id = 'job-corrupt-chunk-plan'
+                payload = $payload
+            }
+
+            New-BackupEncodingPlan -Job $job -Payload $payload
+        }
+
+        $plan.commands[0].failureSimulation.scenarios |
+            Should -Contain 'CorruptChunk'
+        $plan.commands[0].failureSimulation.failAttempts |
+            Should -Be 2
+        $plan.commands[0].control.retryable | Should -BeTrue
+        $plan.commands[0].control.maxAttempts | Should -Be 4
+        $plan.commands[0].control.retryDelaySeconds | Should -Be 0
     }
 
     It 'skips completed chunk-index entries when rebuilding an encoding plan' {
@@ -1492,6 +1904,11 @@ Describe 'RenderKit BackupProject job planning' {
                             maxAttempts = 3
                         }
                     }
+                    deduplication = New-BackupDeduplicationPolicy
+                    reports = New-BackupReportPlan `
+                        -ArchivePath 'E:\Backups\ClientA.zip' `
+                        -ReportRoot 'E:\Backups' `
+                        -Format @('Json', 'Html', 'Text')
                     safeDelete = New-BackupSafeDeletePolicy `
                         -Mode KeepSource `
                         -RequiredStorageTierIds @('tier-1')
@@ -1522,6 +1939,10 @@ Describe 'RenderKit BackupProject job planning' {
         $manifest.pipeline.storageCascade.stages[1].action | Should -Be 'CascadeCopy'
         $manifest.pipeline.copyVerify.verify.afterEveryTier | Should -BeTrue
         $manifest.pipeline.copyVerify.retry.maxAttempts | Should -Be 3
+        $manifest.pipeline.deduplication.enabled | Should -BeTrue
+        $manifest.pipeline.deduplication.mode | Should -Be 'ContentHashCanonicalManifest'
+        $manifest.pipeline.reports.enabled | Should -BeTrue
+        $manifest.pipeline.reports.formats | Should -Contain 'Html'
         $manifest.pipeline.safeDelete.mode | Should -Be 'KeepSource'
         $manifest.pipeline.safeDelete.rules.requiresDecodeValidation | Should -BeTrue
         $manifest.storageTiers[0].name | Should -Be 'Primary'

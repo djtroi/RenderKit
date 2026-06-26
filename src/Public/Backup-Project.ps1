@@ -35,6 +35,18 @@ Simulates cleanup and archive operations without changing files.
 .PARAMETER Background
 Queues a BackupProject job instead of running the backup immediately.
 
+.PARAMETER StartWorker
+Starts a detached local BackupProject worker after queuing a background job.
+
+.PARAMETER Watch
+Watches the queued background job with a CLI progress bar until it reaches a terminal state.
+
+.PARAMETER PollIntervalSeconds
+Polling interval used by `-Watch` and by the detached worker started through `-StartWorker`.
+
+.PARAMETER NoProgressBar
+Suppresses the CLI progress bar when `-Watch` is used.
+
 .PARAMETER ConfigProfile
 Backup configuration profile name. This is reserved for user-defined importable/exportable profiles.
 
@@ -92,6 +104,21 @@ Optional local start time for background processing, formatted as HH:mm.
 .PARAMETER AllowedEndTime
 Optional local end time for background processing, formatted as HH:mm.
 
+.PARAMETER ReportFormat
+Audit report formats to write. Defaults to Json, Html, and Text.
+
+.PARAMETER ReportRoot
+Optional directory for audit report sidecar files. Defaults to the backup archive destination directory.
+
+.PARAMETER SimulateFailure
+Injects controlled backup failures for recovery testing.
+
+.PARAMETER MaxChunkRetryAttempts
+Maximum attempts per failed encoding chunk before the job fails.
+
+.PARAMETER ChunkRetryDelaySeconds
+Delay between chunk retry attempts.
+
 .EXAMPLE
 Backup-Project -ProjectName "ClientA_2026"
 Backs up project `ClientA_2026` from the configured default project root.
@@ -134,6 +161,11 @@ https://github.com/djtroi/RenderKit
         [string]$DestinationRoot,
         [Alias("AsJob")]
         [switch]$Background,
+        [switch]$StartWorker,
+        [switch]$Watch,
+        [ValidateRange(1, 3600)]
+        [int]$PollIntervalSeconds = 2,
+        [switch]$NoProgressBar,
         [string]$ConfigProfile = 'balanced',
         [ValidateSet('Zip', 'SevenZip', 'TarZstd', 'Folder')]
         [string]$ArchiveFormat = 'Zip',
@@ -180,6 +212,17 @@ https://github.com/djtroi/RenderKit
         [int]$SystemRulePollSeconds = 5,
         [switch]$AllowOnBattery,
         [switch]$DisableThermalThrottle,
+        [ValidateSet('Json', 'Html', 'Text')]
+        [string[]]$ReportFormat = @('Json', 'Html', 'Text'),
+        [string]$ReportRoot,
+        [ValidateSet('None', 'AbortRequested', 'MissingTarget', 'FullDisk', 'CorruptChunk', 'TransientStorageCopy')]
+        [string[]]$SimulateFailure = @(),
+        [ValidateRange(1, 20)]
+        [int]$MaxChunkRetryAttempts = 3,
+        [ValidateRange(0, 3600)]
+        [int]$ChunkRetryDelaySeconds = 1,
+        [ValidateRange(1, 20)]
+        [int]$SimulatedFailureCount = 1,
         [string]$QueueName = 'backup',
         [ValidateRange(-1000, 1000)]
         [int]$Priority = 0,
@@ -293,6 +336,12 @@ https://github.com/djtroi/RenderKit
         -SystemRulePollSeconds $SystemRulePollSeconds `
         -AllowOnBattery:$AllowOnBattery `
         -DisableThermalThrottle:$DisableThermalThrottle `
+        -ReportFormat $ReportFormat `
+        -ReportRoot $ReportRoot `
+        -SimulateFailure $SimulateFailure `
+        -MaxChunkRetryAttempts $MaxChunkRetryAttempts `
+        -ChunkRetryDelaySeconds $ChunkRetryDelaySeconds `
+        -SimulatedFailureCount $SimulatedFailureCount `
         -QueueName $QueueName `
         -Priority $Priority
 
@@ -313,7 +362,28 @@ https://github.com/djtroi/RenderKit
             })
 
         Write-RenderKitLog -Level Info -Message "Queued BackupProject job '$($queuedJob.id)' for project '$ProjectName'."
-        return [PSCustomObject]@{
+
+        $worker = $null
+        if ($StartWorker) {
+            $worker = Start-RenderKitJobWorker `
+                -JobType 'BackupProject' `
+                -QueueName $QueueName `
+                -PollIntervalSeconds $PollIntervalSeconds `
+                -MaxJobs 1 `
+                -Detached
+        }
+
+        $quotedJobId = "'" + ([string]$queuedJob.id -replace "'", "''") + "'"
+        $commands = [PSCustomObject]@{
+            Status = "Get-BackupJob -JobId $quotedJobId"
+            Watch  = "Get-BackupJob -JobId $quotedJobId -Watch"
+            Pause  = "Pause-BackupJob -JobId $quotedJobId"
+            Resume = "Resume-BackupJob -JobId $quotedJobId"
+            Stop   = "Stop-BackupJob -JobId $quotedJobId"
+            Worker = "Start-RenderKitJobWorker -JobType BackupProject -QueueName '$QueueName' -MaxJobs 1 -Detached"
+        }
+
+        $backgroundResult = [PSCustomObject]@{
             ProjectName     = $project.Name
             ProjectId       = $project.Id
             RootPath        = $projectRoot
@@ -325,9 +395,29 @@ https://github.com/djtroi/RenderKit
             ConfigProfile   = $ConfigProfile
             ArchiveFormat   = $ArchiveFormat
             ArchivePath     = $archiveDescriptor.ArchivePath
+            Worker          = $worker
+            Commands        = $commands
             Payload         = $backupJobPayload
             Job             = $queuedJob
         }
+
+        if ($Watch) {
+            $latest = Get-BackupJob `
+                -JobId ([string]$queuedJob.id) `
+                -Watch `
+                -PollIntervalSeconds $PollIntervalSeconds `
+                -NoProgressBar:$NoProgressBar
+            if ($latest) {
+                $backgroundResult.Status = [string]$latest.Status
+                $backgroundResult | Add-Member `
+                    -NotePropertyName Progress `
+                    -NotePropertyValue $latest `
+                    -Force
+                $backgroundResult.Job = Get-RenderKitJob -JobId ([string]$queuedJob.id)
+            }
+        }
+
+        return $backgroundResult
     }
 
     if ($ArchiveFormat -ne 'Zip') {
@@ -350,8 +440,11 @@ https://github.com/djtroi/RenderKit
     $sourceRemoved = $false
     $integrityCheck = $null
     $sourceIntegrityIndex = $null
+    $deduplicationPlan = $null
     $storageVerification = $null
     $safeDeleteDecision = $null
+    $auditReport = $null
+    $reportResult = $null
     $archiveLogInjection = [PSCustomObject]@{
         AddedCount = 0
         AddedEntries = @()
@@ -396,6 +489,9 @@ https://github.com/djtroi/RenderKit
                 -RootPath $projectRoot `
                 -BasePath $projectRoot `
                 -Algorithm "SHA256"
+            $deduplicationPlan = New-BackupDeduplicationPlan `
+                -SourceIndex $sourceIntegrityIndex `
+                -Policy $backupJobPayload.deduplication
         }
 
         $archiveInfo = @{
@@ -408,12 +504,14 @@ https://github.com/djtroi/RenderKit
             sizeBytes       = [int64]0
             hashAlgorithm   = $null
             hash            = $null
+            deduplication   = $deduplicationPlan
         }
 
         if (-not $DryRun) {
             $archiveResult = Compress-Project `
                 -ProjectPath $projectRoot `
-                -DestinationPath $archiveDescriptor.ArchivePath
+                -DestinationPath $archiveDescriptor.ArchivePath `
+                -DeduplicationPlan $deduplicationPlan
 
             $archiveInfo.created = $true
             $archiveInfo.exists = Test-Path -Path $archiveDescriptor.ArchivePath -PathType Leaf
@@ -427,20 +525,23 @@ https://github.com/djtroi/RenderKit
                 -ProjectPath $projectRoot `
                 -ArchivePath $archiveDescriptor.ArchivePath `
                 -SourceIndex $sourceIntegrityIndex `
+                -DeduplicationPlan $deduplicationPlan `
                 -Algorithm "SHA256"
 
             if (-not $integrityCheck.IsMatch) {
                 Write-RenderKitLog -Level Error -Message (
-                    "Archive integrity check failed. MissingInArchive={0}, ExtraInArchive={1}, HashMismatches={2}." -f
+                    "Archive integrity check failed. MissingInArchive={0}, ExtraInArchive={1}, HashMismatches={2}, DedupMismatches={3}." -f
                     $integrityCheck.MissingInArchiveCount,
                     $integrityCheck.ExtraInArchiveCount,
-                    $integrityCheck.HashMismatchCount
+                    $integrityCheck.HashMismatchCount,
+                    $integrityCheck.DeduplicationMismatchCount
                 )
                 throw (
-                    "Archive integrity check failed. MissingInArchive={0}, ExtraInArchive={1}, HashMismatches={2}." -f
+                    "Archive integrity check failed. MissingInArchive={0}, ExtraInArchive={1}, HashMismatches={2}, DedupMismatches={3}." -f
                     $integrityCheck.MissingInArchiveCount,
                     $integrityCheck.ExtraInArchiveCount,
-                    $integrityCheck.HashMismatchCount
+                    $integrityCheck.HashMismatchCount,
+                    $integrityCheck.DeduplicationMismatchCount
                 )
             }
 
@@ -489,8 +590,10 @@ https://github.com/djtroi/RenderKit
             sourceFileCount      = if ($integrityCheck) { [int]$integrityCheck.SourceFileCount } else { $null }
             archiveFileCount     = if ($integrityCheck) { [int]$integrityCheck.ArchiveFileCount } else { $null }
             missingInArchiveCount = if ($integrityCheck) { [int]$integrityCheck.MissingInArchiveCount } else { $null }
+            deduplicatedInArchiveCount = if ($integrityCheck) { [int]$integrityCheck.DeduplicatedInArchiveCount } else { $null }
             extraInArchiveCount  = if ($integrityCheck) { [int]$integrityCheck.ExtraInArchiveCount } else { $null }
             hashMismatchCount    = if ($integrityCheck) { [int]$integrityCheck.HashMismatchCount } else { $null }
+            deduplicationMismatchCount = if ($integrityCheck) { [int]$integrityCheck.DeduplicationMismatchCount } else { $null }
         }
 
         $endedAt = Get-Date
@@ -532,6 +635,24 @@ https://github.com/djtroi/RenderKit
                 removalScheduled  = $willRemoveSource
                 existsAfterRun   = $true
             }
+            deduplication   = if ($deduplicationPlan) {
+                @{
+                    enabled             = [bool]$deduplicationPlan.enabled
+                    duplicateFileCount  = [int]$deduplicationPlan.summary.duplicateFileCount
+                    duplicateGroupCount = [int]$deduplicationPlan.summary.duplicateGroupCount
+                    uniqueFileCount     = [int]$deduplicationPlan.summary.uniqueFileCount
+                    estimatedSavedBytes = [int64]$deduplicationPlan.summary.estimatedSavedBytes
+                }
+            }
+            else {
+                @{
+                    enabled             = $false
+                    duplicateFileCount  = 0
+                    duplicateGroupCount = 0
+                    uniqueFileCount     = 0
+                    estimatedSavedBytes = 0
+                }
+            }
             archiveIntegrity = if ($integrityCheck) {
                 @{
                     checked              = $true
@@ -540,8 +661,10 @@ https://github.com/djtroi/RenderKit
                     sourceFileCount      = [int]$integrityCheck.SourceFileCount
                     archiveFileCount     = [int]$integrityCheck.ArchiveFileCount
                     missingInArchiveCount = [int]$integrityCheck.MissingInArchiveCount
+                    deduplicatedInArchiveCount = [int]$integrityCheck.DeduplicatedInArchiveCount
                     extraInArchiveCount  = [int]$integrityCheck.ExtraInArchiveCount
                     hashMismatchCount    = [int]$integrityCheck.HashMismatchCount
+                    deduplicationMismatchCount = [int]$integrityCheck.DeduplicationMismatchCount
                 }
             }
             else {
@@ -591,6 +714,12 @@ https://github.com/djtroi/RenderKit
                 audioProfile        = [string]$AudioProfile
                 createProxy         = [bool]$CreateProxy
                 createPreview       = [bool]$CreatePreview
+                reportFormat        = @($ReportFormat)
+                reportRoot          = [string]$ReportRoot
+                simulateFailure     = @($SimulateFailure)
+                maxChunkRetryAttempts = [int]$MaxChunkRetryAttempts
+                chunkRetryDelaySeconds = [int]$ChunkRetryDelaySeconds
+                simulatedFailureCount = [int]$SimulatedFailureCount
             } `
             -Statistics $statistics `
             -Archive $archiveInfo `
@@ -614,8 +743,11 @@ https://github.com/djtroi/RenderKit
                 scheduler        = $backupJobPayload.scheduler
                 progress         = $backupJobPayload.progress
                 control          = $backupJobPayload.control
+                failureRecovery  = $backupJobPayload.failureRecovery
                 background       = $backupJobPayload.background
                 storageCascade   = $backupJobPayload.storageCascade
+                deduplication    = if ($deduplicationPlan) { $deduplicationPlan } else { $backupJobPayload.deduplication }
+                reports          = $backupJobPayload.reports
                 copyVerify       = $backupJobPayload.copyVerify
                 safeDelete       = $backupJobPayload.safeDelete
                 mediaAnalysis    = $backupJobPayload.mediaAnalysis
@@ -716,7 +848,71 @@ https://github.com/djtroi/RenderKit
             reason    = [string]$safeDeleteDecision.reason
         }
 
+        $writeBackupAuditReport = {
+            $currentEndedAt = Get-Date
+            $statistics.endedAt = $currentEndedAt.ToString("o")
+            $statistics.durationSeconds = [Math]::Round(($currentEndedAt - $startedAt).TotalSeconds, 3)
+            $statistics.source.removed = [bool]$sourceRemoved
+            $statistics.source.existsAfterRun = if ([string]::IsNullOrWhiteSpace($projectRoot)) {
+                $false
+            }
+            else {
+                Test-Path -LiteralPath $projectRoot -PathType Container
+            }
+
+            $createdAuditReport = New-BackupAuditReport `
+                -Project $project `
+                -Archive $archiveInfo `
+                -Statistics $statistics `
+                -Manifest $manifest `
+                -StorageTiers @($backupJobPayload.storageTiers) `
+                -SourceIndex $sourceIntegrityIndex `
+                -CleanupSummary $cleanupSummary `
+                -ReportPlan $backupJobPayload.reports
+            $savedReports = Save-BackupAuditReport `
+                -Report $createdAuditReport `
+                -Plan $backupJobPayload.reports `
+                -DryRun:$DryRun
+            $archiveInfo.reports = $savedReports
+            $statistics.reports = @{
+                state        = [string]$savedReports.state
+                writtenCount = [int]$savedReports.summary.writtenCount
+                failedCount  = [int]$savedReports.summary.failedCount
+                files        = @($savedReports.files | ForEach-Object {
+                        @{
+                            format  = [string]$_.format
+                            path    = [string]$_.path
+                            written = [bool]$_.written
+                            hash    = [string]$_.hash
+                            error   = [string]$_.error
+                        }
+                    })
+            }
+
+            if ([int]$savedReports.summary.failedCount -gt 0) {
+                Write-RenderKitLog -Level Warning -Message (
+                    "Backup audit report completed with {0} failed file(s)." -f
+                    [int]$savedReports.summary.failedCount
+                )
+            }
+            else {
+                Write-RenderKitLog -Level Info -Message (
+                    "Backup audit report written ({0} file(s))." -f
+                    [int]$savedReports.summary.writtenCount
+                )
+            }
+
+            return [PSCustomObject]@{
+                Report = $createdAuditReport
+                Result = $savedReports
+            }
+        }
+
         if ($willRemoveSource -and -not [bool]$safeDeleteDecision.canDelete) {
+            $blockedAuditReport = & $writeBackupAuditReport
+            $auditReport = $blockedAuditReport.Report
+            $reportResult = $blockedAuditReport.Result
+
             $failedRuleReasons = @(
                 $safeDeleteDecision.failedRules |
                     ForEach-Object { [string]$_.reason } |
@@ -770,6 +966,10 @@ https://github.com/djtroi/RenderKit
             Write-RenderKitLog -Level Info -Message "Keeping source project folder: '$projectRoot'."
         }
 
+        $finalAuditReport = & $writeBackupAuditReport
+        $auditReport = $finalAuditReport.Report
+        $reportResult = $finalAuditReport.Result
+
         if (-not $sourceRemoved) {
             Write-RenderKitLog -Level Info -Message "Backup process completed successfully."
         }
@@ -792,6 +992,8 @@ https://github.com/djtroi/RenderKit
             Manifest                 = $manifest
             Statistics               = $statistics
             Archive                  = $archiveInfo
+            Reports                  = $reportResult
+            AuditReport              = $auditReport
             CleanupSummary           = $cleanupSummary
         }
     }

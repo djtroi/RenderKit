@@ -481,6 +481,16 @@ function New-BackupProjectJobPayload {
         [int]$SystemRulePollSeconds = 5,
         [switch]$AllowOnBattery,
         [switch]$DisableThermalThrottle,
+        [string[]]$ReportFormat = @('Json', 'Html', 'Text'),
+        [string]$ReportRoot,
+        [ValidateSet('None', 'AbortRequested', 'MissingTarget', 'FullDisk', 'CorruptChunk', 'TransientStorageCopy')]
+        [string[]]$SimulateFailure = @(),
+        [ValidateRange(1, 20)]
+        [int]$MaxChunkRetryAttempts = 3,
+        [ValidateRange(0, 3600)]
+        [int]$ChunkRetryDelaySeconds = 1,
+        [ValidateRange(1, 20)]
+        [int]$SimulatedFailureCount = 1,
         [string]$QueueName = 'backup',
         [int]$Priority = 0
     )
@@ -492,6 +502,11 @@ function New-BackupProjectJobPayload {
         $QueueName = 'backup'
     }
 
+    $failureRecovery = New-BackupFailureRecoveryPolicy `
+        -SimulateFailure $SimulateFailure `
+        -MaxChunkRetryAttempts $MaxChunkRetryAttempts `
+        -ChunkRetryDelaySeconds $ChunkRetryDelaySeconds `
+        -SimulatedFailureCount $SimulatedFailureCount
     $chunkingEnabled = -not [bool]$DisableChunking
     $probeTimedMedia = $chunkingEnabled -and $CompressionMode -eq 'TranscodeAndArchive'
     $mediaAnalysis = Get-BackupMediaAnalysis `
@@ -506,6 +521,9 @@ function New-BackupProjectJobPayload {
         -StorageTier $StorageTier `
         -DestinationRoot ([string]$ArchiveDescriptor.DestinationRoot) `
         -ArchivePath ([string]$ArchiveDescriptor.ArchivePath)
+    $storageTiers = Set-BackupFailureSimulationOnStorageTiers `
+        -StorageTiers @($storageTiers) `
+        -Simulation $failureRecovery.simulation
     $storageCascade = New-BackupStorageCascadePlan -StorageTiers @($storageTiers)
     $copyVerify = New-BackupCopyVerifyPlan `
         -StorageTiers @($storageTiers) `
@@ -520,6 +538,11 @@ function New-BackupProjectJobPayload {
     $qualityValidation = New-BackupQualityValidationPolicy `
         -QualityPreset $QualityPreset `
         -CompressionMode $CompressionMode
+    $deduplication = New-BackupDeduplicationPolicy
+    $reports = New-BackupReportPlan `
+        -ArchivePath ([string]$ArchiveDescriptor.ArchivePath) `
+        -ReportRoot $ReportRoot `
+        -Format $ReportFormat
     $systemRules = New-RenderKitSystemRulesPolicy `
         -RequireIdle ([bool]$RequireIdle) `
         -MinIdleMinutes $MinIdleMinutes `
@@ -692,8 +715,8 @@ function New-BackupProjectJobPayload {
                 mode    = 'OrderedStopActiveProcesses'
             }
             retry         = [PSCustomObject]@{
-                maxAttemptsPerChunk = 3
-                retryDelaySeconds   = 1
+                maxAttemptsPerChunk = [int]$MaxChunkRetryAttempts
+                retryDelaySeconds   = [int]$ChunkRetryDelaySeconds
             }
         }
         background        = [PSCustomObject]@{
@@ -721,6 +744,9 @@ function New-BackupProjectJobPayload {
             }
         }
         systemRules       = $systemRules
+        failureRecovery   = $failureRecovery
+        deduplication     = $deduplication
+        reports           = $reports
         copyVerify        = $copyVerify
         safeDelete        = $safeDelete
         mediaAnalysis    = [PSCustomObject]@{
@@ -760,8 +786,10 @@ function New-BackupProjectJobPayload {
         }
         advancedFeatures = [PSCustomObject]@{
             gpuDetection      = $gpuDetection
-            deduplication     = [PSCustomObject]@{ enabled = $true; state = 'Planned' }
+            deduplication     = $deduplication
+            reports           = $reports
             qualityValidation = $qualityValidation
+            failureRecovery = $failureRecovery
             tapeTargets       = [PSCustomObject]@{ enabled = $true; state = 'AdapterPlanned' }
             cloudTargets      = [PSCustomObject]@{ enabled = $true; state = 'AdapterPlanned' }
             idleDetection     = [PSCustomObject]@{ enabled = [bool]$RequireIdle; state = 'Planned' }
