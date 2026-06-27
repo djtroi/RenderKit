@@ -265,6 +265,7 @@ function New-BackupStorageCascadePlan {
                 required         = [bool]$tier.required
                 fallbackToTierId = $tier.fallback.toTierId
                 adapter          = [string]$tier.adapter
+                adapterId        = [string]$tier.adapterId
             })
     }
 
@@ -298,7 +299,8 @@ function ConvertTo-BackupProjectStorageTier {
     param(
         [hashtable[]]$StorageTier,
         [string]$DestinationRoot,
-        [string]$ArchivePath
+        [string]$ArchivePath,
+        [string]$VerifierAdapter = 'SHA256'
     )
 
     $tiers = New-Object System.Collections.Generic.List[object]
@@ -312,6 +314,18 @@ function ConvertTo-BackupProjectStorageTier {
         $tierName = if ($tier.ContainsKey('Name')) { [string]$tier.Name } else { "Tier$index" }
         $profileName = Resolve-BackupStorageTierProfileFromHashtable -Tier $tier -Index $index
         $profile = Get-BackupStorageTierProfile -Profile $profileName
+        $storageAdapter = if ($tier.ContainsKey('Adapter')) {
+            [string]$tier.Adapter
+        }
+        else {
+            [string]$profile.adapter
+        }
+        $tierVerifierAdapter = if ($tier.ContainsKey('VerifierAdapter')) {
+            [string]$tier.VerifierAdapter
+        }
+        else {
+            $VerifierAdapter
+        }
         $tierTarget = if ($tier.ContainsKey('Path')) { [string]$tier.Path } elseif ($tier.ContainsKey('Uri')) { [string]$tier.Uri } else { $null }
         if ([string]::IsNullOrWhiteSpace($tierTarget)) {
             throw "Backup storage tier '$tierName' must provide a Path or Uri value."
@@ -322,7 +336,8 @@ function ConvertTo-BackupProjectStorageTier {
             name     = $tierName
             profile  = [string]$profile.name
             kind     = if ($tier.ContainsKey('Kind')) { [string]$tier.Kind } else { [string]$profile.kind }
-            adapter  = [string]$profile.adapter
+            adapter  = $storageAdapter
+            adapterId = Resolve-BackupAdapterId -Type Storage -Name $storageAdapter
             role     = if ($tier.ContainsKey('Role')) { [string]$tier.Role } else { if ($index -eq 1) { 'Primary' } else { [string]$profile.role } }
             order    = if ($tier.ContainsKey('Order')) { [int]$tier.Order } else { $index }
             path     = $tierTarget
@@ -339,6 +354,8 @@ function ConvertTo-BackupProjectStorageTier {
                 enabled   = if ($tier.ContainsKey('Verify')) { [bool]$tier.Verify } else { [bool]$profile.defaultVerify }
                 algorithm = if ($tier.ContainsKey('VerifyAlgorithm')) { [string]$tier.VerifyAlgorithm } else { 'SHA256' }
                 mode      = if ($tier.ContainsKey('VerifyMode')) { [string]$tier.VerifyMode } else { 'HashAfterWrite' }
+                adapter   = $tierVerifierAdapter
+                adapterId = Resolve-BackupAdapterId -Type Verifier -Name $tierVerifierAdapter
             }
             fallback = [PSCustomObject]@{
                 enabled   = if ($tier.ContainsKey('FallbackEnabled')) { [bool]$tier.FallbackEnabled } else { $true }
@@ -376,6 +393,7 @@ function ConvertTo-BackupProjectStorageTier {
                 profile = 'FastSSD'
                 kind   = [string]$profile.kind
                 adapter = [string]$profile.adapter
+                adapterId = Resolve-BackupAdapterId -Type Storage -Name ([string]$profile.adapter)
                 role   = 'Primary'
                 order  = 1
                 path   = $primaryPath
@@ -392,6 +410,8 @@ function ConvertTo-BackupProjectStorageTier {
                     enabled   = $true
                     algorithm = 'SHA256'
                     mode      = 'HashAfterWrite'
+                    adapter   = $VerifierAdapter
+                    adapterId = Resolve-BackupAdapterId -Type Verifier -Name $VerifierAdapter
                 }
                 fallback = [PSCustomObject]@{
                     enabled   = $false
@@ -437,10 +457,11 @@ function New-BackupProjectJobPayload {
         [Parameter(Mandatory)]
         [pscustomobject]$ArchiveDescriptor,
         [string[]]$CleanupPreset = @('General'),
-        [string]$ConfigProfile = 'balanced',
+        [string]$ConfigProfile = 'no-transcode',
+        [object]$ConfigProfileResolution,
         [ValidateSet('Zip', 'SevenZip', 'TarZstd', 'Folder')]
         [string]$ArchiveFormat = 'Zip',
-        [ValidateSet('ArchiveOnly', 'TranscodeAndArchive', 'CopyOnly')]
+        [ValidateSet('ArchiveOnly', 'TranscodeAndArchive', 'ProxyOnly', 'CopyOnly')]
         [string]$CompressionMode = 'ArchiveOnly',
         [ValidateSet('Fastest', 'Balanced', 'Smallest', 'Lossless')]
         [string]$CompressionPreset = 'Balanced',
@@ -452,6 +473,9 @@ function New-BackupProjectJobPayload {
         [string]$QualityPreset = 'Balanced',
         [ValidateSet('Auto', 'AAC_128', 'AAC_192', 'Opus_96', 'Opus_128', 'Copy', 'Lossless')]
         [string]$AudioProfile = 'Auto',
+        [string]$EncoderAdapter = 'FFmpeg',
+        [string]$VerifierAdapter = 'SHA256',
+        [string[]]$NotifierAdapter = @('Log'),
         [switch]$CreateProxy,
         [switch]$CreatePreview,
         [switch]$KeepEmptyFolders,
@@ -495,9 +519,44 @@ function New-BackupProjectJobPayload {
         [int]$Priority = 0
     )
 
-    if ([string]::IsNullOrWhiteSpace($ConfigProfile)) {
-        $ConfigProfile = 'balanced'
+    if (-not $ConfigProfileResolution) {
+        $ConfigProfileResolution = Resolve-BackupConfigProfile `
+            -Name $ConfigProfile `
+            -ExplicitParameters @($PSBoundParameters.Keys)
+        foreach ($profileSetting in $ConfigProfileResolution.settings.PSObject.Properties) {
+            if ($PSBoundParameters.ContainsKey([string]$profileSetting.Name)) {
+                continue
+            }
+
+            Set-Variable `
+                -Name ([string]$profileSetting.Name) `
+                -Value $profileSetting.Value `
+                -Scope Local
+        }
+        $ConfigProfileResolution = Complete-BackupConfigProfileResolution `
+            -Resolution $ConfigProfileResolution `
+            -EffectiveSettings ([ordered]@{
+                ArchiveFormat          = $ArchiveFormat
+                CompressionMode        = $CompressionMode
+                CompressionPreset      = $CompressionPreset
+                VideoCodec             = $VideoCodec
+                EncoderDevice          = $EncoderDevice
+                QualityPreset          = $QualityPreset
+                AudioProfile           = $AudioProfile
+                CreateProxy            = [bool]$CreateProxy
+                CreatePreview          = [bool]$CreatePreview
+                DisableChunking        = [bool]$DisableChunking
+                ChunkDurationSeconds   = $ChunkDurationSeconds
+                MaxParallelJobs        = $MaxParallelJobs
+                MaxCpuPercent          = $MaxCpuPercent
+                MaxGpuPercent          = $MaxGpuPercent
+                MaxDiskActivePercent   = $MaxDiskActivePercent
+                KeepSourceProject      = [bool]$KeepSourceProject
+                MaxChunkRetryAttempts  = $MaxChunkRetryAttempts
+                ChunkRetryDelaySeconds = $ChunkRetryDelaySeconds
+            })
     }
+    $ConfigProfile = [string]$ConfigProfileResolution.name
     if ([string]::IsNullOrWhiteSpace($QueueName)) {
         $QueueName = 'backup'
     }
@@ -508,7 +567,10 @@ function New-BackupProjectJobPayload {
         -ChunkRetryDelaySeconds $ChunkRetryDelaySeconds `
         -SimulatedFailureCount $SimulatedFailureCount
     $chunkingEnabled = -not [bool]$DisableChunking
-    $probeTimedMedia = $chunkingEnabled -and $CompressionMode -eq 'TranscodeAndArchive'
+    $probeTimedMedia = (
+        $chunkingEnabled -and
+        $CompressionMode -in @('TranscodeAndArchive', 'ProxyOnly')
+    )
     $mediaAnalysis = Get-BackupMediaAnalysis `
         -ProjectRoot ([string]$Project.RootPath) `
         -ProbeTimedMedia:$probeTimedMedia
@@ -520,14 +582,25 @@ function New-BackupProjectJobPayload {
     $storageTiers = ConvertTo-BackupProjectStorageTier `
         -StorageTier $StorageTier `
         -DestinationRoot ([string]$ArchiveDescriptor.DestinationRoot) `
-        -ArchivePath ([string]$ArchiveDescriptor.ArchivePath)
+        -ArchivePath ([string]$ArchiveDescriptor.ArchivePath) `
+        -VerifierAdapter $VerifierAdapter
     $storageTiers = Set-BackupFailureSimulationOnStorageTiers `
         -StorageTiers @($storageTiers) `
         -Simulation $failureRecovery.simulation
     $storageCascade = New-BackupStorageCascadePlan -StorageTiers @($storageTiers)
+    $adapterPlan = New-BackupAdapterPlan `
+        -StorageTiers @($storageTiers) `
+        -EncoderAdapter $EncoderAdapter `
+        -VerifierAdapter $VerifierAdapter `
+        -NotifierAdapter $NotifierAdapter
     $copyVerify = New-BackupCopyVerifyPlan `
         -StorageTiers @($storageTiers) `
         -StorageCascade $storageCascade
+    $copyVerify |
+        Add-Member `
+            -NotePropertyName verifierAdapterId `
+            -NotePropertyValue ([string]$adapterPlan.verifier.id) `
+            -Force
     $safeDelete = New-BackupSafeDeletePolicy `
         -Mode $deletePolicyMode `
         -RequiredStorageTierIds @($storageCascade.requiredTierIds)
@@ -586,6 +659,7 @@ function New-BackupProjectJobPayload {
         }
         profile          = [PSCustomObject]@{
             configProfile     = $ConfigProfile
+            configProfileResolution = $ConfigProfileResolution
             cleanupPresets    = @($CleanupPreset)
             compressionPreset = $CompressionPreset
         }
@@ -595,6 +669,9 @@ function New-BackupProjectJobPayload {
             encoderDevice    = $EncoderDevice
             qualityPreset    = $QualityPreset
             audioProfile     = $AudioProfile
+            adapterId       = [string]$adapterPlan.encoder.id
+            adapterState    = [string]$adapterPlan.encoder.state
+            outputRole       = if ($CompressionMode -eq 'ProxyOnly') { 'Proxy' } else { 'ArchiveMedia' }
             gpuDetection     = $gpuDetection
             qualityValidation = $qualityValidation
             proxy            = [PSCustomObject]@{
@@ -744,6 +821,7 @@ function New-BackupProjectJobPayload {
             }
         }
         systemRules       = $systemRules
+        adapters          = $adapterPlan
         failureRecovery   = $failureRecovery
         deduplication     = $deduplication
         reports           = $reports
@@ -785,13 +863,28 @@ function New-BackupProjectJobPayload {
             systemRules             = $systemRules
         }
         advancedFeatures = [PSCustomObject]@{
+            configProfiles    = [PSCustomObject]@{
+                enabled         = $true
+                selectedProfile = $ConfigProfile
+                source          = [string]$ConfigProfileResolution.source
+                profileVersion  = [string]$ConfigProfileResolution.profileVersion
+            }
             gpuDetection      = $gpuDetection
             deduplication     = $deduplication
             reports           = $reports
             qualityValidation = $qualityValidation
             failureRecovery = $failureRecovery
-            tapeTargets       = [PSCustomObject]@{ enabled = $true; state = 'AdapterPlanned' }
-            cloudTargets      = [PSCustomObject]@{ enabled = $true; state = 'AdapterPlanned' }
+            extensibleAdapters = $adapterPlan
+            tapeTargets       = [PSCustomObject]@{
+                enabled   = $true
+                adapterId = 'storage.ltfs'
+                state     = if (Get-BackupAdapterDefinition -Type Storage -Name 'storage.ltfs') { 'Ready' } else { 'AdapterRequired' }
+            }
+            cloudTargets      = [PSCustomObject]@{
+                enabled   = $true
+                adapterId = 'storage.s3'
+                state     = if (Get-BackupAdapterDefinition -Type Storage -Name 'storage.s3') { 'Ready' } else { 'AdapterRequired' }
+            }
             idleDetection     = [PSCustomObject]@{ enabled = [bool]$RequireIdle; state = 'Planned' }
         }
     }

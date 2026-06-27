@@ -48,7 +48,8 @@ Polling interval used by `-Watch` and by the detached worker started through `-S
 Suppresses the CLI progress bar when `-Watch` is used.
 
 .PARAMETER ConfigProfile
-Backup configuration profile name. This is reserved for user-defined importable/exportable profiles.
+Backup configuration profile name. Built-in profiles are fastest, balanced, smallest, archive-safe, proxy-only, and no-transcode.
+Explicitly supplied backup parameters override the selected profile.
 
 .PARAMETER ArchiveFormat
 Archive output format. Immediate execution currently supports Zip; other formats are queued for worker execution.
@@ -70,6 +71,15 @@ Quality intent used for encoder arguments.
 
 .PARAMETER AudioProfile
 Audio compression profile used during chunk encoding.
+
+.PARAMETER EncoderAdapter
+Registered encoder adapter name or id. Defaults to the built-in FFmpeg adapter.
+
+.PARAMETER VerifierAdapter
+Registered verifier adapter name or id used after storage writes.
+
+.PARAMETER NotifierAdapter
+Registered notifier adapter names or ids used for background job events.
 
 .PARAMETER CreateProxy
 Plans proxy media generation for encoded assets.
@@ -135,6 +145,10 @@ Runs backup and asks for confirmation because of `SupportsShouldProcess`.
 Backup-Project -ProjectName "ClientA_2026" -KeepSourceProject
 Runs backup but keeps the source project folder.
 
+.EXAMPLE
+Backup-Project -ProjectName "ClientA_2026" -ConfigProfile smallest -Background
+Queues an AV1 and SevenZip backup using the built-in smallest profile.
+
 .INPUTS
 None. You cannot pipe input to this command.
 
@@ -166,10 +180,10 @@ https://github.com/djtroi/RenderKit
         [ValidateRange(1, 3600)]
         [int]$PollIntervalSeconds = 2,
         [switch]$NoProgressBar,
-        [string]$ConfigProfile = 'balanced',
+        [string]$ConfigProfile = 'no-transcode',
         [ValidateSet('Zip', 'SevenZip', 'TarZstd', 'Folder')]
         [string]$ArchiveFormat = 'Zip',
-        [ValidateSet('ArchiveOnly', 'TranscodeAndArchive', 'CopyOnly')]
+        [ValidateSet('ArchiveOnly', 'TranscodeAndArchive', 'ProxyOnly', 'CopyOnly')]
         [string]$CompressionMode = 'ArchiveOnly',
         [ValidateSet('Fastest', 'Balanced', 'Smallest', 'Lossless')]
         [string]$CompressionPreset = 'Balanced',
@@ -181,6 +195,9 @@ https://github.com/djtroi/RenderKit
         [string]$QualityPreset = 'Balanced',
         [ValidateSet('Auto', 'AAC_128', 'AAC_192', 'Opus_96', 'Opus_128', 'Copy', 'Lossless')]
         [string]$AudioProfile = 'Auto',
+        [string]$EncoderAdapter = 'FFmpeg',
+        [string]$VerifierAdapter = 'SHA256',
+        [string[]]$NotifierAdapter = @('Log'),
         [switch]$CreateProxy,
         [switch]$CreatePreview,
         [switch]$DisableChunking,
@@ -230,6 +247,53 @@ https://github.com/djtroi/RenderKit
         [switch]$KeepSourceProject,
         [switch]$DryRun
     )
+
+    $configProfileResolution = Resolve-BackupConfigProfile `
+        -Name $ConfigProfile `
+        -ExplicitParameters @($PSBoundParameters.Keys)
+    foreach ($profileSetting in $configProfileResolution.settings.PSObject.Properties) {
+        if ($PSBoundParameters.ContainsKey([string]$profileSetting.Name)) {
+            continue
+        }
+
+        Set-Variable `
+            -Name ([string]$profileSetting.Name) `
+            -Value $profileSetting.Value `
+            -Scope Local
+    }
+
+    $ConfigProfile = [string]$configProfileResolution.name
+    $configProfileResolution = Complete-BackupConfigProfileResolution `
+        -Resolution $configProfileResolution `
+        -EffectiveSettings ([ordered]@{
+            ArchiveFormat          = $ArchiveFormat
+            CompressionMode        = $CompressionMode
+            CompressionPreset      = $CompressionPreset
+            VideoCodec             = $VideoCodec
+            EncoderDevice          = $EncoderDevice
+            QualityPreset          = $QualityPreset
+            AudioProfile           = $AudioProfile
+            CreateProxy            = [bool]$CreateProxy
+            CreatePreview          = [bool]$CreatePreview
+            DisableChunking        = [bool]$DisableChunking
+            ChunkDurationSeconds   = $ChunkDurationSeconds
+            MaxParallelJobs        = $MaxParallelJobs
+            MaxCpuPercent          = $MaxCpuPercent
+            MaxGpuPercent          = $MaxGpuPercent
+            MaxDiskActivePercent   = $MaxDiskActivePercent
+            KeepSourceProject      = [bool]$KeepSourceProject
+            MaxChunkRetryAttempts  = $MaxChunkRetryAttempts
+            ChunkRetryDelaySeconds = $ChunkRetryDelaySeconds
+        })
+
+    if (-not $Background -and [bool]$configProfileResolution.requiresBackground) {
+        throw (
+            "Backup config profile '$ConfigProfile' resolves to archive format " +
+            "'$ArchiveFormat' or processing mode '$CompressionMode', which requires " +
+            "the background worker. Add -Background (optionally -StartWorker)."
+        )
+    }
+
     Write-RenderKitLog -Level Info -Message "Starting backup for project '$ProjectName'."
     Write-RenderKitLog -Level Debug -Message (
         "Parameters: Path='{0}' Preset='{1}' DestinationRoot='{2}' Background='{3}' ConfigProfile='{4}' ArchiveFormat='{5}' CompressionMode='{6}' CompressionPreset='{7}' DisableChunking='{8}' ChunkDurationSeconds='{9}' KeepEmptyFolders='{10}' KeepSourceProject='{11}' DryRun='{12}'." -f
@@ -308,6 +372,7 @@ https://github.com/djtroi/RenderKit
         -ArchiveDescriptor $archiveDescriptor `
         -CleanupPreset @($rules.Profiles) `
         -ConfigProfile $ConfigProfile `
+        -ConfigProfileResolution $configProfileResolution `
         -ArchiveFormat $ArchiveFormat `
         -CompressionMode $CompressionMode `
         -CompressionPreset $CompressionPreset `
@@ -315,6 +380,9 @@ https://github.com/djtroi/RenderKit
         -EncoderDevice $EncoderDevice `
         -QualityPreset $QualityPreset `
         -AudioProfile $AudioProfile `
+        -EncoderAdapter $EncoderAdapter `
+        -VerifierAdapter $VerifierAdapter `
+        -NotifierAdapter $NotifierAdapter `
         -CreateProxy:$CreateProxy `
         -CreatePreview:$CreatePreview `
         -KeepEmptyFolders:$KeepEmptyFolders `
@@ -712,6 +780,9 @@ https://github.com/djtroi/RenderKit
                 encoderDevice       = [string]$EncoderDevice
                 qualityPreset       = [string]$QualityPreset
                 audioProfile        = [string]$AudioProfile
+                encoderAdapter      = [string]$EncoderAdapter
+                verifierAdapter     = [string]$VerifierAdapter
+                notifierAdapters    = @($NotifierAdapter)
                 createProxy         = [bool]$CreateProxy
                 createPreview       = [bool]$CreatePreview
                 reportFormat        = @($ReportFormat)
@@ -738,6 +809,7 @@ https://github.com/djtroi/RenderKit
                 compressionMode  = $CompressionMode
                 compressionPreset = $CompressionPreset
                 encoding        = $backupJobPayload.encoding
+                adapters        = $backupJobPayload.adapters
                 chunking         = $backupJobPayload.chunking
                 merge            = $backupJobPayload.merge
                 scheduler        = $backupJobPayload.scheduler

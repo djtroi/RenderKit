@@ -1060,10 +1060,12 @@ function Stop-BackupJobForCancellation {
         [object[]]$RunningCommands = @()
     )
 
-    Invoke-BackupProcessControl `
-        -Action Stop `
-        -Commands $RunningCommands |
-        Out-Null
+    if (@($RunningCommands).Count -gt 0) {
+        Invoke-BackupProcessControl `
+            -Action Stop `
+            -Commands $RunningCommands |
+            Out-Null
+    }
     Update-BackupJobProgressSnapshot `
         -Job $Job `
         -StageName 'Cancelled' `
@@ -1576,13 +1578,77 @@ function New-BackupEncodingPlan {
             -Source 'Failed'
     }
 
-    $profile = Get-BackupEncodingProfile `
-        -CompressionPreset ([string]$Payload.archive.compressionPreset) `
-        -VideoCodec ([string]$encoding.videoCodec) `
-        -EncoderDevice ([string]$encoding.encoderDevice) `
-        -QualityPreset ([string]$encoding.qualityPreset) `
-        -AudioProfile ([string]$encoding.audioProfile) `
-        -GpuCapabilities $gpuCapabilities
+    $encoderAdapterId = if ($encoding.PSObject.Properties.Name -contains 'adapterId' -and
+        -not [string]::IsNullOrWhiteSpace([string]$encoding.adapterId)) {
+        [string]$encoding.adapterId
+    }
+    else {
+        'encoder.ffmpeg'
+    }
+    $encoderAdapter = Get-BackupAdapterDefinition `
+        -Type Encoder `
+        -Name $encoderAdapterId
+    if (-not $encoderAdapter) {
+        throw "Encoder adapter '$encoderAdapterId' is not registered."
+    }
+    $profile = Invoke-BackupAdapterOperation `
+        -Adapter $encoderAdapter `
+        -Operation ResolveProfile `
+        -Context ([PSCustomObject]@{
+            payload            = $Payload
+            encoding           = $encoding
+            compressionPreset  = [string]$Payload.archive.compressionPreset
+            videoCodec         = [string]$encoding.videoCodec
+            encoderDevice      = [string]$encoding.encoderDevice
+            qualityPreset      = [string]$encoding.qualityPreset
+            audioProfile       = [string]$encoding.audioProfile
+            gpuCapabilities    = $gpuCapabilities
+        })
+    if (-not $profile) {
+        throw "Encoder adapter '$encoderAdapterId' returned no encoding profile."
+    }
+    foreach ($requiredProfileProperty in @(
+            'container',
+            'videoCodec',
+            'encoderDevice',
+            'encoderName',
+            'qualityPreset',
+            'audioProfile',
+            'videoArgs',
+            'audioArgs'
+        )) {
+        if ($profile.PSObject.Properties.Name -notcontains $requiredProfileProperty) {
+            throw "Encoder adapter '$encoderAdapterId' profile is missing '$requiredProfileProperty'."
+        }
+    }
+    $profile |
+        Add-Member -NotePropertyName adapterId -NotePropertyValue ([string]$encoderAdapter.id) -Force
+    $profile |
+        Add-Member -NotePropertyName adapterVersion -NotePropertyValue ([string]$encoderAdapter.version) -Force
+    if ($profile.PSObject.Properties.Name -notcontains 'encoderSelection') {
+        $profile |
+            Add-Member `
+                -NotePropertyName encoderSelection `
+                -NotePropertyValue ([PSCustomObject]@{
+                    source      = 'EncoderAdapter'
+                    adapterId   = [string]$encoderAdapter.id
+                    device      = [string]$profile.encoderDevice
+                    encoderName = [string]$profile.encoderName
+                })
+    }
+    $proxyOnly = [string]$Payload.archive.mode -eq 'ProxyOnly'
+    if ($proxyOnly) {
+        $profile.name = "ProxyOnly-$($profile.name)"
+        $profile.videoArgs = @($profile.videoArgs) + @('-vf', 'scale=-2:720')
+        $profile |
+            Add-Member -NotePropertyName outputRole -NotePropertyValue 'Proxy' -Force
+        $profile |
+            Add-Member -NotePropertyName targetHeight -NotePropertyValue 720 -Force
+    }
+    else {
+        $profile |
+            Add-Member -NotePropertyName outputRole -NotePropertyValue 'ArchiveMedia' -Force
+    }
     $ffmpeg = Get-BackupFfmpegCommand
     $ffprobe = Get-BackupFfprobeCommand
     $commands = New-Object System.Collections.Generic.List[object]
@@ -1619,6 +1685,21 @@ function New-BackupEncodingPlan {
                 $chunkAttempts = [int]$completedEntry.attempts
             }
         }
+        $adapterCommand = Invoke-BackupAdapterOperation `
+            -Adapter $encoderAdapter `
+            -Operation BuildCommand `
+            -Context ([PSCustomObject]@{
+                job        = $Job
+                payload    = $Payload
+                chunk      = $chunk
+                profile    = $profile
+                outputPath = $outputPath
+            })
+        if (-not $adapterCommand -or
+            [string]::IsNullOrWhiteSpace([string]$adapterCommand.executable) -or
+            $adapterCommand.PSObject.Properties.Name -notcontains 'arguments') {
+            throw "Encoder adapter '$encoderAdapterId' returned an invalid command for chunk '$($chunk.id)'."
+        }
         $commands.Add([PSCustomObject]@{
             id              = "encode-$($chunk.id)"
             type            = 'EncodeChunk'
@@ -1630,12 +1711,10 @@ function New-BackupEncodingPlan {
             durationSeconds = [double]$chunk.durationSeconds
             inputPath       = [string]$chunk.path
             outputPath      = $outputPath
-            executable      = if ($ffmpeg) { [string]$ffmpeg.Source } else { 'ffmpeg' }
+            adapterId       = [string]$encoderAdapter.id
+            executable      = [string]$adapterCommand.executable
             audioSync       = if ($chunk.PSObject.Properties.Name -contains 'audioSync') { $chunk.audioSync } else { $null }
-            arguments       = @(New-BackupFfmpegChunkArguments `
-                    -Chunk $chunk `
-                    -Profile $profile `
-                    -OutputPath $outputPath)
+            arguments       = @($adapterCommand.arguments)
             state           = $chunkState
             attempts        = $chunkAttempts
         })
@@ -1758,7 +1837,16 @@ function New-BackupEncodingPlan {
         -JobId ([string]$Job.id) `
         -Commands (@($commands.ToArray()) + @($merges.ToArray()) + @($qualityValidation.decodeCommands) + @($qualityValidation.metricCommands | Where-Object { [string]$_.state -eq 'Planned' }) + @($proxyCommands.ToArray()) + @($previewCommands.ToArray())) `
         -MaxAttemptsPerChunk $(if ($Payload.control -and $Payload.control.retry -and $Payload.control.retry.maxAttemptsPerChunk) { [int]$Payload.control.retry.maxAttemptsPerChunk } else { 3 }) `
-        -RetryDelaySeconds $(if ($Payload.control -and $Payload.control.retry -and $Payload.control.retry.retryDelaySeconds) { [int]$Payload.control.retry.retryDelaySeconds } else { 1 })
+        -RetryDelaySeconds $(if (
+                $Payload.control -and
+                $Payload.control.retry -and
+                $Payload.control.retry.PSObject.Properties.Name -contains 'retryDelaySeconds'
+            ) {
+                [int]$Payload.control.retry.retryDelaySeconds
+            }
+            else {
+                1
+            })
 
     return [PSCustomObject]@{
         schemaVersion = '1.0'
@@ -1772,6 +1860,12 @@ function New-BackupEncodingPlan {
             path      = if ($ffprobe) { [string]$ffprobe.Source } else { $null }
         }
         profile       = $profile
+        encoderAdapter = [PSCustomObject]@{
+            id              = [string]$encoderAdapter.id
+            version         = [string]$encoderAdapter.version
+            contractVersion = [string]$encoderAdapter.contractVersion
+            capabilities    = @($encoderAdapter.capabilities)
+        }
         encoding      = $encoding
         gpuDetection  = [PSCustomObject]@{
             plan         = if ($encoding.PSObject.Properties.Name -contains 'gpuDetection') { $encoding.gpuDetection } else { $null }
@@ -1789,7 +1883,10 @@ function New-BackupEncodingPlan {
             qualityMetricCommandCount = [int]$qualityValidation.summary.metricCommandCount
             proxyCommandCount   = [int]$proxyCommands.Count
             previewCommandCount = [int]$previewCommands.Count
-            requiresFfmpeg      = ([int]$commands.Count + [int]$merges.Count + [int]$proxyCommands.Count + [int]$previewCommands.Count) -gt 0
+            requiresFfmpeg      = (
+                ([string]$encoderAdapter.id -eq 'encoder.ffmpeg' -and [int]$commands.Count -gt 0) -or
+                ([int]$merges.Count + [int]$proxyCommands.Count + [int]$previewCommands.Count) -gt 0
+            )
             requiresFfprobe     = [int]$merges.Count -gt 0
         }
         commands      = @($commands.ToArray())

@@ -53,6 +53,9 @@ Describe 'RenderKit backup command contracts' {
         $command.Parameters.Keys | Should -Contain 'EncoderDevice'
         $command.Parameters.Keys | Should -Contain 'QualityPreset'
         $command.Parameters.Keys | Should -Contain 'AudioProfile'
+        $command.Parameters.Keys | Should -Contain 'EncoderAdapter'
+        $command.Parameters.Keys | Should -Contain 'VerifierAdapter'
+        $command.Parameters.Keys | Should -Contain 'NotifierAdapter'
         $command.Parameters.Keys | Should -Contain 'CreateProxy'
         $command.Parameters.Keys | Should -Contain 'CreatePreview'
         $command.Parameters.Keys | Should -Contain 'ChunkDurationSeconds'
@@ -70,6 +73,34 @@ Describe 'RenderKit backup command contracts' {
         $command.Parameters.Keys | Should -Contain 'MaxChunkRetryAttempts'
         $command.Parameters.Keys | Should -Contain 'ChunkRetryDelaySeconds'
         $command.Parameters.Keys | Should -Contain 'SimulatedFailureCount'
+    }
+
+    It 'exposes the built-in backup config profile catalog' {
+        Get-Command -Module RenderKit -Name Get-BackupConfigProfile |
+            Should -Not -BeNullOrEmpty
+
+        $profiles = @(Get-BackupConfigProfile)
+        $profiles.Count | Should -Be 6
+        $profiles.Name | Should -Contain 'fastest'
+        $profiles.Name | Should -Contain 'balanced'
+        $profiles.Name | Should -Contain 'smallest'
+        $profiles.Name | Should -Contain 'archive-safe'
+        $profiles.Name | Should -Contain 'proxy-only'
+        $profiles.Name | Should -Contain 'no-transcode'
+        (Get-BackupConfigProfile proxy).Name | Should -Be 'proxy-only'
+        $mutableCopy = Get-BackupConfigProfile fastest
+        $mutableCopy.Settings.VideoCodec = 'AV1'
+        (Get-BackupConfigProfile fastest).Settings.VideoCodec | Should -Be 'H264'
+        { Get-BackupConfigProfile does-not-exist } | Should -Throw '*Available profiles*'
+    }
+
+    It 'exposes backup adapter management commands' {
+        Get-Command -Module RenderKit -Name Get-BackupAdapter |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Register-BackupAdapter |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Remove-BackupAdapter |
+            Should -Not -BeNullOrEmpty
     }
 
     It 'exposes backup job control commands' {

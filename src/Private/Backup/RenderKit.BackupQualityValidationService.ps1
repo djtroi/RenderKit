@@ -88,7 +88,7 @@ function New-BackupQualityValidationPolicy {
     param(
         [ValidateSet('Draft', 'Balanced', 'High', 'Smallest', 'Lossless')]
         [string]$QualityPreset = 'Balanced',
-        [ValidateSet('ArchiveOnly', 'TranscodeAndArchive', 'CopyOnly')]
+        [ValidateSet('ArchiveOnly', 'TranscodeAndArchive', 'ProxyOnly', 'CopyOnly')]
         [string]$CompressionMode = 'ArchiveOnly',
         [int]$SampleCount = 3,
         [int]$SampleDurationSeconds = 8,
@@ -98,7 +98,7 @@ function New-BackupQualityValidationPolicy {
     $thresholdProfile = Get-BackupQualityThresholdProfile -QualityPreset $QualityPreset
     return [PSCustomObject]@{
         schemaVersion = '1.0'
-        enabled       = $CompressionMode -eq 'TranscodeAndArchive'
+        enabled       = $CompressionMode -in @('TranscodeAndArchive', 'ProxyOnly')
         state         = 'Planned'
         mode          = 'SampleDecodeWithOptionalMetrics'
         qualityPreset = $QualityPreset

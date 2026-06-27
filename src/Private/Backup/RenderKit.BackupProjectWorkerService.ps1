@@ -35,7 +35,7 @@ function Invoke-BackupProjectJob {
         -State $resumeState |
         Out-Null
 
-    $encodingResult = if ([string]$payload.archive.mode -eq 'TranscodeAndArchive') {
+    $encodingResult = if ([string]$payload.archive.mode -in @('TranscodeAndArchive', 'ProxyOnly')) {
         Invoke-BackupEncodingPlan -Job $Job -Plan $encodingPlan
     }
     else {
@@ -69,6 +69,10 @@ function Invoke-BackupProjectJob {
             }
             skipped                    = $true
         }
+    }
+
+    if ([string]$payload.archive.mode -eq 'ProxyOnly') {
+        $encodingResult.proxyAssetCount = [int]$encodingResult.mergedAssetCount
     }
 
     $resumeState.progress.currentPhase = 'EncodingComplete'
