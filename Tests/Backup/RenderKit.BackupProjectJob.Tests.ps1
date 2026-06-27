@@ -2079,10 +2079,14 @@ Describe 'RenderKit BackupProject job planning' {
                             maxAttempts = 3
                         }
                     }
+                    $backupRoot = Join-Path $TestDrive 'Backups'
+                    $archivePath = Join-Path $backupRooot 'ClientA.zip'
+                    #New-Item -ItemType Directory -Path $backupRoot -Forcer | Out-Null 
+
                     deduplication = New-BackupDeduplicationPolicy
                     reports = New-BackupReportPlan `
-                        -ArchivePath 'E:\Backups\ClientA.zip' `
-                        -ReportRoot 'E:\Backups' `
+                        -ArchivePath $archivePath `
+                        -ReportRoot $backupRoot  `
                         -Format @('Json', 'Html', 'Text')
                     safeDelete = New-BackupSafeDeletePolicy `
                         -Mode KeepSource `
@@ -2091,7 +2095,7 @@ Describe 'RenderKit BackupProject job planning' {
                 -StorageTiers @(
                     [PSCustomObject]@{
                         name = 'Primary'
-                        path = 'E:\Backups'
+                        path = $backupRooot
                     }
                 )
         }
