@@ -12,7 +12,8 @@ Describe 'RenderKit backup adapters' {
                 'storage.test-memory',
                 'verifier.test-memory',
                 'encoder.test-command',
-                'notifier.test-file'
+                'notifier.test-file',
+                'storage.test-cold-start'
             )) {
             Remove-BackupAdapter `
                 -Id $adapterId `
@@ -307,5 +308,98 @@ Describe 'RenderKit backup adapters' {
         $results.state | Should -Not -Contain 'Failed'
         @(Get-Content -LiteralPath $notificationPath) |
             Should -Be @('JobStarted', 'JobCompleted')
+    }
+
+    It 'reloads a provider module from a persisted adapter plan' {
+        $moduleName = 'RenderKit.TestColdStartAdapter'
+        $moduleRoot = Join-Path $TestDrive $moduleName
+        $modulePath = Join-Path $moduleRoot "$moduleName.psm1"
+        New-Item -ItemType Directory -Path $moduleRoot -Force | Out-Null
+        @'
+function Test-RenderKitColdStartStorageHealth {
+    param($Context)
+    [PSCustomObject]@{
+        healthy = $true
+        state = 'Healthy'
+        target = [string]$Context.target
+    }
+}
+
+function Write-RenderKitColdStartStorage {
+    param($Context)
+    [PSCustomObject]@{
+        written = $true
+        target = [string]$Context.target
+    }
+}
+
+Register-BackupAdapter `
+    -Id storage.test-cold-start `
+    -Type Storage `
+    -Name 'Cold-start storage' `
+    -Version 1.0.0 `
+    -ModuleName 'RenderKit.TestColdStartAdapter' `
+    -Operations @{
+        TestHealth = 'Test-RenderKitColdStartStorageHealth'
+        Write = 'Write-RenderKitColdStartStorage'
+    } `
+    -Force |
+    Out-Null
+
+Export-ModuleMember -Function @(
+    'Test-RenderKitColdStartStorageHealth',
+    'Write-RenderKitColdStartStorage'
+)
+'@ | Set-Content -LiteralPath $modulePath -Encoding UTF8
+
+        $originalModulePath = $env:PSModulePath
+        try {
+            $env:PSModulePath = @(
+                $TestDrive,
+                $originalModulePath
+            ) -join [System.IO.Path]::PathSeparator
+            Import-Module -Name $moduleName -Force
+
+            $plan = InModuleScope RenderKit {
+                New-BackupAdapterPlan `
+                    -StorageTiers @(
+                        [PSCustomObject]@{
+                            id = 'cold-start-tier'
+                            adapterId = 'storage.test-cold-start'
+                            required = $true
+                        }
+                    )
+            }
+            $plan.storage[0].provider.moduleName |
+                Should -Be $moduleName
+
+            Remove-BackupAdapter `
+                -Id storage.test-cold-start `
+                -Force `
+                -Confirm:$false |
+                Out-Null
+            Remove-Module -Name $moduleName -Force
+
+            $result = InModuleScope RenderKit -Parameters @{
+                AdapterPlan = $plan
+            } {
+                Import-BackupAdapterProvidersFromPlan -Plan $AdapterPlan |
+                    Out-Null
+                $adapter = Get-BackupAdapterDefinition `
+                    -Type Storage `
+                    -Name storage.test-cold-start
+                Invoke-BackupAdapterOperation `
+                    -Adapter $adapter `
+                    -Operation TestHealth `
+                    -Context ([PSCustomObject]@{ target = 'cold://archive' })
+            }
+
+            $result.healthy | Should -BeTrue
+            $result.target | Should -Be 'cold://archive'
+        }
+        finally {
+            Remove-Module -Name $moduleName -Force -ErrorAction SilentlyContinue
+            $env:PSModulePath = $originalModulePath
+        }
     }
 }

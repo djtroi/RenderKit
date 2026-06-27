@@ -14,6 +14,8 @@ Updates a persistent user backup configuration profile.
         [string]$Description,
         [string[]]$Tag,
         [string]$Author,
+        [ValidateRange(1, [int]::MaxValue)]
+        [int]$ExpectedGeneration,
         [ValidateSet('None', 'Patch', 'Minor', 'Major')]
         [string]$BumpVersion = 'Patch',
         [switch]$Interactive
@@ -21,6 +23,21 @@ Updates a persistent user backup configuration profile.
 
     $canonicalName = ConvertTo-BackupConfigProfileName -Name $Name
     $profile = Get-BackupUserConfigProfileByName -Name $canonicalName
+    if ($PSBoundParameters.ContainsKey('ExpectedGeneration') -and
+        [int]$profile.revision.generation -ne $ExpectedGeneration) {
+        $message = (
+            "Backup config profile '$canonicalName' changed after it was loaded. " +
+            "Expected generation $ExpectedGeneration but found $($profile.revision.generation)."
+        )
+        $exception = [System.InvalidOperationException]::new($message)
+        $errorRecord = [System.Management.Automation.ErrorRecord]::new(
+            $exception,
+            'RK_PROFILE_CONFLICT',
+            [System.Management.Automation.ErrorCategory]::ResourceExists,
+            $canonicalName
+        )
+        $PSCmdlet.ThrowTerminatingError($errorRecord)
+    }
     $baseSettings = $profile.settings
     if ($PSBoundParameters.ContainsKey('BaseProfile')) {
         $baseDefinition = Get-BackupConfigProfileDefinition -Name $BaseProfile

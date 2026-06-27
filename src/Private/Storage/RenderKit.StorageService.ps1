@@ -30,8 +30,8 @@ function Get-RenderKitUserHome {
     [OutputType([System.String])]
     param()
 
-    if (-not [string]::IsNullOrWhiteSpace([string]$homes)) {
-        return [System.IO.Path]::GetFullPath([string]$homes)
+    if (-not [string]::IsNullOrWhiteSpace([string]$env:HOME)) {
+        return [System.IO.Path]::GetFullPath([string]$env:HOME)
     }
 
     $profilePath = [Environment]::GetFolderPath(

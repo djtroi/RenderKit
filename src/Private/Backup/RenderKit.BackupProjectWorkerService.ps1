@@ -123,35 +123,30 @@ function Invoke-BackupProjectJob {
         -State $resumeState |
         Out-Null
 
-    return [PSCustomObject]@{
-        phase             = 'Encoding'
-        skipped           = [bool]$encodingResult.skipped
-        encodedChunkCount = [int]$encodingResult.encodedChunkCount
-        mergedAssetCount  = [int]$encodingResult.mergedAssetCount
-        mergeValidationCount = [int]$encodingResult.mergeValidationCount
-        mergeValidationFailedCount = [int]$encodingResult.mergeValidationFailedCount
-        mergeValidations = @($encodingResult.mergeValidations)
-        qualityValidationCount = [int]$encodingResult.qualityValidationCount
-        qualityValidationFailedCount = [int]$encodingResult.qualityValidationFailedCount
-        qualityValidations = @($encodingResult.qualityValidations)
-        qualityValidation = $encodingResult.qualityValidation
-        proxyAssetCount   = [int]$encodingResult.proxyAssetCount
-        previewAssetCount = [int]$encodingResult.previewAssetCount
-        scheduler        = $encodingResult.scheduler
-        encodingPlan      = [PSCustomObject]@{
-            profile      = $encodingPlan.profile.name
-            commandCount = $encodingPlan.summary.commandCount
-            mergeCount   = $encodingPlan.summary.mergeCount
-            mergeValidationCount = $encodingPlan.summary.mergeValidationCount
-            qualitySampleCount = $encodingPlan.summary.qualitySampleCount
-            qualityDecodeCommandCount = $encodingPlan.summary.qualityDecodeCommandCount
-            qualityMetricCommandCount = $encodingPlan.summary.qualityMetricCommandCount
-            proxyCommandCount = $encodingPlan.summary.proxyCommandCount
-            previewCommandCount = $encodingPlan.summary.previewCommandCount
-            scheduler    = $encodingPlan.scheduler
-            ffmpeg       = $encodingPlan.ffmpeg
-            ffprobe      = $encodingPlan.ffprobe
-        }
-        resumeStatePath   = Get-BackupResumeStatePath -JobId ([string]$Job.id)
+    $finalResult = Invoke-BackupWorkerFinalization `
+        -Job $Job `
+        -Payload $payload `
+        -EncodingPlan $encodingPlan `
+        -EncodingResult $encodingResult
+    $resumeState.progress.currentPhase = 'BackupComplete'
+    $finalProgressStatePath = Get-BackupProgressStatePath `
+        -JobId ([string]$Job.id)
+    if (Test-Path -LiteralPath $finalProgressStatePath -PathType Leaf) {
+        $resumeState.progressSnapshot = Get-Content `
+            -LiteralPath $finalProgressStatePath `
+            -Raw |
+            ConvertFrom-Json
+        $resumeState.progress.currentStageName =
+            [string]$resumeState.progressSnapshot.stage.name
+        $resumeState.progress.currentStageDisplayName =
+            [string]$resumeState.progressSnapshot.stage.displayName
+        $resumeState.progress.overallPercent =
+            $resumeState.progressSnapshot.overall.percent
     }
+    $resumeState.updatedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+    Save-BackupResumeState `
+        -JobId ([string]$Job.id) `
+        -State $resumeState |
+        Out-Null
+    return $finalResult
 }

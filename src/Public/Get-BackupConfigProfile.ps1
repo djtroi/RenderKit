@@ -58,6 +58,7 @@ Get-BackupConfigProfile -Name smallest
                 Path               = if ($profile.PSObject.Properties.Name -contains 'path') { [string]$profile.path } else { $null }
                 Tags               = if ($profile.PSObject.Properties.Name -contains 'tags') { @($profile.tags) } else { @() }
                 Compatibility      = if ($profile.PSObject.Properties.Name -contains 'compatibility') { $profile.compatibility } else { $null }
+                Revision           = if ($profile.PSObject.Properties.Name -contains 'revision') { $profile.revision } else { $null }
                 Settings           = Copy-BackupConfigProfileSettings -Settings $profile.settings
             }
         }

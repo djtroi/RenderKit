@@ -3,12 +3,14 @@ BeforeAll {
     $storageServicePath = Join-Path $repositoryRoot `
         'src/Private/Storage/RenderKit.StorageService.ps1'
     . $storageServicePath
+    $script:getUserHomeImplementation = ${function:Get-RenderKitUserHome}
 }
 
 Describe 'RenderKit cross-platform storage service' {
     BeforeEach {
         $script:originalEnvironment = @{
             RENDERKIT_HOME = $env:RENDERKIT_HOME
+            HOME = $env:HOME
             APPDATA = $env:APPDATA
             LOCALAPPDATA = $env:LOCALAPPDATA
             XDG_CONFIG_HOME = $env:XDG_CONFIG_HOME
@@ -59,6 +61,14 @@ Describe 'RenderKit cross-platform storage service' {
         $state | Should -Be (Join-Path $env:RENDERKIT_HOME 'state')
         $cache | Should -Be (Join-Path $env:RENDERKIT_HOME 'cache')
         $userData | Should -Be (Join-Path $env:RENDERKIT_HOME 'data')
+    }
+
+    It 'prefers the HOME environment variable for the user home' {
+        $expectedHome = Join-Path $script:testRoot 'environment-home'
+        $env:HOME = $expectedHome
+
+        & $script:getUserHomeImplementation |
+            Should -Be ([System.IO.Path]::GetFullPath($expectedHome))
     }
 
     It 'creates a requested semantic root only when Ensure is used' {
