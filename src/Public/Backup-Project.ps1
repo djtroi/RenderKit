@@ -273,6 +273,9 @@ https://github.com/djtroi/RenderKit
             EncoderDevice          = $EncoderDevice
             QualityPreset          = $QualityPreset
             AudioProfile           = $AudioProfile
+            EncoderAdapter         = $EncoderAdapter
+            VerifierAdapter        = $VerifierAdapter
+            NotifierAdapter        = @($NotifierAdapter)
             CreateProxy            = [bool]$CreateProxy
             CreatePreview          = [bool]$CreatePreview
             DisableChunking        = [bool]$DisableChunking

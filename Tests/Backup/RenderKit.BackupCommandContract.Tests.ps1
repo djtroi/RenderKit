@@ -80,7 +80,7 @@ Describe 'RenderKit backup command contracts' {
             Should -Not -BeNullOrEmpty
 
         $profiles = @(Get-BackupConfigProfile)
-        $profiles.Count | Should -Be 6
+        @($profiles | Where-Object Source -eq 'BuiltIn').Count | Should -Be 6
         $profiles.Name | Should -Contain 'fastest'
         $profiles.Name | Should -Contain 'balanced'
         $profiles.Name | Should -Contain 'smallest'
@@ -92,6 +92,21 @@ Describe 'RenderKit backup command contracts' {
         $mutableCopy.Settings.VideoCodec = 'AV1'
         (Get-BackupConfigProfile fastest).Settings.VideoCodec | Should -Be 'H264'
         { Get-BackupConfigProfile does-not-exist } | Should -Throw '*Available profiles*'
+    }
+
+    It 'exposes the backup config profile creator lifecycle' {
+        foreach ($commandName in @(
+                'New-BackupConfigProfile',
+                'Set-BackupConfigProfile',
+                'Test-BackupConfigProfile',
+                'Export-BackupConfigProfile',
+                'Import-BackupConfigProfile',
+                'Update-BackupConfigProfile',
+                'Remove-BackupConfigProfile'
+            )) {
+            Get-Command -Module RenderKit -Name $commandName |
+                Should -Not -BeNullOrEmpty
+        }
     }
 
     It 'exposes backup adapter management commands' {

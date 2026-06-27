@@ -12,7 +12,7 @@ function Get-BackupBuiltInConfigProfileCatalog {
             displayName        = 'Fastest'
             description        = 'Prioritizes short processing time with hardware-assisted H.264 encoding.'
             intent             = 'FastMediaBackup'
-            schemaVersion      = '1.0'
+            schemaVersion      = '1.1'
             profileVersion     = '1.0.0'
             source             = 'BuiltIn'
             requiresBackground = $true
@@ -24,6 +24,9 @@ function Get-BackupBuiltInConfigProfileCatalog {
                 EncoderDevice           = 'Auto'
                 QualityPreset           = 'Draft'
                 AudioProfile            = 'AAC_128'
+                EncoderAdapter          = 'FFmpeg'
+                VerifierAdapter         = 'SHA256'
+                NotifierAdapter         = @('Log')
                 CreateProxy             = $false
                 CreatePreview           = $false
                 DisableChunking         = $false
@@ -42,7 +45,7 @@ function Get-BackupBuiltInConfigProfileCatalog {
             displayName        = 'Balanced'
             description        = 'Balances processing time, visual quality, and storage reduction.'
             intent             = 'BalancedMediaBackup'
-            schemaVersion      = '1.0'
+            schemaVersion      = '1.1'
             profileVersion     = '1.0.0'
             source             = 'BuiltIn'
             requiresBackground = $true
@@ -54,6 +57,9 @@ function Get-BackupBuiltInConfigProfileCatalog {
                 EncoderDevice           = 'Auto'
                 QualityPreset           = 'Balanced'
                 AudioProfile            = 'Auto'
+                EncoderAdapter          = 'FFmpeg'
+                VerifierAdapter         = 'SHA256'
+                NotifierAdapter         = @('Log')
                 CreateProxy             = $false
                 CreatePreview           = $false
                 DisableChunking         = $false
@@ -72,7 +78,7 @@ function Get-BackupBuiltInConfigProfileCatalog {
             displayName        = 'Smallest'
             description        = 'Prioritizes minimum output size with AV1, Opus, and SevenZip.'
             intent             = 'MinimumStorage'
-            schemaVersion      = '1.0'
+            schemaVersion      = '1.1'
             profileVersion     = '1.0.0'
             source             = 'BuiltIn'
             requiresBackground = $true
@@ -84,6 +90,9 @@ function Get-BackupBuiltInConfigProfileCatalog {
                 EncoderDevice           = 'Auto'
                 QualityPreset           = 'Smallest'
                 AudioProfile            = 'Opus_96'
+                EncoderAdapter          = 'FFmpeg'
+                VerifierAdapter         = 'SHA256'
+                NotifierAdapter         = @('Log')
                 CreateProxy             = $false
                 CreatePreview           = $false
                 DisableChunking         = $false
@@ -102,7 +111,7 @@ function Get-BackupBuiltInConfigProfileCatalog {
             displayName        = 'Archive Safe'
             description        = 'Preserves source media without transcoding and keeps the source project.'
             intent             = 'PreservationArchive'
-            schemaVersion      = '1.0'
+            schemaVersion      = '1.1'
             profileVersion     = '1.0.0'
             source             = 'BuiltIn'
             requiresBackground = $true
@@ -114,6 +123,9 @@ function Get-BackupBuiltInConfigProfileCatalog {
                 EncoderDevice           = 'Auto'
                 QualityPreset           = 'Lossless'
                 AudioProfile            = 'Copy'
+                EncoderAdapter          = 'FFmpeg'
+                VerifierAdapter         = 'SHA256'
+                NotifierAdapter         = @('Log')
                 CreateProxy             = $false
                 CreatePreview           = $false
                 DisableChunking         = $true
@@ -132,7 +144,7 @@ function Get-BackupBuiltInConfigProfileCatalog {
             displayName        = 'Proxy Only'
             description        = 'Creates compact 720p H.264 proxy media instead of full-resolution archive encodes.'
             intent             = 'ProxyMedia'
-            schemaVersion      = '1.0'
+            schemaVersion      = '1.1'
             profileVersion     = '1.0.0'
             source             = 'BuiltIn'
             requiresBackground = $true
@@ -144,6 +156,9 @@ function Get-BackupBuiltInConfigProfileCatalog {
                 EncoderDevice           = 'Auto'
                 QualityPreset           = 'Draft'
                 AudioProfile            = 'AAC_128'
+                EncoderAdapter          = 'FFmpeg'
+                VerifierAdapter         = 'SHA256'
+                NotifierAdapter         = @('Log')
                 CreateProxy             = $false
                 CreatePreview           = $true
                 DisableChunking         = $false
@@ -162,7 +177,7 @@ function Get-BackupBuiltInConfigProfileCatalog {
             displayName        = 'No Transcode'
             description        = 'Archives original project files without media transcoding.'
             intent             = 'OriginalMediaArchive'
-            schemaVersion      = '1.0'
+            schemaVersion      = '1.1'
             profileVersion     = '1.0.0'
             source             = 'BuiltIn'
             requiresBackground = $false
@@ -174,6 +189,9 @@ function Get-BackupBuiltInConfigProfileCatalog {
                 EncoderDevice           = 'Auto'
                 QualityPreset           = 'Balanced'
                 AudioProfile            = 'Auto'
+                EncoderAdapter          = 'FFmpeg'
+                VerifierAdapter         = 'SHA256'
+                NotifierAdapter         = @('Log')
                 CreateProxy             = $false
                 CreatePreview           = $false
                 DisableChunking         = $false
@@ -218,7 +236,14 @@ function Resolve-BackupConfigProfileName {
     }
 
     if (-not $canonicalName) {
-        $available = @((Get-BackupBuiltInConfigProfileCatalog).Keys) -join ', '
+        $userName = ConvertTo-BackupConfigProfileName -Name $Name
+        if (Get-BackupUserConfigProfileByName -Name $userName -AllowMissing -Raw) {
+            return $userName
+        }
+        $available = @(
+            @((Get-BackupBuiltInConfigProfileCatalog).Keys) +
+            @(Get-BackupUserConfigProfileList | ForEach-Object { [string]$_.name })
+        ) -join ', '
         throw "Unknown backup config profile '$Name'. Available profiles: $available."
     }
 
@@ -233,7 +258,11 @@ function Get-BackupConfigProfileDefinition {
     )
 
     $canonicalName = Resolve-BackupConfigProfileName -Name $Name
-    return (Get-BackupBuiltInConfigProfileCatalog)[$canonicalName]
+    $builtIns = Get-BackupBuiltInConfigProfileCatalog
+    if ($builtIns.Contains($canonicalName)) {
+        return $builtIns[$canonicalName]
+    }
+    return Get-BackupUserConfigProfileByName -Name $canonicalName
 }
 
 function Copy-BackupConfigProfileSettings {
@@ -245,7 +274,15 @@ function Copy-BackupConfigProfileSettings {
 
     $copy = [ordered]@{}
     foreach ($property in $Settings.PSObject.Properties) {
-        $copy[[string]$property.Name] = $property.Value
+        $copy[[string]$property.Name] = if (
+            $property.Value -is [System.Collections.IEnumerable] -and
+            $property.Value -isnot [string]
+        ) {
+            @($property.Value)
+        }
+        else {
+            $property.Value
+        }
     }
     return [PSCustomObject]$copy
 }
@@ -274,6 +311,9 @@ function Resolve-BackupConfigProfile {
         intent              = [string]$definition.intent
         profileVersion      = [string]$definition.profileVersion
         source              = [string]$definition.source
+        baseProfile         = if ($definition.PSObject.Properties.Name -contains 'baseProfile') { [string]$definition.baseProfile } else { $null }
+        path                = if ($definition.PSObject.Properties.Name -contains 'path') { [string]$definition.path } else { $null }
+        compatibility       = if ($definition.PSObject.Properties.Name -contains 'compatibility') { $definition.compatibility } else { $null }
         requiresBackground  = [bool]$definition.requiresBackground
         settings            = $settings
         appliedParameters   = @(

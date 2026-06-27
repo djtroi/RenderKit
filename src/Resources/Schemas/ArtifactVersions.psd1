@@ -71,6 +71,13 @@
             MinimumWritable = '2.0'
             MaximumWritable = '2.0'
         }
+        BackupConfigProfile = @{
+            Current = '1.1'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.1'
+            MinimumWritable = '1.1'
+            MaximumWritable = '1.1'
+        }
         ProjectManifest = @{
             Current = '1.0'
             MinimumReadable = '1.0'
