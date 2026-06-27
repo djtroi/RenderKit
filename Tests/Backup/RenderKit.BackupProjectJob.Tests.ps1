@@ -22,6 +22,89 @@ Describe 'RenderKit BackupProject job planning' {
         Remove-Module RenderKit -Force -ErrorAction SilentlyContinue
     }
 
+    It 'applies a built-in config profile without requiring individual media parameters' {
+        $projectRoot = Join-Path $TestDrive 'profile-fastest-project'
+        New-Item -ItemType Directory -Path $projectRoot -Force | Out-Null
+
+        $payload = InModuleScope RenderKit -Parameters @{
+            ProjectRoot = $projectRoot
+            ArchiveRoot = (Join-Path $TestDrive 'profile-fastest-backup')
+        } {
+            New-BackupProjectJobPayload `
+                -Project ([PSCustomObject]@{
+                    Id = 'profile-fastest'
+                    Name = 'ProfileFastest'
+                    RootPath = $ProjectRoot
+                }) `
+                -ArchiveDescriptor ([PSCustomObject]@{
+                    DestinationRoot = $ArchiveRoot
+                    ArchiveFileName = 'ProfileFastest.zip'
+                    ArchivePath = (Join-Path $ArchiveRoot 'ProfileFastest.zip')
+                }) `
+                -ConfigProfile fastest `
+                -Background
+        }
+
+        $payload.profile.configProfile | Should -Be 'fastest'
+        $payload.profile.configProfileResolution.source | Should -Be 'BuiltIn'
+        $payload.profile.configProfileResolution.profileVersion | Should -Be '1.0.0'
+        $payload.profile.configProfileResolution.appliedParameters |
+            Should -Contain 'VideoCodec'
+        $payload.archive.format | Should -Be 'Zip'
+        $payload.archive.mode | Should -Be 'TranscodeAndArchive'
+        $payload.archive.compressionPreset | Should -Be 'Fastest'
+        $payload.encoding.videoCodec | Should -Be 'H264'
+        $payload.encoding.qualityPreset | Should -Be 'Draft'
+        $payload.encoding.audioProfile | Should -Be 'AAC_128'
+        $payload.chunking.durationSeconds | Should -Be 300
+        $payload.scheduler.maxParallelJobs | Should -Be 4
+        $payload.advancedFeatures.configProfiles.selectedProfile |
+            Should -Be 'fastest'
+    }
+
+    It 'lets explicit parameters override a built-in config profile' {
+        $projectRoot = Join-Path $TestDrive 'profile-override-project'
+        New-Item -ItemType Directory -Path $projectRoot -Force | Out-Null
+
+        $payload = InModuleScope RenderKit -Parameters @{
+            ProjectRoot = $projectRoot
+            ArchiveRoot = (Join-Path $TestDrive 'profile-override-backup')
+        } {
+            New-BackupProjectJobPayload `
+                -Project ([PSCustomObject]@{
+                    Id = 'profile-override'
+                    Name = 'ProfileOverride'
+                    RootPath = $ProjectRoot
+                }) `
+                -ArchiveDescriptor ([PSCustomObject]@{
+                    DestinationRoot = $ArchiveRoot
+                    ArchiveFileName = 'ProfileOverride.zip'
+                    ArchivePath = (Join-Path $ArchiveRoot 'ProfileOverride.zip')
+                }) `
+                -ConfigProfile smallest `
+                -ArchiveFormat Zip `
+                -CompressionMode ArchiveOnly `
+                -VideoCodec H264 `
+                -MaxParallelJobs 6 `
+                -KeepSourceProject `
+                -Background
+        }
+
+        $payload.profile.configProfile | Should -Be 'smallest'
+        $payload.profile.configProfileResolution.overriddenParameters |
+            Should -Contain 'ArchiveFormat'
+        $payload.profile.configProfileResolution.overriddenParameters |
+            Should -Contain 'VideoCodec'
+        $payload.archive.format | Should -Be 'Zip'
+        $payload.archive.mode | Should -Be 'ArchiveOnly'
+        $payload.archive.compressionPreset | Should -Be 'Smallest'
+        $payload.encoding.videoCodec | Should -Be 'H264'
+        $payload.encoding.qualityPreset | Should -Be 'Smallest'
+        $payload.scheduler.maxParallelJobs | Should -Be 6
+        $payload.source.deletePolicy.mode | Should -Be 'KeepSource'
+        $payload.control.retry.maxAttemptsPerChunk | Should -Be 4
+    }
+
     It 'queues a background BackupProject job with chunking and storage tiers' {
         $projectParent = Join-Path $TestDrive 'projects'
         $projectRoot = Join-Path $projectParent 'SmokeProject'
@@ -87,6 +170,7 @@ Describe 'RenderKit BackupProject job planning' {
         $result.Payload.encoding.videoCodec | Should -Be 'AV1'
         $result.Payload.encoding.encoderDevice | Should -Be 'CPU'
         $result.Payload.encoding.audioProfile | Should -Be 'Opus_96'
+        $result.Payload.encoding.adapterId | Should -Be 'encoder.ffmpeg'
         $result.Payload.encoding.gpuDetection.enabled | Should -BeTrue
         $result.Payload.encoding.gpuDetection.providers | Should -Contain 'Nvidia'
         $result.Payload.encoding.gpuDetection.codecSupport | Should -Contain 'AV1'
@@ -116,7 +200,10 @@ Describe 'RenderKit BackupProject job planning' {
         $result.Payload.control.pause.enabled | Should -BeTrue
         $result.Payload.control.resume.mode | Should -Be 'SkipCompletedChunksFromChunkIndex'
         $result.Payload.control.cancel.mode | Should -Be 'OrderedStopActiveProcesses'
-        $result.Payload.control.retry.maxAttemptsPerChunk | Should -Be 3
+        $result.Payload.control.retry.maxAttemptsPerChunk | Should -Be 4
+        $result.Payload.control.retry.retryDelaySeconds | Should -Be 3
+        $result.Payload.profile.configProfileResolution.overriddenParameters |
+            Should -Contain 'EncoderDevice'
         Test-Path -LiteralPath $result.Payload.control.statePath |
             Should -BeTrue
         $result.Payload.background.enabled | Should -BeTrue
@@ -134,6 +221,7 @@ Describe 'RenderKit BackupProject job planning' {
         $result.Payload.storageTiers[1].profile | Should -Be 'HDD'
         $result.Payload.storageTiers[2].profile | Should -Be 'NAS'
         $result.Payload.storageTiers[3].profile | Should -Be 'CloudS3'
+        $result.Payload.storageTiers[3].adapterId | Should -Be 'storage.s3'
         $result.Payload.storageTiers[0].fallback.toTierId | Should -Be $result.Payload.storageTiers[1].id
         $result.Payload.storageTiers[3].target.kind | Should -Be 'Uri'
         $result.Payload.storageCascade.mode | Should -Be 'Cascading'
@@ -168,6 +256,12 @@ Describe 'RenderKit BackupProject job planning' {
         $result.Payload.reports.formats | Should -Contain 'Text'
         $result.Payload.advancedFeatures.reports.mode |
             Should -Be 'SidecarAuditReports'
+        $result.Payload.adapters.encoder.id | Should -Be 'encoder.ffmpeg'
+        $result.Payload.adapters.verifier.id | Should -Be 'verifier.sha256'
+        $result.Payload.adapters.notifiers[0].id | Should -Be 'notifier.log'
+        $result.Payload.adapters.storage[3].state | Should -Be 'AdapterRequired'
+        $result.Payload.advancedFeatures.extensibleAdapters.schemaVersion |
+            Should -Be '1.0'
         $result.Payload.advancedFeatures.qualityValidation.thresholds.minVmaf | Should -Be 82.0
         $result.Payload.mediaAnalysis.summary.mediaFileCount | Should -Be 1
         $result.Payload.resume.jobId | Should -Be $result.JobId
@@ -1123,6 +1217,87 @@ Describe 'RenderKit BackupProject job planning' {
         $plan.proxyCommands[0].arguments | Should -Contain '-progress'
         $plan.previewCommands[0].arguments | Should -Contain 'fps=1/30,scale=960:-2'
         $plan.previewCommands[0].arguments | Should -Contain '-progress'
+    }
+
+    It 'plans proxy-only profiles as 720p proxy outputs' {
+        $plan = InModuleScope RenderKit {
+            $payload = [PSCustomObject]@{
+                archive = [PSCustomObject]@{
+                    mode = 'ProxyOnly'
+                    compressionPreset = 'Fastest'
+                }
+                encoding = [PSCustomObject]@{
+                    videoCodec = 'H264'
+                    encoderDevice = 'CPU'
+                    qualityPreset = 'Draft'
+                    audioProfile = 'AAC_128'
+                    proxy = [PSCustomObject]@{ enabled = $false; height = 720 }
+                    preview = [PSCustomObject]@{
+                        enabled = $true
+                        format = 'jpg'
+                        intervalSeconds = 60
+                        width = 1280
+                    }
+                }
+                mediaAnalysis = [PSCustomObject]@{
+                    files = @(
+                        [PSCustomObject]@{
+                            relativePath = 'Media/proxy-source.mp4'
+                            path = 'D:\Projects\ClientA\Media\proxy-source.mp4'
+                            mediaType = 'Video'
+                            metadata = [PSCustomObject]@{
+                                durationSeconds = 30.0
+                                format = 'mov,mp4,m4a,3gp,3g2,mj2'
+                                videoStreams = @(
+                                    [PSCustomObject]@{ index = 0; codec = 'h264' }
+                                )
+                                audioStreams = @(
+                                    [PSCustomObject]@{ index = 1; codec = 'aac' }
+                                )
+                                hasVideo = $true
+                                hasAudio = $true
+                            }
+                        }
+                    )
+                }
+                chunkPlan = [PSCustomObject]@{
+                    assets = @(
+                        [PSCustomObject]@{
+                            id = 'asset-proxy'
+                            relativePath = 'Media/proxy-source.mp4'
+                            path = 'D:\Projects\ClientA\Media\proxy-source.mp4'
+                            mediaType = 'Video'
+                        }
+                    )
+                    chunks = @(
+                        [PSCustomObject]@{
+                            id = 'chunk-proxy-000000'
+                            assetId = 'asset-proxy'
+                            relativePath = 'Media/proxy-source.mp4'
+                            index = 0
+                            startSeconds = 0.0
+                            durationSeconds = 30.0
+                        }
+                    )
+                }
+            }
+            $job = [PSCustomObject]@{
+                id = 'job-proxy-only-plan'
+                payload = $payload
+            }
+
+            New-BackupEncodingPlan -Job $job -Payload $payload
+        }
+
+        $plan.mode | Should -Be 'ProxyOnly'
+        $plan.profile.outputRole | Should -Be 'Proxy'
+        $plan.profile.targetHeight | Should -Be 720
+        $plan.profile.name | Should -Match '^ProxyOnly-'
+        $plan.commands[0].arguments | Should -Contain 'scale=-2:720'
+        $plan.summary.commandCount | Should -Be 1
+        $plan.summary.mergeCount | Should -Be 1
+        $plan.summary.proxyCommandCount | Should -Be 0
+        $plan.summary.previewCommandCount | Should -Be 1
     }
 
     It 'injects corrupt chunk simulations into retryable encode commands' {

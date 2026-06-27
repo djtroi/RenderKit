@@ -135,6 +135,13 @@ function Test-BackupStorageTierHealth {
     }
     $checkedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
     $adapter = if ($Tier.PSObject.Properties.Name -contains 'adapter') { [string]$Tier.adapter } else { 'FileSystem' }
+    $adapterId = if ($Tier.PSObject.Properties.Name -contains 'adapterId' -and
+        -not [string]::IsNullOrWhiteSpace([string]$Tier.adapterId)) {
+        [string]$Tier.adapterId
+    }
+    else {
+        Resolve-BackupAdapterId -Type Storage -Name $adapter
+    }
     $failureSimulation = Get-BackupFailureSimulation -Source $Tier
 
     if (Test-BackupFailureSimulationShouldFail -Simulation $failureSimulation -Scenario 'MissingTarget' -Attempt 1) {
@@ -145,6 +152,7 @@ function Test-BackupStorageTierHealth {
             checkedAtUtc  = $checkedAtUtc
             target        = $target
             adapter       = $adapter
+            adapterId     = $adapterId
             canWrite      = $false
             freeBytes     = $null
             requiredBytes = $RequiredBytes
@@ -165,6 +173,7 @@ function Test-BackupStorageTierHealth {
             checkedAtUtc  = $checkedAtUtc
             target        = $target
             adapter       = $adapter
+            adapterId     = $adapterId
             canWrite      = $true
             created       = $false
             freeBytes     = 0
@@ -186,6 +195,7 @@ function Test-BackupStorageTierHealth {
             checkedAtUtc  = $checkedAtUtc
             target        = $target
             adapter       = $adapter
+            adapterId     = $adapterId
             canWrite      = $false
             freeBytes     = $null
             requiredBytes = $RequiredBytes
@@ -193,65 +203,48 @@ function Test-BackupStorageTierHealth {
         }
     }
 
-    if (Test-BackupPathLooksLikeUri -Path $target) {
+    $adapterDefinition = Get-BackupAdapterDefinition -Type Storage -Name $adapterId
+    if (-not $adapterDefinition) {
         return [PSCustomObject]@{
             healthy       = -not [bool]$Tier.required
             state         = 'AdapterRequired'
-            reason        = 'NonFileSystemTarget'
+            reason        = 'StorageAdapterNotRegistered'
             checkedAtUtc  = $checkedAtUtc
             target        = $target
             adapter       = $adapter
+            adapterId     = $adapterId
             canWrite      = $false
             freeBytes     = $null
             requiredBytes = $RequiredBytes
-            error         = "Storage tier '$($Tier.name)' requires adapter '$adapter'."
+            error         = "Storage tier '$($Tier.name)' requires registered adapter '$adapterId'."
         }
     }
 
     try {
-        if (Test-Path -LiteralPath $target -PathType Leaf) {
-            throw "Storage tier target '$target' is a file, not a directory."
-        }
-        $created = $false
-        if (-not (Test-Path -LiteralPath $target -PathType Container)) {
-            if (-not $CreateTargetRoot) {
-                throw "Storage tier target '$target' does not exist."
-            }
-            New-Item -ItemType Directory -Path $target -Force | Out-Null
-            $created = $true
-        }
-
-        $probePath = Join-Path -Path $target -ChildPath (".renderkit-health-{0}.tmp" -f [guid]::NewGuid().ToString('N'))
-        Set-Content -LiteralPath $probePath -Value 'renderkit-storage-health' -Encoding UTF8 -ErrorAction Stop
-        Remove-Item -LiteralPath $probePath -Force -ErrorAction Stop
-
-        $freeBytes = $null
-        $hasEnoughSpace = $true
-        try {
-            $targetItem = Get-Item -LiteralPath $target -ErrorAction Stop
-            if ($targetItem.PSDrive -and $null -ne $targetItem.PSDrive.Free) {
-                $freeBytes = [int64]$targetItem.PSDrive.Free
-                if ($RequiredBytes -gt 0) {
-                    $hasEnoughSpace = $freeBytes -gt $RequiredBytes
-                }
-            }
-        }
-        catch {
-            $freeBytes = $null
-        }
-
+        $adapterHealth = Invoke-BackupAdapterOperation `
+            -Adapter $adapterDefinition `
+            -Operation TestHealth `
+            -Context ([PSCustomObject]@{
+                tier             = $Tier
+                target           = $target
+                requiredBytes    = $RequiredBytes
+                createTargetRoot = [bool]$CreateTargetRoot
+            })
         return [PSCustomObject]@{
-            healthy       = [bool]$hasEnoughSpace
-            state         = if ($hasEnoughSpace) { 'Healthy' } else { 'InsufficientSpace' }
-            reason        = if ($hasEnoughSpace) { 'Writable' } else { 'InsufficientFreeSpace' }
+            healthy       = [bool]$adapterHealth.healthy
+            state         = [string]$adapterHealth.state
+            reason        = [string]$adapterHealth.reason
             checkedAtUtc  = $checkedAtUtc
             target        = $target
             adapter       = $adapter
-            canWrite      = $true
-            created       = $created
-            freeBytes     = $freeBytes
+            adapterId     = $adapterId
+            adapterVersion = [string]$adapterDefinition.version
+            canWrite      = [bool]$adapterHealth.canWrite
+            created       = if ($adapterHealth.PSObject.Properties.Name -contains 'created') { [bool]$adapterHealth.created } else { $false }
+            freeBytes     = if ($adapterHealth.PSObject.Properties.Name -contains 'freeBytes') { $adapterHealth.freeBytes } else { $null }
             requiredBytes = $RequiredBytes
-            error         = $null
+            adapterResult = $adapterHealth
+            error         = [string]$adapterHealth.error
         }
     }
     catch {
@@ -262,6 +255,8 @@ function Test-BackupStorageTierHealth {
             checkedAtUtc  = $checkedAtUtc
             target        = $target
             adapter       = $adapter
+            adapterId     = $adapterId
+            adapterVersion = [string]$adapterDefinition.version
             canWrite      = $false
             created       = $false
             freeBytes     = $null
@@ -296,6 +291,13 @@ function Invoke-BackupStorageTierCopyVerify {
         tierId          = [string]$Tier.id
         tierName        = [string]$Tier.name
         profile         = [string]$Tier.profile
+        storageAdapterId = [string]$health.adapterId
+        verifierAdapterId = if ($Tier.verify -and $Tier.verify.PSObject.Properties.Name -contains 'adapterId') {
+            [string]$Tier.verify.adapterId
+        }
+        else {
+            'verifier.sha256'
+        }
         required        = [bool]$Tier.required
         targetPath      = $targetPath
         health          = $health
@@ -322,6 +324,25 @@ function Invoke-BackupStorageTierCopyVerify {
     if (-not [bool]$health.healthy) {
         $result.state = 'Failed'
         $result.error = [string]$health.error
+        return [PSCustomObject]$result
+    }
+
+    $storageAdapter = Get-BackupAdapterDefinition `
+        -Type Storage `
+        -Name ([string]$result.storageAdapterId)
+    $verifierAdapter = Get-BackupAdapterDefinition `
+        -Type Verifier `
+        -Name ([string]$result.verifierAdapterId)
+    if (-not $storageAdapter -or -not $verifierAdapter) {
+        $missingAdapterId = if (-not $storageAdapter) {
+            [string]$result.storageAdapterId
+        }
+        else {
+            [string]$result.verifierAdapterId
+        }
+        $result.state = 'AdapterRequired'
+        $result.skipped = $true
+        $result.error = "Backup adapter '$missingAdapterId' is not registered."
         return [PSCustomObject]$result
     }
 
@@ -354,21 +375,52 @@ function Invoke-BackupStorageTierCopyVerify {
                 throw [string]$failureClass.message
             }
 
-            $samePath = Test-BackupPathEquivalent -Left $SourcePath -Right $targetPath
-            if (-not $samePath) {
-                Copy-Item -LiteralPath $SourcePath -Destination $targetPath -Force -ErrorAction Stop
-                $result.copied = $true
+            $samePath = Test-BackupPathEquivalent `
+                -Left $SourcePath `
+                -Right $targetPath
+            $writeResult = if ($samePath) {
+                [PSCustomObject]@{
+                    copied     = $false
+                    targetPath = $targetPath
+                    sizeBytes  = $ExpectedSizeBytes
+                }
             }
+            else {
+                Invoke-BackupAdapterOperation `
+                    -Adapter $storageAdapter `
+                    -Operation Write `
+                    -Context ([PSCustomObject]@{
+                        sourcePath = $SourcePath
+                        targetPath = $targetPath
+                        tier       = $Tier
+                        attempt    = $attempt
+                        expectedSizeBytes = $ExpectedSizeBytes
+                    })
+            }
+            $result.copied = [bool]$writeResult.copied
 
-            $targetItem = Get-Item -LiteralPath $targetPath -ErrorAction Stop
-            $targetHash = Get-FileHash -LiteralPath $targetPath -Algorithm $Algorithm -ErrorAction Stop
-            $result.targetHash = [string]$targetHash.Hash
-            $result.sizeBytes = [int64]$targetItem.Length
-
-            $hashMatches = [string]::Equals([string]$ExpectedHash, [string]$targetHash.Hash, [System.StringComparison]::OrdinalIgnoreCase)
-            $sizeMatches = $ExpectedSizeBytes -le 0 -or [int64]$targetItem.Length -eq [int64]$ExpectedSizeBytes
-            if (-not $hashMatches -or -not $sizeMatches) {
-                throw "Storage tier '$($Tier.name)' verification failed. HashMatches=$hashMatches SizeMatches=$sizeMatches."
+            $verification = Invoke-BackupAdapterOperation `
+                -Adapter $verifierAdapter `
+                -Operation Verify `
+                -Context ([PSCustomObject]@{
+                    sourcePath       = $SourcePath
+                    targetPath       = $targetPath
+                    tier             = $Tier
+                    expectedHash     = $ExpectedHash
+                    expectedSizeBytes = $ExpectedSizeBytes
+                    algorithm        = $Algorithm
+                    writeResult      = $writeResult
+                })
+            $result.targetHash = [string]$verification.targetHash
+            $result.sizeBytes = [int64]$verification.sizeBytes
+            if (-not [bool]$verification.verified) {
+                $verificationError = if ([string]::IsNullOrWhiteSpace([string]$verification.error)) {
+                    "Storage tier '$($Tier.name)' verification failed."
+                }
+                else {
+                    [string]$verification.error
+                }
+                throw $verificationError
             }
 
             $attempts.Add([PSCustomObject]@{
