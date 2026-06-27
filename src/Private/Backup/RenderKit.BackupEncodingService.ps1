@@ -1743,6 +1743,7 @@ function New-BackupEncodingPlan {
             id             = "merge-$assetId"
             type           = 'MergeAssetChunks'
             assetId        = $assetId
+            relativePath   = [string]$group.Group[0].relativePath
             chunkIds       = @($group.Group | Sort-Object index | ForEach-Object { [string]$_.chunkId })
             inputPaths     = @($group.Group | Sort-Object index | ForEach-Object { [string]$_.outputPath })
             concatListPath = $concatListPath
@@ -1765,6 +1766,7 @@ function New-BackupEncodingPlan {
                 id         = "proxy-$($merge.assetId)"
                 type       = 'CreateProxy'
                 assetId    = [string]$merge.assetId
+                relativePath = [string]$merge.relativePath
                 inputPath  = [string]$merge.outputPath
                 outputPath = $proxyOutputPath
                 durationSeconds = [double]$merge.validation.expectedDurationSeconds

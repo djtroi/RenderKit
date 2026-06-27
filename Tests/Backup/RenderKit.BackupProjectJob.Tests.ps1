@@ -1957,14 +1957,17 @@ Describe 'RenderKit BackupProject job planning' {
             ConvertFrom-Json
 
         $completed.status | Should -Be 'Succeeded'
-        $completed.result.phase | Should -Be 'Encoding'
-        $completed.result.skipped | Should -BeTrue
-        $completed.result.encodedChunkCount | Should -Be 0
-        $resumeState.progress.currentPhase | Should -Be 'EncodingComplete'
+        $completed.result.BackgroundJobId | Should -Be $queued.JobId
+        $completed.result.Processing.encodedChunkCount | Should -Be 0
+        $completed.result.Processing.mergedAssetCount | Should -Be 0
+        Test-Path -LiteralPath $completed.result.BackupPath -PathType Leaf |
+            Should -BeTrue
+        $completed.result.Archive.contentIntegrity.isMatch | Should -BeTrue
+        $resumeState.progress.currentPhase | Should -Be 'BackupComplete'
         $resumeState.progress.statePath | Should -Not -BeNullOrEmpty
         Test-Path -LiteralPath $resumeState.progress.statePath |
             Should -BeTrue
-        $resumeState.progressSnapshot.stage.name | Should -Be 'EncodingSkipped'
+        $resumeState.progressSnapshot.stage.name | Should -Be 'BackupComplete'
         $resumeState.progressSnapshot.overall.percent | Should -Be 100
     }
 

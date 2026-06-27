@@ -773,10 +773,13 @@ function New-BackupProjectJobPayload {
                 'QualityValidationComplete',
                 'CreatingProxy',
                 'CreatingPreview',
+                'PreparingArchive',
+                'CreatingArchive',
                 'CopyingToStorageTier',
                 'VerifyingStorageTier',
                 'CopyVerifyComplete',
-                'EncodingComplete'
+                'EncodingComplete',
+                'BackupComplete'
             )
         }
         control          = [PSCustomObject]@{

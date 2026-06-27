@@ -275,4 +275,28 @@ Describe 'RenderKit backup config profile creator' {
         $updated.Settings.CompressionMode | Should -Be 'ArchiveOnly'
         $updated.Settings.MaxCpuPercent | Should -Be 63
     }
+
+    It 'rejects stale profile updates using the expected generation' {
+        $created = New-BackupConfigProfile `
+            -Name concurrent-profile `
+            -BaseProfile balanced
+        $loadedGeneration = [int]$created.Revision.generation
+
+        Set-BackupConfigProfile `
+            -Name concurrent-profile `
+            -Settings @{ MaxCpuPercent = 70 } `
+            -ExpectedGeneration $loadedGeneration |
+            Out-Null
+
+        {
+            Set-BackupConfigProfile `
+                -Name concurrent-profile `
+                -Settings @{ MaxCpuPercent = 55 } `
+                -ExpectedGeneration $loadedGeneration
+        } | Should -Throw -ErrorId 'RK_PROFILE_CONFLICT*'
+
+        $stored = Get-BackupConfigProfile concurrent-profile
+        $stored.Settings.MaxCpuPercent | Should -Be 70
+        $stored.Revision.generation | Should -Be ($loadedGeneration + 1)
+    }
 }

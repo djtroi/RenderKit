@@ -44,8 +44,23 @@ function Start-RenderKitJobWorker {
         }
 
         $processPath = (Get-Process -Id $PID).Path
-        if ([string]::IsNullOrWhiteSpace($processPath)) {
-            $processPath = if ($PSVersionTable.PSEdition -eq 'Desktop') { 'powershell.exe' } else { 'pwsh' }
+        $processName = if ([string]::IsNullOrWhiteSpace($processPath)) {
+            $null
+        }
+        else {
+            [System.IO.Path]::GetFileNameWithoutExtension($processPath)
+        }
+        if ($processName -notin @('pwsh', 'powershell')) {
+            $powerShellCommand = @(
+                Get-Command `
+                    -Name @('pwsh', 'powershell') `
+                    -CommandType Application `
+                    -ErrorAction SilentlyContinue
+            ) | Select-Object -First 1
+            if (-not $powerShellCommand) {
+                throw 'A PowerShell executable is required to start a detached RenderKit worker.'
+            }
+            $processPath = [string]$powerShellCommand.Source
         }
         $argumentList = @('-NoProfile')
         if ((Get-RenderKitPlatform) -eq 'Windows') {
