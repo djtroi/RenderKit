@@ -1969,6 +1969,10 @@ Describe 'RenderKit BackupProject job planning' {
     }
 
     It 'creates a v2 backup manifest with pipeline metadata' {
+        $backupRoot = Join-Path $TestDrive 'Backups'
+        $archivePath = Join-Path $backupRoot 'ClientA.zip'
+        New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+
         $manifest = InModuleScope RenderKit {
             New-BackupManifest `
                 -Project ([PSCustomObject]@{
@@ -2079,14 +2083,10 @@ Describe 'RenderKit BackupProject job planning' {
                             maxAttempts = 3
                         }
                     }
-                    $backupRoot = Join-Path $TestDrive 'Backups'
-                    $archivePath = Join-Path $backupRooot 'ClientA.zip'
-                    #New-Item -ItemType Directory -Path $backupRoot -Forcer | Out-Null 
-
                     deduplication = New-BackupDeduplicationPolicy
                     reports = New-BackupReportPlan `
                         -ArchivePath $archivePath `
-                        -ReportRoot $backupRoot  `
+                        -ReportRoot $backupRoot `
                         -Format @('Json', 'Html', 'Text')
                     safeDelete = New-BackupSafeDeletePolicy `
                         -Mode KeepSource `
@@ -2095,7 +2095,7 @@ Describe 'RenderKit BackupProject job planning' {
                 -StorageTiers @(
                     [PSCustomObject]@{
                         name = 'Primary'
-                        path = $backupRooot
+                        path = $backupRoot
                     }
                 )
         }
