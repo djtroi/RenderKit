@@ -455,6 +455,34 @@ function Get-RenderKitUserMappingsRoot {
     return New-RenderKitStorageDirectory -Path $path
 }
 
+function Get-RenderKitBackupConfigProfilesRoot {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param()
+
+    $root = Get-RenderKitStorageRoot -Kind UserData -Ensure
+    return New-RenderKitStorageDirectory `
+        -Path (Join-Path -Path $root -ChildPath 'backup-config-profiles')
+}
+
+function Get-RenderKitBackupConfigProfilePath {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name
+    )
+
+    $fileName = [IO.Path]::GetFileNameWithoutExtension($Name)
+    if ([string]::IsNullOrWhiteSpace($fileName) -or
+        $fileName -notmatch '^[a-z0-9][a-z0-9-]*$') {
+        throw "Backup config profile name '$Name' is not a safe file name."
+    }
+    return Join-Path `
+        -Path (Get-RenderKitBackupConfigProfilesRoot) `
+        -ChildPath "$fileName.rkprofile.json"
+}
+
 function Get-RenderKitUserMappingPath {
     [CmdletBinding()]
     [OutputType([System.String])]
