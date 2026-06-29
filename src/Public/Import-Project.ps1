@@ -11,7 +11,8 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
         [string]$ProjectName,
         [ValidateSet('Copy', 'LinkOnly')][string]$TransferMode = 'Copy',
         [switch]$VerifyHash,
-        [ValidateSet('Error', 'Skip', 'Overwrite')][string]$ConflictAction = 'Error'
+        [ValidateSet('Error', 'Skip', 'Overwrite')][string]$ConflictAction = 'Error',
+        [bool]$IncludeMetadata = $true
     )
 
     $Path = ConvertTo-RenderKitImportUserPath -Path $Path
@@ -73,6 +74,8 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
         $copied = 0
         $skipped = 0
         $resourceCount = 0
+        $metadataFileCount = 0
+        $metadataExtraction = $null
         $hashMismatches = New-Object System.Collections.Generic.List[object]
         $zip = [System.IO.Compression.ZipFile]::OpenRead($resolvedArchivePath)
         try {
@@ -102,6 +105,49 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
                     }
                 }
                 $resourceCount++
+            }
+
+            if ($IncludeMetadata) {
+                foreach ($metadataNode in @($manifest.RenderKitProjectManifest.Metadata.MetadataFile)) {
+                    if (-not $metadataNode) { continue }
+                    $metadataRelativePath = [string]$metadataNode.relativePath
+                    $metadataArchivePath = [string]$metadataNode.archivePath
+                    if ([string]::IsNullOrWhiteSpace($metadataArchivePath)) {
+                        $metadataArchivePath = $metadataRelativePath
+                    }
+                    if (-not (Test-RenderKitProjectSafeRelativePath -RelativePath $metadataRelativePath)) {
+                        throw "Unsafe metadata relative path in project manifest: '$metadataRelativePath'."
+                    }
+                    if (-not (Test-RenderKitProjectSafeRelativePath -RelativePath $metadataArchivePath)) {
+                        throw "Unsafe metadata archive path in project manifest: '$metadataArchivePath'."
+                    }
+
+                    $entryName = 'metadata/{0}' -f $metadataArchivePath
+                    $entry = $zip.GetEntry($entryName)
+                    if (-not $entry) { throw "Archive metadata entry '$entryName' is missing." }
+                    $targetMetadataFile = Join-Path `
+                        -Path (Join-Path -Path $targetRoot -ChildPath '.renderkit/metadata') `
+                        -ChildPath ($metadataRelativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar)
+                    $targetMetadataDir = Split-Path -Path $targetMetadataFile -Parent
+                    if (-not (Test-Path -LiteralPath $targetMetadataDir -PathType Container)) {
+                        New-Item -ItemType Directory -Path $targetMetadataDir -Force | Out-Null
+                    }
+                    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $targetMetadataFile, $true)
+                    if ($VerifyHash) {
+                        $expectedMetadataSize = [int64]$metadataNode.sizeBytes
+                        $metadataItem = Get-Item -LiteralPath $targetMetadataFile -ErrorAction Stop
+                        if ($metadataItem.Length -ne $expectedMetadataSize) {
+                            $hashMismatches.Add([PSCustomObject]@{ RelativePath = $metadataRelativePath; Reason = 'MetadataSizeMismatch'; Expected = $expectedMetadataSize; Actual = $metadataItem.Length })
+                        }
+                        elseif ($metadataNode.sha256) {
+                            $actualMetadataSha = (Get-FileHash -LiteralPath $targetMetadataFile -Algorithm SHA256 -ErrorAction Stop).Hash
+                            if (-not $actualMetadataSha.Equals([string]$metadataNode.sha256, [System.StringComparison]::OrdinalIgnoreCase)) {
+                                $hashMismatches.Add([PSCustomObject]@{ RelativePath = $metadataRelativePath; Reason = 'MetadataHashMismatch'; Expected = [string]$metadataNode.sha256; Actual = $actualMetadataSha })
+                            }
+                        }
+                    }
+                    $metadataFileCount++
+                }
             }
 
             if ($isSelfContained -and $TransferMode -eq 'Copy') {
@@ -136,6 +182,11 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
             }
         }
         finally { $zip.Dispose() }
+        if ($IncludeMetadata -and $metadataFileCount -eq 0 -and $isSelfContained -and $TransferMode -eq 'Copy') {
+            $metadataExtraction = Update-RenderKitProjectMetadataCache `
+                -ProjectRoot $targetRoot `
+                -ThrottleLimit 4
+        }
          $metadataPath = Get-RenderKitProjectMetadataPath -ProjectRoot $targetRoot
         if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
             $metadata = New-RenderKitProjectMetadata `
@@ -178,6 +229,9 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
             CopiedFiles       = $copied
             SkippedFiles      = $skipped
             ResourceCount     = $resourceCount
+            MetadataFileCount = $metadataFileCount
+            MetadataExtraction = $metadataExtraction
+            IncludeMetadata   = [bool]$IncludeMetadata
             HashMismatchCount = $hashMismatches.Count
             HashMismatches    = @($hashMismatches.ToArray())
         }

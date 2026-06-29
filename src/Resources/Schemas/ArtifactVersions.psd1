@@ -92,5 +92,47 @@
             MinimumWritable = '1.0'
             MaximumWritable = '1.0'
         }
+        MetadataFieldRegistry = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        MetadataAdapterRouting = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        FileMetadataRecord = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        MetadataEmbeddedWriteMap = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        MetadataTemplate = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        MetadataBatch = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
     }
 }

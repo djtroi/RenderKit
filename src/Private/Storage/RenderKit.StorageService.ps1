@@ -465,6 +465,36 @@ function Get-RenderKitBackupConfigProfilesRoot {
         -Path (Join-Path -Path $root -ChildPath 'backup-config-profiles')
 }
 
+function Get-RenderKitMetadataTemplatesRoot {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param()
+
+    $root = Get-RenderKitStorageRoot -Kind UserData -Ensure
+    return New-RenderKitStorageDirectory `
+        -Path (Join-Path -Path $root -ChildPath 'metadata/templates')
+}
+
+function Get-RenderKitMetadataTemplatePath {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name
+    )
+
+    $fileName = [IO.Path]::GetFileNameWithoutExtension($Name)
+    if ([string]::IsNullOrWhiteSpace($fileName) -or
+        $fileName -ne [IO.Path]::GetFileName($fileName) -or
+        $fileName -notmatch '^[A-Za-z0-9][A-Za-z0-9 ._-]{0,127}$') {
+        throw "Metadata template name '$Name' is not a safe file name."
+    }
+
+    return Join-Path `
+        -Path (Get-RenderKitMetadataTemplatesRoot) `
+        -ChildPath "$fileName.json"
+}
+
 function Get-RenderKitBackupConfigProfilePath {
     [CmdletBinding()]
     [OutputType([System.String])]

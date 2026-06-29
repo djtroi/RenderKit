@@ -13,7 +13,8 @@ Exports a RenderKit project manifest or self-contained project package.
         [ValidateSet('NoCompression', 'Fastest', 'Optimal')][string]$CompressionLevel = 'Optimal',
         [ValidateSet('SHA256', 'MD5')][string[]]$HashAlgorithm = @('SHA256'),
         [switch]$IncludeMd5,
-        [switch]$IncludeAbsolutePaths
+        [switch]$IncludeAbsolutePaths,
+        [bool]$IncludeMetadata = $true
     )
 
     if ($IncludeMd5 -and $HashAlgorithm -notcontains 'MD5') {
@@ -57,7 +58,8 @@ Exports a RenderKit project manifest or self-contained project package.
             -Mode $Mode `
             -DestinationPath $DestinationPath `
             -HashAlgorithm $HashAlgorithm `
-            -IncludeAbsolutePaths:$IncludeAbsolutePaths
+            -IncludeAbsolutePaths:$IncludeAbsolutePaths `
+            -IncludeMetadata $IncludeMetadata
 
         $archive = Export-RenderKitProjectArchive `
             -Manifest $manifest `
@@ -76,6 +78,8 @@ Exports a RenderKit project manifest or self-contained project package.
             FileCount         = @($manifest.Files).Count
             TemplateCount     = @($manifest.Templates).Count
             MappingCount      = @($manifest.Mappings).Count
+            MetadataFileCount = @($manifest.MetadataFiles).Count
+            IncludeMetadata   = [bool]$IncludeMetadata
         }
     }
 }

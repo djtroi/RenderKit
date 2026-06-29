@@ -126,6 +126,44 @@ function Get-RenderKitProjectMappingSnapshot {
     return $snapshots.ToArray()
 }
 
+function Get-RenderKitProjectMetadataSnapshot {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProjectRoot
+    )
+
+    $snapshots = New-Object System.Collections.Generic.List[object]
+    $metadataRoot = Join-Path -Path $ProjectRoot -ChildPath '.renderkit/metadata'
+    if (-not (Test-Path -LiteralPath $metadataRoot -PathType Container)) {
+        return @()
+    }
+
+    foreach ($file in @(Get-ChildItem -LiteralPath $metadataRoot -Recurse -File -Filter '*.json' -Force -ErrorAction SilentlyContinue)) {
+        try {
+            $relativePath = ConvertTo-RenderKitProjectRelativePath `
+                -BasePath $metadataRoot `
+                -Path $file.FullName
+            if (-not (Test-RenderKitProjectSafeRelativePath -RelativePath $relativePath)) {
+                Write-RenderKitLog -Level Warning -Message "Skipping unsafe metadata path '$relativePath'."
+                continue
+            }
+            $snapshots.Add([PSCustomObject]@{
+                RelativePath = $relativePath
+                OriginalPath = [string]$file.FullName
+                ArchivePath  = $relativePath
+                SizeBytes    = [int64]$file.Length
+                Sha256       = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256 -ErrorAction Stop).Hash
+            })
+        }
+        catch {
+            Write-RenderKitLog -Level Warning -Message "Could not snapshot metadata '$($file.FullName)': $($_.Exception.Message)"
+        }
+    }
+
+    return $snapshots.ToArray()
+}
+
 function New-RenderKitProjectManifest {
     [CmdletBinding()]
     param(
@@ -133,7 +171,8 @@ function New-RenderKitProjectManifest {
         [Parameter(Mandatory)][ValidateSet('ManifestOnly', 'SelfContained')][string]$Mode,
         [Parameter(Mandatory)][string]$DestinationPath,
         [string[]]$HashAlgorithm = @('SHA256'),
-        [switch]$IncludeAbsolutePaths
+        [switch]$IncludeAbsolutePaths,
+        [bool]$IncludeMetadata = $true
     )
 
     $resolvedProjectRoot = (Resolve-Path -LiteralPath $ProjectRoot -ErrorAction Stop).ProviderPath
@@ -178,7 +217,15 @@ function New-RenderKitProjectManifest {
 
     $filesElement = $doc.CreateElement('Files')
     [void]$root.AppendChild($filesElement)
-    $files = @(Get-ChildItem -LiteralPath $resolvedProjectRoot -Recurse -File -Force -ErrorAction SilentlyContinue)
+    $files = @(
+        Get-ChildItem -LiteralPath $resolvedProjectRoot -Recurse -File -Force -ErrorAction SilentlyContinue |
+            Where-Object {
+                $relativePath = ConvertTo-RenderKitProjectRelativePath `
+                    -BasePath $resolvedProjectRoot `
+                    -Path $_.FullName
+                -not ($relativePath -like '.renderkit/metadata/*')
+            }
+    )
     foreach ($file in $files) {
         $relativePath = ConvertTo-RenderKitProjectRelativePath -BasePath $resolvedProjectRoot -Path $file.FullName
         $hashes = Get-RenderKitProjectFileHashSet -Path $file.FullName -Algorithms $HashAlgorithm
@@ -201,7 +248,16 @@ function New-RenderKitProjectManifest {
 
     $foldersElement = $doc.CreateElement('Folders')
     [void]$root.InsertBefore($foldersElement, $filesElement)
-    foreach ($directory in @(Get-ChildItem -LiteralPath $resolvedProjectRoot -Recurse -Directory -Force -ErrorAction SilentlyContinue)) {
+    foreach ($directory in @(
+        Get-ChildItem -LiteralPath $resolvedProjectRoot -Recurse -Directory -Force -ErrorAction SilentlyContinue |
+            Where-Object {
+                $relativePath = ConvertTo-RenderKitProjectRelativePath `
+                    -BasePath $resolvedProjectRoot `
+                    -Path $_.FullName
+                -not ($relativePath -eq '.renderkit/metadata' -or
+                    $relativePath -like '.renderkit/metadata/*')
+            }
+    )) {
         $folderElement = $doc.CreateElement('Folder')
         $folderElement.SetAttribute('relativePath', (ConvertTo-RenderKitProjectRelativePath -BasePath $resolvedProjectRoot -Path $directory.FullName))
         $folderElement.SetAttribute('creationTimeUtc', $directory.CreationTimeUtc.ToString('o'))
@@ -237,11 +293,30 @@ function New-RenderKitProjectManifest {
         [void]$mappingsElement.AppendChild($element)
     }
 
+    $metadataSnapshots = if ($IncludeMetadata) {
+        @(Get-RenderKitProjectMetadataSnapshot -ProjectRoot $resolvedProjectRoot)
+    }
+    else {
+        @()
+    }
+    $metadataElement = $doc.CreateElement('Metadata')
+    $metadataElement.SetAttribute('included', ([bool]$IncludeMetadata).ToString().ToLowerInvariant())
+    [void]$root.AppendChild($metadataElement)
+    foreach ($metadataFile in $metadataSnapshots) {
+        $element = $doc.CreateElement('MetadataFile')
+        $element.SetAttribute('relativePath', [string]$metadataFile.RelativePath)
+        $element.SetAttribute('archivePath', [string]$metadataFile.ArchivePath)
+        $element.SetAttribute('sizeBytes', [string]$metadataFile.SizeBytes)
+        $element.SetAttribute('sha256', [string]$metadataFile.Sha256)
+        [void]$metadataElement.AppendChild($element)
+    }
+
     return [PSCustomObject]@{
-        Document  = $doc
-        Files     = $files
-        Templates = $templateSnapshots
-        Mappings  = $mappingSnapshots
+        Document      = $doc
+        Files         = $files
+        Templates     = $templateSnapshots
+        Mappings      = $mappingSnapshots
+        MetadataFiles = $metadataSnapshots
         ProjectRoot = $resolvedProjectRoot
     }
 }
@@ -292,6 +367,13 @@ function Export-RenderKitProjectArchive {
         }
         foreach ($mapping in @($Manifest.Mappings)) {
             Add-RenderKitFileToZipArchive -Archive $zip -SourcePath $mapping.OriginalPath -EntryName ('resources/{0}' -f $mapping.RelativePath) -DefaultCompressionLevel Optimal
+        }
+        foreach ($metadataFile in @($Manifest.MetadataFiles)) {
+            Add-RenderKitFileToZipArchive `
+                -Archive $zip `
+                -SourcePath $metadataFile.OriginalPath `
+                -EntryName ('metadata/{0}' -f $metadataFile.ArchivePath) `
+                -DefaultCompressionLevel Optimal
         }
 
         if ($Mode -eq 'SelfContained') {

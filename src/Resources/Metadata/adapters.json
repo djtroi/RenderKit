@@ -1,0 +1,150 @@
+{
+  "schemaVersion": "1.0",
+  "artifactType": "MetadataAdapterRouting",
+  "adapters": [
+    {
+      "id": "MediaInfo",
+      "displayName": "MediaInfo",
+      "commandNames": ["mediainfo", "mediainfo.exe"],
+      "readerAdapter": "MediaInfo",
+      "standards": ["technical", "container", "stream"],
+      "canRead": true,
+      "canWrite": false
+    },
+    {
+      "id": "ExifTool",
+      "displayName": "ExifTool",
+      "commandNames": ["exiftool", "exiftool.exe"],
+      "readerAdapter": "ExifTool",
+      "standards": ["EXIF", "XMP", "IPTC", "QuickTime", "ID3"],
+      "canRead": true,
+      "canWrite": true
+    },
+    {
+      "id": "IPTC",
+      "displayName": "IPTC",
+      "commandNames": [],
+      "readerAdapter": "ExifTool",
+      "standards": ["IPTC"],
+      "canRead": true,
+      "canWrite": true
+    },
+    {
+      "id": "XMP",
+      "displayName": "XMP",
+      "commandNames": [],
+      "readerAdapter": "ExifTool",
+      "standards": ["XMP"],
+      "canRead": true,
+      "canWrite": true
+    },
+    {
+      "id": "DublinCoreXmp",
+      "displayName": "Dublin Core / XMP",
+      "commandNames": [],
+      "readerAdapter": "ExifTool",
+      "standards": ["Dublin Core", "XMP-dc"],
+      "canRead": true,
+      "canWrite": true
+    },
+    {
+      "id": "BWF",
+      "displayName": "Broadcast Wave Format",
+      "commandNames": [],
+      "readerAdapter": "MediaInfo",
+      "standards": ["BWF", "BEXT"],
+      "canRead": true,
+      "canWrite": false
+    },
+    {
+      "id": "iXML",
+      "displayName": "iXML",
+      "commandNames": [],
+      "readerAdapter": "ExifTool",
+      "standards": ["iXML"],
+      "canRead": true,
+      "canWrite": false
+    },
+    {
+      "id": "ID3",
+      "displayName": "ID3",
+      "commandNames": [],
+      "readerAdapter": "ExifTool",
+      "standards": ["ID3"],
+      "canRead": true,
+      "canWrite": true
+    },
+    {
+      "id": "Matroska",
+      "displayName": "Matroska",
+      "commandNames": [],
+      "readerAdapter": "MediaInfo",
+      "standards": ["Matroska"],
+      "canRead": true,
+      "canWrite": false
+    }
+  ],
+  "routes": [
+    {
+      "mediaKind": "Video",
+      "extensions": [".mov", ".qt"],
+      "mimeTypes": ["video/quicktime"],
+      "adapters": ["MediaInfo", "ExifTool", "XMP", "DublinCoreXmp"]
+    },
+    {
+      "mediaKind": "Video",
+      "extensions": [".mp4", ".m4v"],
+      "mimeTypes": ["video/mp4"],
+      "adapters": ["MediaInfo", "ExifTool", "XMP", "DublinCoreXmp"]
+    },
+    {
+      "mediaKind": "Video",
+      "extensions": [".mkv", ".webm"],
+      "mimeTypes": ["video/x-matroska", "video/webm"],
+      "adapters": ["MediaInfo", "Matroska", "ExifTool", "XMP"]
+    },
+    {
+      "mediaKind": "Video",
+      "extensions": [".mxf", ".avi", ".wmv", ".m2ts", ".mts"],
+      "mimeTypes": ["application/mxf", "video/x-msvideo", "video/x-ms-wmv"],
+      "adapters": ["MediaInfo", "ExifTool", "XMP"]
+    },
+    {
+      "mediaKind": "Video",
+      "extensions": [".r3d", ".braw"],
+      "mimeTypes": [],
+      "adapters": ["MediaInfo", "ExifTool", "XMP"]
+    },
+    {
+      "mediaKind": "Audio",
+      "extensions": [".wav", ".wave", ".bwf", ".rf64"],
+      "mimeTypes": ["audio/wav", "audio/x-wav"],
+      "adapters": ["MediaInfo", "ExifTool", "BWF", "iXML", "XMP"]
+    },
+    {
+      "mediaKind": "Audio",
+      "extensions": [".mp3"],
+      "mimeTypes": ["audio/mpeg"],
+      "adapters": ["MediaInfo", "ExifTool", "ID3"]
+    },
+    {
+      "mediaKind": "Audio",
+      "extensions": [".m4a", ".aac", ".aif", ".aiff", ".flac", ".ogg", ".wma"],
+      "mimeTypes": ["audio/mp4", "audio/aac", "audio/aiff", "audio/flac", "audio/ogg"],
+      "adapters": ["MediaInfo", "ExifTool", "XMP", "DublinCoreXmp"]
+    },
+    {
+      "mediaKind": "Image",
+      "extensions": [".jpg", ".jpeg", ".tif", ".tiff", ".dng", ".raw", ".cr2", ".cr3", ".nef", ".arw", ".orf", ".raf", ".rw2"],
+      "mimeTypes": ["image/jpeg", "image/tiff", "image/x-adobe-dng"],
+      "adapters": ["ExifTool", "IPTC", "XMP", "DublinCoreXmp", "MediaInfo"]
+    },
+    {
+      "mediaKind": "Image",
+      "extensions": [".png", ".webp", ".heic", ".heif", ".avif", ".gif", ".bmp", ".psd", ".psb", ".exr", ".svg", ".ico"],
+      "mimeTypes": ["image/png", "image/webp", "image/heic", "image/heif", "image/avif", "image/gif", "image/bmp", "image/svg+xml"],
+      "adapters": ["ExifTool", "XMP", "DublinCoreXmp", "MediaInfo"]
+    }
+  ],
+  "fallbackAdapters": ["ExifTool", "MediaInfo"]
+}
