@@ -190,6 +190,7 @@ $iconMetadata
     <file src="README.md" />
     <file src="CHANGELOG.md" />
     <file src="LICENSE" />
+    <file src="THIRD_PARTY_NOTICES.md" />
 $iconFile
     <file src="src\Resources\**\*.*" target="src\Resources" />
   </files>
@@ -224,6 +225,10 @@ Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'RenderKit.ps
 Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'README.md') -Destination (Join-Path -Path $stageRoot -ChildPath 'README.md')
 Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'CHANGELOG.md') -Destination (Join-Path -Path $stageRoot -ChildPath 'CHANGELOG.md')
 Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'LICENSE') -Destination (Join-Path -Path $stageRoot -ChildPath 'LICENSE')
+$thirdPartyNoticesPath = Join-Path -Path $RepositoryRoot -ChildPath 'THIRD_PARTY_NOTICES.md'
+if (Test-Path -LiteralPath $thirdPartyNoticesPath -PathType Leaf) {
+    Copy-Item -LiteralPath $thirdPartyNoticesPath -Destination (Join-Path -Path $stageRoot -ChildPath 'THIRD_PARTY_NOTICES.md')
+}
 Copy-Item -LiteralPath (Join-Path -Path $RepositoryRoot -ChildPath 'src\Resources') -Destination (Join-Path -Path $stageRoot -ChildPath 'src\Resources') -Recurse
 
 if ($hasPackageIcon) {

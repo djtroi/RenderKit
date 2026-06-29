@@ -19,6 +19,7 @@ Current repository version: **1.0.0**. RenderKit supports **Windows PowerShell 5
 - [Architecture](#architecture)
 - [Documentation](#documentation)
 - [Public Functions](#public-functions)
+- [Third-Party Components](#third-party-components)
 - [Maintainer Release Workflow](#maintainer-release-workflow)
 - [Roadmap](#roadmap)
 
@@ -181,6 +182,7 @@ Add-RenderKitDeliverableToTemplate -TemplateName "client-delivery" -Id "review" 
 - **Transfer safety** through hash verification and transaction-style media import workflows.
 - **Export and delivery formats** including manifest-only `.rkit`, self-contained `.rkitpkg`, folder deliveries, ZIP deliveries, and manifest outputs.
 - **Cross-platform user storage** for configuration, state, cache, and user data roots, including `RENDERKIT_HOME` overrides.
+- **Media metadata foundations** for cached file metadata, template application, versioned rollback, and MediaInfo-based inspection.
 - **Atomic JSON persistence** with locking, backup restoration, validation hooks, and transaction-style state updates.
 - **Versioned internal artifacts** for project, registry, discovery, search-index, event, job, template, mapping, device, and configratuion data.
 - **Internal project registry, discovery, and lifecycle services** for known project tracking, indexed project discovery, duplicate-id conflict preparation, moved/missing project reconciliation, status transitions, and lifecycle events. 
@@ -264,6 +266,21 @@ Get-Command -Module RenderKit
 Get-Help <FunctionName> -Full
 Get-Help <FunctionName> -Examples
 ```
+
+## Third-Party Components
+
+RenderKit metadata extraction uses MediaInfo / MediaInfoLib for media file
+inspection. RenderKit distributions that bundle MediaInfo binaries include the
+required MediaArea attribution and BSD-style license notice in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+
+Bundled MediaInfo assets are staged below
+`src/Resources/ThirdParty/MediaInfo/<runtime-id>/` so RenderKit can resolve a
+known binary before falling back to a system installation.
+
+MediaInfo is developed by MediaArea.net SARL. See
+<https://mediaarea.net/MediaInfo> and
+<https://mediaarea.net/en/MediaInfo/License>.
 
 ## Maintainer Release Workflow
 

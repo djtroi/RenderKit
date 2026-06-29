@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "1.0",
+  "artifactType": "ThirdPartyMediaBundle",
+  "name": "MediaInfo",
+  "projectUrl": "https://mediaarea.net/MediaInfo",
+  "licenseUrl": "https://mediaarea.net/en/MediaInfo/License",
+  "redistributionNotice": "This product uses MediaInfo library, Copyright (c) 2002-2026 MediaArea.net SARL.",
+  "runtimeIdentifiers": [
+    {
+      "rid": "win-x64",
+      "cliRelativePath": "win-x64/bin/mediainfo.exe",
+      "nativeLibraryRelativePath": "win-x64/native/MediaInfo.dll",
+      "licenseDirectoryRelativePath": "win-x64/licenses"
+    },
+    {
+      "rid": "win-arm64",
+      "cliRelativePath": "win-arm64/bin/mediainfo.exe",
+      "nativeLibraryRelativePath": "win-arm64/native/MediaInfo.dll",
+      "licenseDirectoryRelativePath": "win-arm64/licenses"
+    },
+    {
+      "rid": "osx-x64",
+      "cliRelativePath": "osx-x64/bin/mediainfo",
+      "nativeLibraryRelativePath": "osx-x64/native/libmediainfo.dylib",
+      "licenseDirectoryRelativePath": "osx-x64/licenses"
+    },
+    {
+      "rid": "osx-arm64",
+      "cliRelativePath": "osx-arm64/bin/mediainfo",
+      "nativeLibraryRelativePath": "osx-arm64/native/libmediainfo.dylib",
+      "licenseDirectoryRelativePath": "osx-arm64/licenses"
+    },
+    {
+      "rid": "linux-x64",
+      "cliRelativePath": "linux-x64/bin/mediainfo",
+      "nativeLibraryRelativePath": "linux-x64/native/libmediainfo.so",
+      "licenseDirectoryRelativePath": "linux-x64/licenses"
+    },
+    {
+      "rid": "linux-arm64",
+      "cliRelativePath": "linux-arm64/bin/mediainfo",
+      "nativeLibraryRelativePath": "linux-arm64/native/libmediainfo.so",
+      "licenseDirectoryRelativePath": "linux-arm64/licenses"
+    }
+  ]
+}
