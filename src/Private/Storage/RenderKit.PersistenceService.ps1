@@ -98,28 +98,51 @@ function Read-RenderKitJsonFile {
 
         [scriptblock]$Validator,
 
-        [switch]$AllowMissing
+        [switch]$AllowMissing,
+
+        [ValidateRange(0, 20)]
+        [int]$ReadRetryCount = 3,
+
+        [ValidateRange(1, 1000)]
+        [int]$ReadRetryMilliseconds = 25
     )
 
     $resolvedPath = [System.IO.Path]::GetFullPath($Path)
-    if (-not (Test-Path -LiteralPath $resolvedPath -PathType Leaf)) {
-        if ($AllowMissing) {
-            return $null
+    $value = $null
+    $lastReadError = $null
+    for ($attempt = 0; $attempt -le $ReadRetryCount; $attempt++) {
+        if (-not (Test-Path -LiteralPath $resolvedPath -PathType Leaf)) {
+            if ($AllowMissing) {
+                return $null
+            }
+            $lastReadError = [System.IO.FileNotFoundException]::new(
+                "JSON file not found: '$resolvedPath'.")
         }
-        throw "JSON file not found: '$resolvedPath'."
-    }
+        else {
+            try {
+                $item = Get-Item -LiteralPath $resolvedPath -ErrorAction Stop
+                if ($item.Length -gt $MaximumBytes) {
+                    throw "JSON file '$resolvedPath' exceeds the $MaximumBytes byte limit."
+                }
+                $value = Get-Content `
+                    -LiteralPath $resolvedPath `
+                    -Raw `
+                    -ErrorAction Stop |
+                    ConvertFrom-Json -ErrorAction Stop
+                $lastReadError = $null
+                break
+            }
+            catch {
+                $lastReadError = $_.Exception
+            }
+        }
 
-    $item = Get-Item -LiteralPath $resolvedPath -ErrorAction Stop
-    if ($item.Length -gt $MaximumBytes) {
-        throw "JSON file '$resolvedPath' exceeds the $MaximumBytes byte limit."
+        if ($attempt -lt $ReadRetryCount) {
+            Start-Sleep -Milliseconds $ReadRetryMilliseconds
+        }
     }
-
-    try {
-        $value = Get-Content -LiteralPath $resolvedPath -Raw -ErrorAction Stop |
-            ConvertFrom-Json -ErrorAction Stop
-    }
-    catch {
-        throw "Invalid JSON in '$resolvedPath': $($_.Exception.Message)"
+    if ($lastReadError) {
+        throw "Invalid JSON in '$resolvedPath': $($lastReadError.Message)"
     }
 
     if ($null -eq $value) {
