@@ -740,7 +740,7 @@ function Get-RenderKitEngineEventDetail {
             -Details ([PSCustomObject]@{ eventId = $EventId })
     }
 
-    return New-RenderKitResult -Data $event -OperationContext $context
+    return New-RenderKitResult -Data $events -OperationContext $context
 }
 
 function Invoke-RenderKitEngineEventBridge {
