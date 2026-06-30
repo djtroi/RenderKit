@@ -269,21 +269,26 @@ function Resolve-RenderKitMetadataAdapterRoute {
     $readers = @(
         $readerIds |
             ForEach-Object {
-                $definition = Get-RenderKitMetadataAdapterDefinition `
-                    -Id $_ `
-                    -Routing $routing
-                $command = if ($definition) {
-                    Get-RenderKitMetadataCommand `
-                        -CommandName @($definition.commandNames | ForEach-Object { [string]$_ })
+                if ([string]$_ -ieq 'MediaInfo') {
+                    Resolve-RenderKitMediaInfoReader
                 }
                 else {
-                    $null
-                }
-                [PSCustomObject]@{
-                    Id = [string]$_
-                    Available = [bool]$command
-                    CommandPath = if ($command) { [string]$command.Source } else { $null }
-                    CommandName = if ($command) { [string]$command.Name } else { $null }
+                    $definition = Get-RenderKitMetadataAdapterDefinition `
+                        -Id $_ `
+                        -Routing $routing
+                    $command = if ($definition) {
+                        Get-RenderKitMetadataCommand `
+                            -CommandName @($definition.commandNames | ForEach-Object { [string]$_ })
+                    }
+                    else {
+                        $null
+                    }
+                    [PSCustomObject]@{
+                        Id = [string]$_
+                        Available = [bool]$command
+                        CommandPath = if ($command) { [string]$command.Source } else { $null }
+                        CommandName = if ($command) { [string]$command.Name } else { $null }
+                    }
                 }
             }
     )

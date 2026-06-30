@@ -6,6 +6,14 @@
       "id": "MediaInfo",
       "displayName": "MediaInfo",
       "commandNames": ["mediainfo", "mediainfo.exe"],
+      "nativeLibraryNames": ["mediainfo", "MediaInfo.dll", "libmediainfo.dylib", "libmediainfo.so"],
+      "environment": {
+        "nativeLibraryPath": "RENDERKIT_MEDIAINFO_LIBRARY",
+        "hostPath": "RENDERKIT_MEDIAINFO_HOST",
+        "cliPath": "RENDERKIT_MEDIAINFO_PATH"
+      },
+      "bundleManifest": "src/Resources/ThirdParty/MediaInfo/manifest.json",
+      "backendPreference": ["Native", "Host", "Cli"],
       "readerAdapter": "MediaInfo",
       "standards": ["technical", "container", "stream"],
       "canRead": true,

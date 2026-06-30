@@ -192,7 +192,7 @@ $iconMetadata
     <file src="LICENSE" />
     <file src="THIRD_PARTY_NOTICES.md" />
 $iconFile
-    <file src="src\Resources\**\*.*" target="src\Resources" />
+    <file src="src\Resources\**\*" target="src\Resources" exclude="src\Resources\**\.gitkeep" />
   </files>
 </package>
 "@

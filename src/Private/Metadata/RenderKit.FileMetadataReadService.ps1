@@ -477,15 +477,105 @@ function Invoke-RenderKitMediaInfoMetadataRead {
         [Parameter(Mandatory)]
         [string]$Path,
 
-        [Parameter(Mandatory)]
+        [object]$Reader,
+
         [string]$CommandPath
     )
 
-    $output = & $CommandPath --Output=JSON --Full $Path 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "MediaInfo failed with exit code $LASTEXITCODE`: $($output -join "`n")"
+    $errors = New-Object System.Collections.Generic.List[string]
+    if (-not $Reader) {
+        $Reader = [PSCustomObject]@{
+            NativeCandidates = @()
+            HostCandidates = @()
+            CliCandidates = if ([string]::IsNullOrWhiteSpace($CommandPath)) { @() } else {
+                @([PSCustomObject]@{
+                    Kind = 'Cli'
+                    Source = 'Explicit'
+                    Path = $CommandPath
+                    DisplayName = $CommandPath
+                    Available = $true
+                })
+            }
+        }
     }
-    return ($output -join "`n") | ConvertFrom-Json -ErrorAction Stop
+
+    foreach ($candidate in @($Reader.NativeCandidates)) {
+        if (-not [bool]$candidate.Available) { continue }
+        try {
+            $raw = Invoke-RenderKitMediaInfoNativeMetadataRead `
+                -Path $Path `
+                -LibraryPath ([string]$candidate.Path)
+            return [PSCustomObject]@{
+                Raw = $raw
+                Backend = 'Native'
+                Source = [string]$candidate.Source
+                Path = [string]$candidate.Path
+                Errors = @($errors.ToArray())
+            }
+        }
+        catch {
+            $errors.Add("native/$($candidate.Source) failed: $($_.Exception.Message)")
+        }
+    }
+
+    foreach ($candidate in @($Reader.HostCandidates)) {
+        if (-not [bool]$candidate.Available) { continue }
+        try {
+            $output = & ([string]$candidate.Path) mediainfo read --json $Path 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                throw "host exited with code $LASTEXITCODE`: $($output -join "`n")"
+            }
+            $raw = ($output -join "`n") | ConvertFrom-Json -ErrorAction Stop
+            return [PSCustomObject]@{
+                Raw = $raw
+                Backend = 'Host'
+                Source = [string]$candidate.Source
+                Path = [string]$candidate.Path
+                Errors = @($errors.ToArray())
+            }
+        }
+        catch {
+            $errors.Add("host/$($candidate.Source) failed: $($_.Exception.Message)")
+        }
+    }
+
+    $cliCandidates = @($Reader.CliCandidates)
+    if ($cliCandidates.Count -eq 0 -and -not [string]::IsNullOrWhiteSpace($CommandPath)) {
+        $cliCandidates = @([PSCustomObject]@{
+            Kind = 'Cli'
+            Source = 'Explicit'
+            Path = $CommandPath
+            DisplayName = $CommandPath
+            Available = $true
+        })
+    }
+
+    foreach ($candidate in $cliCandidates) {
+        if (-not [bool]$candidate.Available) { continue }
+        try {
+            $output = & ([string]$candidate.Path) --Output=JSON --Full $Path 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                throw "cli exited with code $LASTEXITCODE`: $($output -join "`n")"
+            }
+            $raw = ($output -join "`n") | ConvertFrom-Json -ErrorAction Stop
+            return [PSCustomObject]@{
+                Raw = $raw
+                Backend = 'Cli'
+                Source = [string]$candidate.Source
+                Path = [string]$candidate.Path
+                Errors = @($errors.ToArray())
+            }
+        }
+        catch {
+            $errors.Add("cli/$($candidate.Source) failed: $($_.Exception.Message)")
+        }
+    }
+
+    if ($errors.Count -gt 0) {
+        throw "MediaInfo failed through all configured backends: $($errors -join '; ')"
+    }
+
+    throw 'MediaInfo is not available. Configure RENDERKIT_MEDIAINFO_LIBRARY, add bundled MediaInfo assets, set RENDERKIT_MEDIAINFO_PATH, or install mediainfo on PATH.'
 }
 
 function Invoke-RenderKitExifToolMetadataRead {
@@ -594,17 +684,25 @@ function Read-RenderKitFileMetadata {
     if (-not $NoExternalAdapters) {
         foreach ($reader in @($route.Readers)) {
             if (-not [bool]$reader.Available) {
-                $warnings.Add("Metadata reader '$($reader.Id)' is not available on PATH.")
+                $warnings.Add("Metadata reader '$($reader.Id)' is not available through native, bundled, host, or CLI resolution.")
                 continue
             }
 
             try {
                 switch ([string]$reader.Id) {
                     'MediaInfo' {
-                        $readerRaw = Invoke-RenderKitMediaInfoMetadataRead `
+                        $mediaInfoRead = Invoke-RenderKitMediaInfoMetadataRead `
                             -Path $file.FullName `
+                            -Reader $reader `
                             -CommandPath ([string]$reader.CommandPath)
+                        $readerRaw = $mediaInfoRead.Raw
                         $raw['MediaInfo'] = $readerRaw
+                        $raw['MediaInfoBackend'] = [PSCustomObject]@{
+                            Backend = [string]$mediaInfoRead.Backend
+                            Source = [string]$mediaInfoRead.Source
+                            Path = [string]$mediaInfoRead.Path
+                            FallbackErrors = @($mediaInfoRead.Errors)
+                        }
                         Merge-RenderKitMetadataFieldBag `
                             -Target $fields `
                             -Source (ConvertFrom-RenderKitMediaInfoMetadata -Raw $readerRaw)

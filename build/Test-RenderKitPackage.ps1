@@ -24,10 +24,34 @@ try {
     $archive = [System.IO.Compression.ZipFile]::OpenRead($PackagePath)
     $entryNames = @($archive.Entries | ForEach-Object { $_.FullName })
 
-    foreach ($requiredEntry in 'RenderKit.psd1', 'RenderKit.psm1') {
+    foreach ($requiredEntry in @(
+        'RenderKit.psd1',
+        'RenderKit.psm1',
+        'THIRD_PARTY_NOTICES.md',
+        'src/Resources/ThirdParty/MediaInfo/manifest.json'
+    )) {
         if ($entryNames -notcontains $requiredEntry) {
             throw "Package '$PackagePath' does not contain required entry '$requiredEntry'."
         }
+    }
+
+    $gitKeepEntries = @($entryNames | Where-Object { $_ -like '*.gitkeep' })
+    if ($gitKeepEntries.Count -gt 0) {
+        throw "Package '$PackagePath' contains placeholder entries: $($gitKeepEntries -join ', ')."
+    }
+
+    $mediaInfoEntries = @(
+        $entryNames |
+            Where-Object {
+                $_ -like 'src/Resources/ThirdParty/MediaInfo/*' -and
+                $_ -notlike '*/licenses/*' -and
+                $_ -notlike '*/README.md' -and
+                $_ -notlike '*/manifest.json'
+            }
+    )
+    if ($mediaInfoEntries.Count -gt 0 -and
+        $entryNames -notcontains 'THIRD_PARTY_NOTICES.md') {
+        throw 'Package contains MediaInfo assets but does not contain THIRD_PARTY_NOTICES.md.'
     }
 
     foreach ($entry in $archive.Entries) {

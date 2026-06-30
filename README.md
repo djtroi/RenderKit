@@ -278,6 +278,12 @@ Bundled MediaInfo assets are staged below
 `src/Resources/ThirdParty/MediaInfo/<runtime-id>/` so RenderKit can resolve a
 known binary before falling back to a system installation.
 
+Resolver overrides:
+
+- `RENDERKIT_MEDIAINFO_LIBRARY`: absolute path to a native MediaInfo library.
+- `RENDERKIT_MEDIAINFO_HOST`: absolute path to an isolated metadata host.
+- `RENDERKIT_MEDIAINFO_PATH`: absolute path to a MediaInfo CLI executable.
+
 MediaInfo is developed by MediaArea.net SARL. See
 <https://mediaarea.net/MediaInfo> and
 <https://mediaarea.net/en/MediaInfo/License>.
