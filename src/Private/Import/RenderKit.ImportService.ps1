@@ -2999,7 +2999,7 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
         [string]$ProjectRoot,
         [ValidateSet("SHA256", "SHA1", "MD5")]
         [string]$HashAlgorithm = "SHA256",
-        [ValidateSet("Fast", "Full")]
+        [ValidateSet("Fast", "Full", "RenameIdentity")]
         [string]$VerificationMode = "Fast",
         [ValidateSet("Maximum", "Balanced", "Conservative")]
         [string]$TransferProfile = "Maximum",
