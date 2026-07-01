@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Bundled MediaInfoLib 26.01 native readers for Windows x64/ARM64, macOS
+  x64/ARM64, and Linux x64, with pinned source and file hashes plus preserved
+  upstream licenses.
+- Added a reproducible MediaInfo asset sync script that rejects archive and
+  extracted-file integrity mismatches.
+
+### Changed
+
+- MediaInfo metadata reads now prefer bundled native libraries and retain the
+  existing host/CLI failover when a native library is unsupported or fails at
+  load/read time. Linux ARM64 is explicitly modeled as an external fallback
+  runtime instead of claiming an unavailable generic bundled binary.
+
 ## 1.0.0 - 2026-06-19
 
 ### Major

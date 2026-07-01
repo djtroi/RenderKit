@@ -2,45 +2,100 @@
   "schemaVersion": "1.0",
   "artifactType": "ThirdPartyMediaBundle",
   "name": "MediaInfo",
+  "componentVersion": "26.01",
   "projectUrl": "https://mediaarea.net/MediaInfo",
   "licenseUrl": "https://mediaarea.net/en/MediaInfo/License",
   "redistributionNotice": "This product uses MediaInfo library, Copyright (c) 2002-2026 MediaArea.net SARL.",
+  "backendPreference": ["Native", "Host", "Cli"],
   "runtimeIdentifiers": [
     {
       "rid": "win-x64",
-      "cliRelativePath": "win-x64/bin/mediainfo.exe",
+      "bundledNative": true,
+      "cliRelativePath": null,
       "nativeLibraryRelativePath": "win-x64/native/MediaInfo.dll",
-      "licenseDirectoryRelativePath": "win-x64/licenses"
+      "nativeLibrarySha256": "35E040DDBC0BBEC2495AF938C084D98A3418F5928569EBD4C50237BC2CA98EEB",
+      "nativeDependencyRelativePaths": [],
+      "licenseDirectoryRelativePath": "win-x64/licenses",
+      "source": {
+        "kind": "MediaAreaOfficialArchive",
+        "uri": "https://mediaarea.net/download/binary/libmediainfo0/26.01/MediaInfo_DLL_26.01_Windows_x64_WithoutInstaller.zip",
+        "archiveSha256": "3E6FBB6595F7B7D18402C8399BFEEFE9618C0CCA1A8ABED7A8EFA5CD82C2387C"
+      }
     },
     {
       "rid": "win-arm64",
-      "cliRelativePath": "win-arm64/bin/mediainfo.exe",
+      "bundledNative": true,
+      "cliRelativePath": null,
       "nativeLibraryRelativePath": "win-arm64/native/MediaInfo.dll",
-      "licenseDirectoryRelativePath": "win-arm64/licenses"
+      "nativeLibrarySha256": "DA833DFA3CD166D2352E9202566BF9E0FEE96F34ED59291C587E30A003386CDB",
+      "nativeDependencyRelativePaths": [],
+      "licenseDirectoryRelativePath": "win-arm64/licenses",
+      "source": {
+        "kind": "MediaAreaOfficialArchive",
+        "uri": "https://mediaarea.net/download/binary/libmediainfo0/26.01/MediaInfo_DLL_26.01_Windows_ARM64_WithoutInstaller.zip",
+        "archiveSha256": "A0B6BF0CA258A16C2CC4429626C0DC7FAFA81B4AD09317AE808A21AB96B144FA"
+      }
     },
     {
       "rid": "osx-x64",
-      "cliRelativePath": "osx-x64/bin/mediainfo",
+      "bundledNative": true,
+      "cliRelativePath": null,
       "nativeLibraryRelativePath": "osx-x64/native/libmediainfo.dylib",
-      "licenseDirectoryRelativePath": "osx-x64/licenses"
+      "nativeLibrarySha256": "FFF0091A571F98FD87C7946F8A43EFFC47585C75065E738291447FFEDDBC7E19",
+      "nativeDependencyRelativePaths": [],
+      "licenseDirectoryRelativePath": "osx-x64/licenses",
+      "source": {
+        "kind": "MediaAreaOfficialArchive",
+        "uri": "https://mediaarea.net/download/binary/libmediainfo0/26.01/MediaInfo_DLL_26.01_Mac_x86_64%2Barm64.tar.bz2",
+        "archiveSha256": "BBDA90E8C5C1301863051C58F5853E1F5BB0F520D0E2AE08F6FFF8DAADB267F3"
+      }
     },
     {
       "rid": "osx-arm64",
-      "cliRelativePath": "osx-arm64/bin/mediainfo",
+      "bundledNative": true,
+      "cliRelativePath": null,
       "nativeLibraryRelativePath": "osx-arm64/native/libmediainfo.dylib",
-      "licenseDirectoryRelativePath": "osx-arm64/licenses"
+      "nativeLibrarySha256": "FFF0091A571F98FD87C7946F8A43EFFC47585C75065E738291447FFEDDBC7E19",
+      "nativeDependencyRelativePaths": [],
+      "licenseDirectoryRelativePath": "osx-arm64/licenses",
+      "source": {
+        "kind": "MediaAreaOfficialArchive",
+        "uri": "https://mediaarea.net/download/binary/libmediainfo0/26.01/MediaInfo_DLL_26.01_Mac_x86_64%2Barm64.tar.bz2",
+        "archiveSha256": "BBDA90E8C5C1301863051C58F5853E1F5BB0F520D0E2AE08F6FFF8DAADB267F3"
+      }
     },
     {
       "rid": "linux-x64",
-      "cliRelativePath": "linux-x64/bin/mediainfo",
+      "bundledNative": true,
+      "cliRelativePath": null,
       "nativeLibraryRelativePath": "linux-x64/native/libmediainfo.so",
-      "licenseDirectoryRelativePath": "linux-x64/licenses"
+      "nativeLibrarySha256": "601383FEA0509948A01235D3D8F5958A1E7603846FA545766C8C455C448802A6",
+      "nativeDependencyRelativePaths": [
+        "linux-x64/native/libzen.so.0"
+      ],
+      "nativeDependencySha256": {
+        "linux-x64/native/libzen.so.0": "3E3511C93C35B6EBFC5723432CFE34B4D975B13608B5884AF9C94EEF57148F26"
+      },
+      "licenseDirectoryRelativePath": "linux-x64/licenses",
+      "source": {
+        "kind": "NuGet",
+        "package": "MediaInfo.Core.Native",
+        "packageVersion": "26.1.0",
+        "packageUri": "https://api.nuget.org/v3-flatcontainer/mediainfo.core.native/26.1.0/mediainfo.core.native.26.1.0.nupkg",
+        "packageSha256": "80A1E28EA53C7070361C15C3AD3E623B3EF24324E1C511A2AC811C5CE96A9151",
+        "packageRuntimeIdentifier": "ubuntu.18.04-x64"
+      },
+      "notes": "The bundled Linux library may still require standard distribution libraries. Runtime load failures continue to Host and CLI fallbacks."
     },
     {
       "rid": "linux-arm64",
-      "cliRelativePath": "linux-arm64/bin/mediainfo",
-      "nativeLibraryRelativePath": "linux-arm64/native/libmediainfo.so",
-      "licenseDirectoryRelativePath": "linux-arm64/licenses"
+      "bundledNative": false,
+      "cliRelativePath": null,
+      "nativeLibraryRelativePath": null,
+      "nativeLibrarySha256": null,
+      "nativeDependencyRelativePaths": [],
+      "licenseDirectoryRelativePath": null,
+      "notes": "No distribution-neutral MediaInfoLib 26.01 ARM64 binary is bundled. Resolution uses an explicit or system native library, then Host and CLI fallbacks."
     }
   ]
 }

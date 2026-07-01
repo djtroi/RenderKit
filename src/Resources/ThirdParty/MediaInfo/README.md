@@ -1,39 +1,30 @@
-# MediaInfo Bundle Layout
+# MediaInfo Bundle
 
-RenderKit ships MediaInfo per runtime identifier (RID). The resolver should use
-the current RID first, then explicit environment overrides, and only then any
-system installation.
+RenderKit bundles MediaInfoLib 26.01 as its primary metadata reader. Native
+assets are selected by the current process runtime identifier (RID). A native
+load or read failure does not stop metadata extraction: the reader continues
+through an explicitly configured host and then bundled, configured, or
+system-provided MediaInfo CLI candidates.
 
-Expected layout:
+| RID | Bundled native asset | Source |
+| --- | --- | --- |
+| `win-x64` | `native/MediaInfo.dll` | Official MediaArea archive |
+| `win-arm64` | `native/MediaInfo.dll` | Official MediaArea archive |
+| `osx-x64` | `native/libmediainfo.dylib` | Official universal MediaArea archive |
+| `osx-arm64` | `native/libmediainfo.dylib` | Official universal MediaArea archive |
+| `linux-x64` | `native/libmediainfo.so` and `native/libzen.so.0` | `MediaInfo.Core.Native` 26.1.0, matching RenderKit Studio |
+| `linux-arm64` | None | External native, host, or CLI fallback |
 
-```text
-src/Resources/ThirdParty/MediaInfo/
-  manifest.json
-  win-x64/
-    bin/mediainfo.exe
-    native/MediaInfo.dll
-    licenses/
-  win-arm64/
-    bin/mediainfo.exe
-    native/MediaInfo.dll
-    licenses/
-  osx-x64/
-    bin/mediainfo
-    native/libmediainfo.dylib
-    licenses/
-  osx-arm64/
-    bin/mediainfo
-    native/libmediainfo.dylib
-    licenses/
-  linux-x64/
-    bin/mediainfo
-    native/libmediainfo.so
-    licenses/
-  linux-arm64/
-    bin/mediainfo
-    native/libmediainfo.so
-    licenses/
+The exact source URLs, archive hashes, file hashes, dependencies, and
+availability boundary are recorded in `manifest.json`. Reproduce or refresh
+the binary drop with:
+
+```powershell
+pwsh ./build/Sync-RenderKitMediaInfoAssets.ps1
 ```
 
-The `licenses` folder must preserve license files shipped with the upstream
-MediaInfo binary package for that RID.
+The sync script refuses archive or extracted-file hash mismatches. On Windows,
+the official x64 and ARM64 DLLs are also Authenticode-signed by MediaArea.
+
+The `licenses` folders preserve the upstream MediaInfoLib license. The Linux
+x64 folder also contains the ZenLib license for its bundled dependency.

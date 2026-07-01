@@ -46,3 +46,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 MediaInfo may rely on additional third-party libraries depending on platform
 and build configuration. RenderKit distribution packaging must preserve the
 license notices shipped with the MediaInfo binaries used for that package.
+
+The Linux x64 bundle also redistributes ZenLib 0.4.41 under its zlib-style
+license. Its complete license text is included beside the Linux runtime asset
+at
+`src/Resources/ThirdParty/MediaInfo/linux-x64/licenses/ZenLib-License.txt`.
+
+Binary provenance, source archive/package URLs, and SHA-256 hashes are recorded
+in `src/Resources/ThirdParty/MediaInfo/manifest.json`.

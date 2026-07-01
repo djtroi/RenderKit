@@ -471,6 +471,42 @@ function ConvertFrom-RenderKitExifToolMetadata {
     return $fields
 }
 
+function Invoke-RenderKitMediaInfoHostMetadataRead {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path,
+
+        [Parameter(Mandatory)]
+        [string]$HostPath
+    )
+
+    $output = & $HostPath mediainfo read --json $Path 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "host exited with code $LASTEXITCODE`: $($output -join "`n")"
+    }
+
+    return ($output -join "`n") | ConvertFrom-Json -ErrorAction Stop
+}
+
+function Invoke-RenderKitMediaInfoCliMetadataRead {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path,
+
+        [Parameter(Mandatory)]
+        [string]$CommandPath
+    )
+
+    $output = & $CommandPath --Output=JSON --Full $Path 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "cli exited with code $LASTEXITCODE`: $($output -join "`n")"
+    }
+
+    return ($output -join "`n") | ConvertFrom-Json -ErrorAction Stop
+}
+
 function Invoke-RenderKitMediaInfoMetadataRead {
     [CmdletBinding()]
     param(
@@ -521,11 +557,9 @@ function Invoke-RenderKitMediaInfoMetadataRead {
     foreach ($candidate in @($Reader.HostCandidates)) {
         if (-not [bool]$candidate.Available) { continue }
         try {
-            $output = & ([string]$candidate.Path) mediainfo read --json $Path 2>&1
-            if ($LASTEXITCODE -ne 0) {
-                throw "host exited with code $LASTEXITCODE`: $($output -join "`n")"
-            }
-            $raw = ($output -join "`n") | ConvertFrom-Json -ErrorAction Stop
+            $raw = Invoke-RenderKitMediaInfoHostMetadataRead `
+                -Path $Path `
+                -HostPath ([string]$candidate.Path)
             return [PSCustomObject]@{
                 Raw = $raw
                 Backend = 'Host'
@@ -553,11 +587,9 @@ function Invoke-RenderKitMediaInfoMetadataRead {
     foreach ($candidate in $cliCandidates) {
         if (-not [bool]$candidate.Available) { continue }
         try {
-            $output = & ([string]$candidate.Path) --Output=JSON --Full $Path 2>&1
-            if ($LASTEXITCODE -ne 0) {
-                throw "cli exited with code $LASTEXITCODE`: $($output -join "`n")"
-            }
-            $raw = ($output -join "`n") | ConvertFrom-Json -ErrorAction Stop
+            $raw = Invoke-RenderKitMediaInfoCliMetadataRead `
+                -Path $Path `
+                -CommandPath ([string]$candidate.Path)
             return [PSCustomObject]@{
                 Raw = $raw
                 Backend = 'Cli'

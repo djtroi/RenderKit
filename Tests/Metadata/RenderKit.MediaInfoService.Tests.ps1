@@ -51,6 +51,55 @@ Describe 'RenderKit MediaInfo resolver and normalization' {
         $rids.LinuxArm64 | Should -Be 'linux-arm64'
     }
 
+    It 'ships every manifest-declared native asset with the expected hash and license' {
+        $bundleRoot = Join-Path `
+            -Path $script:RepositoryRoot `
+            -ChildPath 'src/Resources/ThirdParty/MediaInfo'
+        $manifest = Get-Content `
+            -LiteralPath (Join-Path $bundleRoot 'manifest.json') `
+            -Raw |
+            ConvertFrom-Json
+
+        foreach ($runtime in @($manifest.runtimeIdentifiers)) {
+            if (-not [bool]$runtime.bundledNative) {
+                [string]$runtime.nativeLibraryRelativePath |
+                    Should -BeNullOrEmpty
+                continue
+            }
+
+            $nativePath = Join-Path `
+                -Path $bundleRoot `
+                -ChildPath ([string]$runtime.nativeLibraryRelativePath)
+            $nativePath | Should -Exist
+            (Get-FileHash -LiteralPath $nativePath -Algorithm SHA256).Hash |
+                Should -Be ([string]$runtime.nativeLibrarySha256)
+
+            foreach ($dependencyPath in @(
+                $runtime.nativeDependencyRelativePaths |
+                    ForEach-Object { [string]$_ }
+            )) {
+                $fullDependencyPath = Join-Path $bundleRoot $dependencyPath
+                $fullDependencyPath | Should -Exist
+                $expectedDependencyHash = [string](
+                    $runtime.nativeDependencySha256.PSObject.Properties[$dependencyPath].Value
+                )
+                (Get-FileHash `
+                    -LiteralPath $fullDependencyPath `
+                    -Algorithm SHA256).Hash |
+                    Should -Be $expectedDependencyHash
+            }
+
+            $licenseRoot = Join-Path `
+                -Path $bundleRoot `
+                -ChildPath ([string]$runtime.licenseDirectoryRelativePath)
+            $licenseFiles = @(
+                Get-ChildItem -LiteralPath $licenseRoot -File |
+                    Where-Object { $_.Name -ne '.gitkeep' }
+            )
+            $licenseFiles.Count | Should -BeGreaterThan 0
+        }
+    }
+
     It 'resolves a bundled native MediaInfo library before system fallbacks' {
         $moduleRoot = Join-Path $TestDrive 'module'
         $bundleRoot = Join-Path $moduleRoot 'src/Resources/ThirdParty/MediaInfo'
@@ -113,6 +162,58 @@ Describe 'RenderKit MediaInfo resolver and normalization' {
         $resolved.Mode | Should -Be 'Cli'
         $resolved.Source | Should -Be 'Environment'
         $resolved.CommandPath | Should -Be ([System.IO.Path]::GetFullPath($cliPath))
+    }
+
+    It 'fails over from native through host to CLI after runtime failures' {
+        InModuleScope -ModuleName RenderKit -ScriptBlock {
+            Mock Invoke-RenderKitMediaInfoNativeMetadataRead {
+                throw 'native load failed'
+            }
+            Mock Invoke-RenderKitMediaInfoHostMetadataRead {
+                throw 'host read failed'
+            }
+            Mock Invoke-RenderKitMediaInfoCliMetadataRead {
+                return [PSCustomObject]@{
+                    media = [PSCustomObject]@{
+                        track = @()
+                    }
+                }
+            }
+
+            $reader = [PSCustomObject]@{
+                NativeCandidates = @(
+                    [PSCustomObject]@{
+                        Available = $true
+                        Source = 'Bundled'
+                        Path = 'native-library'
+                    }
+                )
+                HostCandidates = @(
+                    [PSCustomObject]@{
+                        Available = $true
+                        Source = 'Environment'
+                        Path = 'metadata-host'
+                    }
+                )
+                CliCandidates = @(
+                    [PSCustomObject]@{
+                        Available = $true
+                        Source = 'System'
+                        Path = 'mediainfo'
+                    }
+                )
+            }
+
+            $result = Invoke-RenderKitMediaInfoMetadataRead `
+                -Path 'sample.wav' `
+                -Reader $reader
+
+            $result.Backend | Should -Be 'Cli'
+            $result.Source | Should -Be 'System'
+            $result.Errors.Count | Should -Be 2
+            $result.Errors[0] | Should -Match 'native/Bundled failed: native load failed'
+            $result.Errors[1] | Should -Match 'host/Environment failed: host read failed'
+        }
     }
 
     It 'normalizes MediaInfo JSON into RenderKit metadata fields' {

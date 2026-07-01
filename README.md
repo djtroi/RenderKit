@@ -276,13 +276,22 @@ required MediaArea attribution and BSD-style license notice in
 
 Bundled MediaInfo assets are staged below
 `src/Resources/ThirdParty/MediaInfo/<runtime-id>/` so RenderKit can resolve a
-known binary before falling back to a system installation.
+known binary before falling back. MediaInfoLib 26.01 is bundled natively for
+Windows x64/ARM64, macOS x64/ARM64, and Linux x64. Linux ARM64 deliberately
+uses external native, host, or CLI resolution because no distribution-neutral
+26.01 binary is available. Native load/read failures continue through the
+configured host and CLI candidates instead of disabling metadata extraction.
 
 Resolver overrides:
 
 - `RENDERKIT_MEDIAINFO_LIBRARY`: absolute path to a native MediaInfo library.
 - `RENDERKIT_MEDIAINFO_HOST`: absolute path to an isolated metadata host.
 - `RENDERKIT_MEDIAINFO_PATH`: absolute path to a MediaInfo CLI executable.
+
+Bundled asset provenance and SHA-256 hashes are recorded in
+`src/Resources/ThirdParty/MediaInfo/manifest.json`. Maintainers can reproduce
+the verified binary drop with
+`pwsh ./build/Sync-RenderKitMediaInfoAssets.ps1`.
 
 MediaInfo is developed by MediaArea.net SARL. See
 <https://mediaarea.net/MediaInfo> and

@@ -246,6 +246,7 @@ $csprojContent = @'
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoWarn>$(NoWarn);NU5100</NoWarn>
   </PropertyGroup>
 </Project>
 '@

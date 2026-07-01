@@ -170,19 +170,19 @@ function Get-RenderKitMediaInfoSystemNativeName {
     param()
 
     if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT) {
-        return @('MediaInfo.dll')
+        return @('MediaInfo.dll', 'libmediainfo.dll')
     }
 
     try {
         if ([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform(
                 [System.Runtime.InteropServices.OSPlatform]::OSX)) {
-            return @('libmediainfo.dylib')
+            return @('libmediainfo.dylib', 'libmediainfo.0.dylib')
         }
     }
     catch {
     }
 
-    return @('libmediainfo.so')
+    return @('libmediainfo.so', 'libmediainfo.so.0')
 }
 
 function Find-RenderKitMediaInfoSystemNativeLibrary {

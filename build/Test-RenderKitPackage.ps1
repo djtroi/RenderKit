@@ -75,6 +75,63 @@ try {
 
     [System.IO.Compression.ZipFile]::ExtractToDirectory($PackagePath, $extractRoot)
 
+    $mediaInfoRoot = Join-Path `
+        -Path $extractRoot `
+        -ChildPath 'src/Resources/ThirdParty/MediaInfo'
+    $mediaInfoManifest = Get-Content `
+        -LiteralPath (Join-Path $mediaInfoRoot 'manifest.json') `
+        -Raw |
+        ConvertFrom-Json
+    foreach ($runtime in @($mediaInfoManifest.runtimeIdentifiers)) {
+        if (-not [bool]$runtime.bundledNative) {
+            continue
+        }
+
+        $nativePath = Join-Path `
+            -Path $mediaInfoRoot `
+            -ChildPath ([string]$runtime.nativeLibraryRelativePath)
+        if (-not (Test-Path -LiteralPath $nativePath -PathType Leaf)) {
+            throw "Package is missing MediaInfo native asset for '$($runtime.rid)': $nativePath"
+        }
+
+        $nativeHash = (Get-FileHash -LiteralPath $nativePath -Algorithm SHA256).Hash
+        if ($nativeHash -ne [string]$runtime.nativeLibrarySha256) {
+            throw "Package MediaInfo native asset hash mismatch for '$($runtime.rid)'."
+        }
+
+        foreach ($dependencyPath in @(
+            $runtime.nativeDependencyRelativePaths |
+                ForEach-Object { [string]$_ }
+        )) {
+            $dependency = Join-Path $mediaInfoRoot $dependencyPath
+            if (-not (Test-Path -LiteralPath $dependency -PathType Leaf)) {
+                throw "Package is missing MediaInfo dependency for '$($runtime.rid)': $dependency"
+            }
+            $expectedDependencyHash = [string](
+                $runtime.nativeDependencySha256.PSObject.Properties[$dependencyPath].Value
+            )
+            $dependencyHash = (
+                Get-FileHash -LiteralPath $dependency -Algorithm SHA256
+            ).Hash
+            if ($dependencyHash -ne $expectedDependencyHash) {
+                throw "Package MediaInfo dependency hash mismatch for '$($runtime.rid)': $dependencyPath"
+            }
+        }
+
+        $licenseRoot = Join-Path `
+            -Path $mediaInfoRoot `
+            -ChildPath ([string]$runtime.licenseDirectoryRelativePath)
+        $licenseFiles = @(
+            Get-ChildItem `
+                -LiteralPath $licenseRoot `
+                -File `
+                -ErrorAction SilentlyContinue
+        )
+        if ($licenseFiles.Count -eq 0) {
+            throw "Package is missing MediaInfo license files for '$($runtime.rid)'."
+        }
+    }
+
     $manifestPath = Join-Path -Path $extractRoot -ChildPath 'RenderKit.psd1'
     $manifest = Test-ModuleManifest -Path $manifestPath -ErrorAction Stop
 
