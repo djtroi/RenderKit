@@ -316,6 +316,8 @@ function Write-RenderKitInteractiveMenuScreen {
         Clear-Host -ErrorAction Stop
     }
     catch {
+        Write-RenderKitLog -Level Error -Message "Clear-Host failed."
+        throw "Clear-Host failed."
         # Some redirected or embedded hosts expose RawUI but cannot clear it.
     }
     Write-Host " "
@@ -929,6 +931,8 @@ function Read-RenderKitInteractiveMenuTextInput {
         Clear-Host -ErrorAction Stop
     }
     catch {
+        Write-RenderKitLog -Level Error -Message "Clear-Host failed."
+        throw "Clear-Host failed."
         # Keep text prompts usable in hosts that cannot clear their output pane.
     }
     Write-Host ""

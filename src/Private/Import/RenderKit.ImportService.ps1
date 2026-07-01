@@ -2966,6 +2966,7 @@ Invoke-RenderKitImportVerifyWorkItem `
                 $job.PowerShell.Stop()
             }
             catch {
+                Write-RenderKitLog -Level Error -Message "Stopping the powershell job failed. - trying to Dispose the active copy."
                 # Best-effort shutdown; disposal below still releases the worker.
             }
             finally {
