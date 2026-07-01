@@ -68,7 +68,34 @@ Folder name used when unassigned files are routed to the "to sort" destination.
 Enables phase 4 transaction-safe transfer after classification.
 
 .PARAMETER TransferHashAlgorithm
-Hash algorithm used for transfer integrity checks. Allowed values: `SHA256`, `SHA1`, `MD5`.
+Hash algorithm used by `TransferVerificationMode Full`. Allowed values: `SHA256`, `SHA1`, `MD5`.
+
+.PARAMETER TransferVerificationMode
+`Fast` uses the native file-copy path, validates write completion and length, then commits atomically. `Full` additionally hashes source and staging content.
+
+.PARAMETER TransferProfile
+Transfer scheduler profile. `Maximum` prefers bounded parallelism for small files and is the default.
+
+.PARAMETER SmallFileThresholdMB
+Maximum file size assigned to the parallel small-file scheduler.
+
+.PARAMETER SmallFileConcurrency
+Small-file worker count. `0` selects the profile default.
+
+.PARAMETER LargeFileConcurrency
+Large-file worker count. `0` selects the profile default, currently one worker.
+
+.PARAMETER VerifyConcurrency
+Independent staging verification worker count. `0` selects the profile default.
+
+.PARAMETER MaxInFlightMB
+Maximum aggregate size retained across copy, queued verification, and active verification. One oversized file is always allowed to make progress.
+
+.PARAMETER TransferBufferSizeMB
+I/O buffer size used for copy and verification streams.
+
+.PARAMETER SourceDisposition
+`Keep` copies and verifies source files. Explicit `Move` uses rename-only transfer on the same Windows volume and rolls back to the source path if the final commit fails.
 
 .EXAMPLE
 Import-Media
@@ -87,7 +114,7 @@ Import-Media -ScanAndFilter -SourcePath "E:\DCIM" -FromDate (Get-Date).AddDays(-
 Runs scan/filter and classification for the given project and template.
 
 .EXAMPLE
-Import-Media -ScanAndFilter -SourcePath "E:\DCIM" -Classify -Transfer -ProjectRoot "D:\Projects\ClientA_2026" -TemplateName "default" -TransferHashAlgorithm SHA256 -WhatIf
+Import-Media -ScanAndFilter -SourcePath "E:\DCIM" -Classify -Transfer -ProjectRoot "D:\Projects\ClientA_2026" -TemplateName "default" -TransferVerificationMode Full -TransferHashAlgorithm SHA256 -WhatIf
 Simulates classified transfer with integrity hashing.
 
 .INPUTS
@@ -135,7 +162,25 @@ https://github.com/djtroi/RenderKit
         [string]$UnassignedFolderName = "TO SORT",
         [switch]$Transfer,
         [ValidateSet("SHA256", "SHA1", "MD5")]
-        [string]$TransferHashAlgorithm = "SHA256"
+        [string]$TransferHashAlgorithm = "SHA256",
+        [ValidateSet("Fast", "Full")]
+        [string]$TransferVerificationMode = "Fast",
+        [ValidateSet("Maximum", "Balanced", "Conservative")]
+        [string]$TransferProfile = "Maximum",
+        [ValidateRange(1, 1024)]
+        [int]$SmallFileThresholdMB = 64,
+        [ValidateRange(0, 32)]
+        [int]$SmallFileConcurrency = 0,
+        [ValidateRange(0, 16)]
+        [int]$LargeFileConcurrency = 0,
+        [ValidateRange(0, 16)]
+        [int]$VerifyConcurrency = 0,
+        [ValidateRange(1, 65536)]
+        [int]$MaxInFlightMB = 512,
+        [ValidateRange(1, 64)]
+        [int]$TransferBufferSizeMB = 8,
+        [ValidateSet("Keep", "Move")]
+        [string]$SourceDisposition = "Keep"
     )
 
     $isWizardMode = ($PSBoundParameters.Count -eq 0)
@@ -392,9 +437,15 @@ https://github.com/djtroi/RenderKit
             Write-Information "Phase 4: transaction-safe transfer simulation." -InformationAction Continue
         }
         else {
+            $transferAction = if ($SourceDisposition -eq "Move") {
+                "Phase 4 MOVE of $($classificationResult.Files.Count) classified file(s); source files are removed after same-volume rename"
+            }
+            else {
+                "Phase 4 transfer of $($classificationResult.Files.Count) classified file(s)"
+            }
             $executeTransfer = $PSCmdlet.ShouldProcess(
                 $classificationResult.ProjectRoot,
-                "Phase 4 transfer of $($classificationResult.Files.Count) classified file(s)"
+                $transferAction
             )
         }
 
@@ -404,6 +455,15 @@ https://github.com/djtroi/RenderKit
                 -ClassifiedFiles $classificationResult.Files `
                 -ProjectRoot $classificationResult.ProjectRoot `
                 -HashAlgorithm $TransferHashAlgorithm `
+                -VerificationMode $TransferVerificationMode `
+                -TransferProfile $TransferProfile `
+                -SmallFileThresholdMB $SmallFileThresholdMB `
+                -SmallFileConcurrency $SmallFileConcurrency `
+                -LargeFileConcurrency $LargeFileConcurrency `
+                -VerifyConcurrency $VerifyConcurrency `
+                -MaxInFlightMB $MaxInFlightMB `
+                -TransferBufferSizeMB $TransferBufferSizeMB `
+                -SourceDisposition $SourceDisposition `
                 -Simulate:$simulateTransfer
 
             if ($simulateTransfer -and $isWizardMode -and -not [bool]$WhatIfPreference) {
@@ -412,9 +472,15 @@ https://github.com/djtroi/RenderKit
                     -Default $false
 
                 if ($runRealTransfer) {
+                    $realTransferAction = if ($SourceDisposition -eq "Move") {
+                        "Phase 4 REAL MOVE of $($classificationResult.Files.Count) classified file(s); source files are removed after same-volume rename"
+                    }
+                    else {
+                        "Phase 4 REAL transfer of $($classificationResult.Files.Count) classified file(s)"
+                    }
                     $executeRealTransfer = $PSCmdlet.ShouldProcess(
                         $classificationResult.ProjectRoot,
-                        "Phase 4 REAL transfer of $($classificationResult.Files.Count) classified file(s)"
+                        $realTransferAction
                     )
 
                     if ($executeRealTransfer) {
@@ -422,7 +488,16 @@ https://github.com/djtroi/RenderKit
                         $transferResult = Invoke-RenderKitImportTransactionSafeTransfer `
                             -ClassifiedFiles $classificationResult.Files `
                             -ProjectRoot $classificationResult.ProjectRoot `
-                            -HashAlgorithm $TransferHashAlgorithm
+                            -HashAlgorithm $TransferHashAlgorithm `
+                            -VerificationMode $TransferVerificationMode `
+                            -TransferProfile $TransferProfile `
+                            -SmallFileThresholdMB $SmallFileThresholdMB `
+                            -SmallFileConcurrency $SmallFileConcurrency `
+                            -LargeFileConcurrency $LargeFileConcurrency `
+                            -VerifyConcurrency $VerifyConcurrency `
+                            -MaxInFlightMB $MaxInFlightMB `
+                            -TransferBufferSizeMB $TransferBufferSizeMB `
+                            -SourceDisposition $SourceDisposition
                         $wizardTransferSimulate = $false
                     }
                     else {
@@ -532,8 +607,38 @@ https://github.com/djtroi/RenderKit
         ImportedFileCount  = if ($transferResult) { $transferResult.ImportedFileCount } else { 0 }
         SimulatedFileCount = if ($transferResult) { $transferResult.SimulatedFileCount } else { 0 }
         FailedTransferFileCount = if ($transferResult) { $transferResult.FailedFileCount } else { 0 }
+        TransferCopiedBytes = if ($transferResult) { $transferResult.CopiedBytes } else { 0 }
+        TransferVerifiedBytes = if ($transferResult) { $transferResult.VerifiedBytes } else { 0 }
+        TransferVerificationMode = if ($transferResult) { $transferResult.VerificationMode } else { $TransferVerificationMode }
+        TransferCopyDurationSeconds = if ($transferResult) { $transferResult.CopyDurationSeconds } else { 0 }
+        TransferVerificationDurationSeconds = if ($transferResult) { $transferResult.VerificationDurationSeconds } else { 0 }
         TransferDurationSeconds = if ($transferResult) { $transferResult.DurationSeconds } else { 0 }
+        TransferCopyAverageSpeedMBps = if ($transferResult) { $transferResult.CopyAverageSpeedMBps } else { 0 }
+        TransferVerificationAverageSpeedMBps = if ($transferResult) { $transferResult.VerificationAverageSpeedMBps } else { 0 }
+        TransferEndToEndAverageSpeedMBps = if ($transferResult) { $transferResult.EndToEndAverageSpeedMBps } else { 0 }
         TransferAverageSpeedMBps = if ($transferResult) { $transferResult.AverageSpeedMBps } else { 0 }
+        TransferProfile = if ($transferResult) { $transferResult.TransferProfile } else { $TransferProfile }
+        TransferSmallFileThresholdMB = if ($transferResult) { $transferResult.SmallFileThresholdMB } else { $SmallFileThresholdMB }
+        TransferSmallFileConcurrency = if ($transferResult) { $transferResult.SmallFileConcurrency } else { 0 }
+        TransferLargeFileConcurrency = if ($transferResult) { $transferResult.LargeFileConcurrency } else { 0 }
+        TransferVerifyConcurrency = if ($transferResult) { $transferResult.VerifyConcurrency } else { 0 }
+        TransferAdaptiveConcurrencyEnabled = if ($transferResult) { $transferResult.AdaptiveConcurrencyEnabled } else { $false }
+        TransferConcurrencyAdjustments = if ($transferResult) { $transferResult.ConcurrencyAdjustments } else { 0 }
+        TransferMaxInFlightMB = if ($transferResult) { $transferResult.MaxInFlightMB } else { $MaxInFlightMB }
+        TransferBufferSizeMB = if ($transferResult) { $transferResult.TransferBufferSizeMB } else { $TransferBufferSizeMB }
+        TransferSourceDisposition = if ($transferResult) { $transferResult.SourceDisposition } else { $SourceDisposition }
+        TransferSmallFileCount = if ($transferResult) { $transferResult.SmallFileCount } else { 0 }
+        TransferLargeFileCount = if ($transferResult) { $transferResult.LargeFileCount } else { 0 }
+        TransferParallelizedFileCount = if ($transferResult) { $transferResult.ParallelizedFileCount } else { 0 }
+        TransferPeakConcurrency = if ($transferResult) { $transferResult.PeakConcurrency } else { 0 }
+        TransferPeakCopyConcurrency = if ($transferResult) { $transferResult.PeakCopyConcurrency } else { 0 }
+        TransferPeakVerifyConcurrency = if ($transferResult) { $transferResult.PeakVerifyConcurrency } else { 0 }
+        TransferPeakInFlightBytes = if ($transferResult) { $transferResult.PeakInFlightBytes } else { 0 }
+        TransferSameVolumeMoveFileCount = if ($transferResult) { $transferResult.SameVolumeMoveFileCount } else { 0 }
+        TransferFastCopyFileCount = if ($transferResult) { $transferResult.FastCopyFileCount } else { 0 }
+        TransferFullVerificationFileCount = if ($transferResult) { $transferResult.FullVerificationFileCount } else { 0 }
+        TransferRolledBackFileCount = if ($transferResult) { $transferResult.RolledBackFileCount } else { 0 }
+        TransferRollbackFailedFileCount = if ($transferResult) { $transferResult.RollbackFailedFileCount } else { 0 }
         FinalReport        = $finalReport
         RevisionLogPath    = $revisionLogPath
         Files              = $selectedFiles
