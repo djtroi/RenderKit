@@ -238,6 +238,11 @@ function Find-RenderKitInteractiveMenuEnabledIndex {
 }
 
 function Write-RenderKitInteractiveMenuScreen {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSAvoidUsingWriteHost",
+        "",
+        Justification = "This function renders an interactive host UI and must not write screen content to the success pipeline"
+    )]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -253,7 +258,8 @@ function Write-RenderKitInteractiveMenuScreen {
         [int]$SelectedIndex = 0,
         [switch]$AllowBack,
         [switch]$AllowCancel,
-        [switch]$MultiSelect
+        [switch]$MultiSelect,
+        [switch]$TextInput
     )
 
     $viewport = Get-RenderKitInteractiveMenuViewport
@@ -306,51 +312,57 @@ function Write-RenderKitInteractiveMenuScreen {
         -1
     }
 
-    Clear-Host
-    Write-Output " " 
-    Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $Title -Width $contentWidth))
+    try {
+        Clear-Host -ErrorAction Stop
+    }
+    catch {
+        # Some redirected or embedded hosts expose RawUI but cannot clear it.
+    }
+    Write-Host " "
+    Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $Title -Width $contentWidth))
 
     if (-not [string]::IsNullOrWhiteSpace($Subtitle)) {
-        Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $Subtitle -Width $contentWidth))
+        Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $Subtitle -Width $contentWidth))
     }
 
     if ($Breadcrumb -and $Breadcrumb.Count -gt 0) {
         $breadcrumbText = "Path: {0}" -f ($Breadcrumb -join " > ")
-        Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $breadcrumbText -Width $contentWidth))
+        Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $breadcrumbText -Width $contentWidth))
     }
 
     if ($statusLines.Count -gt 0) {
-        Write-Output ""
-        Write-Output "  Context"
+        Write-Host ""
+        Write-Host "  Context"
         foreach ($line in $statusLines) {
-            Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
+            Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
         }
     }
 
     if ($infoLines.Count -gt 0) {
-        Write-Output ""
-        Write-Output "  Notes"
+        Write-Host ""
+        Write-Host "  Notes"
         foreach ($line in $infoLines) {
-            Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
+            Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
         }
     }
 
-    Write-Output ""
+    Write-Host ""
     $actionHeader = if ($pageCount -gt 1) {
         "Actions (page {0}/{1})" -f ($pageIndex + 1), $pageCount
     }
     else {
         "Actions"
     }
-    Write-Output ("  " + $actionHeader)
+    Write-Host ("  " + $actionHeader)
 
     if ($Options.Count -eq 0) {
-        Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text "No actions available." -Width $contentWidth)) -ForegroundColor DarkGray
+        Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text "No actions available." -Width $contentWidth)) -ForegroundColor DarkGray
     }
     else {
         for ($i = $startIndex; $i -le $endIndex; $i++) {
             $option = $Options[$i]
             $cursorPrefix = if ($i -eq $SelectedIndex) { ">" } else { " " }
+            $numericPrefix = if ($TextInput) { "[{0}] " -f ($i + 1) } else { "" }
             $selectionPrefix = if ($MultiSelect) {
                 if ([bool]$option.Selected) { "[x] " } else { "[ ] " }
             }
@@ -366,56 +378,292 @@ function Write-RenderKitInteractiveMenuScreen {
             }
 
             $suffixText = if (-not [bool]$option.IsEnabled) { " (not available)" } else { "" }
-            $lineText = "{0} {1}{2}{3}" -f $cursorPrefix, $selectionPrefix, $hotKeyText, $option.Label
+            $lineText = "{0} {1}{2}{3}{4}" -f $cursorPrefix, $numericPrefix, $selectionPrefix, $hotKeyText, $option.Label
             $lineText += $suffixText
             $formattedLine = "  " + (Format-RenderKitInteractiveMenuLine -Text $lineText -Width $contentWidth)
 
             if ($i -eq $SelectedIndex) {
-                Write-Output $formattedLine -ForegroundColor Black -BackgroundColor Gray
+                Write-Host $formattedLine -ForegroundColor Black -BackgroundColor Gray
             }
             elseif (-not [bool]$option.IsEnabled) {
-                Write-Output $formattedLine -ForegroundColor DarkGray
+                Write-Host $formattedLine -ForegroundColor DarkGray
             }
             else {
-                Write-Output $formattedLine
+                Write-Host $formattedLine
             }
         }
     }
 
     if ($selectedDescriptionLines.Count -gt 0) {
-        Write-Output ""
-        Write-Output "  Details"
+        Write-Host ""
+        Write-Host "  Details"
         foreach ($line in $selectedDescriptionLines | Select-Object -First 4) {
-            Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
+            Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
         }
     }
 
-    Write-Output ""
-    $controlSegments = @("[Up/Down] Move", "[Home/End] Jump", "[PageUp/PageDown] Page", "[Enter] Select")
-    if ($MultiSelect) {
-        $controlSegments += "[Space] Toggle"
-        $controlSegments += "[Insert] All"
-        $controlSegments += "[Delete] None"
+    Write-Host ""
+    if ($TextInput) {
+        $controlSegments = @("[number/hotkey] Select")
+        if ($MultiSelect) {
+            $controlSegments = @("[number/hotkey] Toggle", "[Enter] Confirm", "[*] All", "[-] None")
+        }
+
+        if ($AllowBack) {
+            $controlSegments += "[0] Back"
+        }
+        elseif ($AllowCancel) {
+            $controlSegments += "[0] Cancel"
+        }
+    }
+    else {
+        $controlSegments = @("[Up/Down] Move", "[Home/End] Jump", "[PageUp/PageDown] Page", "[Enter] Select")
+        if ($MultiSelect) {
+            $controlSegments += "[Space] Toggle"
+            $controlSegments += "[Insert] All"
+            $controlSegments += "[Delete] None"
+        }
+
+        if ($AllowBack) {
+            $controlSegments += "[Esc] Back"
+        }
+        elseif ($AllowCancel) {
+            $controlSegments += "[Esc] Cancel"
+        }
     }
 
-    if ($AllowBack) {
-        $controlSegments += "[Esc] Back"
-    }
-    elseif ($AllowCancel) {
-        $controlSegments += "[Esc] Cancel"
-    }
-
-    Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text ("Controls: " + ($controlSegments -join " | ")) -Width $contentWidth))
+    Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text ("Controls: " + ($controlSegments -join " | ")) -Width $contentWidth))
 
     if ($MultiSelect) {
         $selectedCount = @($Options | Where-Object { [bool]$_.Selected }).Count
-        Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text ("Selected items: {0}" -f $selectedCount) -Width $contentWidth))
+        Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text ("Selected items: {0}" -f $selectedCount) -Width $contentWidth))
     }
 
     return [PSCustomObject]@{
         PageSize  = $pageSize
         PageIndex = $pageIndex
         PageCount = $pageCount
+    }
+}
+
+function Read-RenderKitInteractiveMenuKey {
+    [CmdletBinding()]
+    param()
+
+    if ($host.Name -eq "Windows PowerShell ISE Host") {
+        return $null
+    }
+
+    try {
+        if (-not $host.UI -or -not $host.UI.RawUI) {
+            return $null
+        }
+
+        $readKeyOptions = `
+            [System.Management.Automation.Host.ReadKeyOptions]::NoEcho -bor `
+            [System.Management.Automation.Host.ReadKeyOptions]::IncludeKeyDown
+        $hostKeyInfo = $host.UI.RawUI.ReadKey($readKeyOptions)
+        if ($null -eq $hostKeyInfo) {
+            return $null
+        }
+
+        return [PSCustomObject]@{
+            Key     = ([System.ConsoleKey][int]$hostKeyInfo.VirtualKeyCode).ToString()
+            KeyChar = [string]$hostKeyInfo.Character
+        }
+    }
+    catch {
+        return $null
+    }
+}
+
+function Invoke-RenderKitInteractiveMenuTextMode {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSAvoidUsingWriteHost",
+        "",
+        Justification = "This interactive compatibility mode writes validation feedback directly to the active host"
+    )]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Title,
+        [string]$Subtitle,
+        [string[]]$Breadcrumb,
+        [hashtable]$Status,
+        [string[]]$Info,
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [object[]]$Options,
+        [ValidateRange(-1, 100000)]
+        [int]$SelectedIndex = 0,
+        [switch]$AllowBack,
+        [switch]$AllowCancel,
+        [switch]$MultiSelect,
+        [switch]$AllowEmptySelection
+    )
+
+    $menuOptions = @($Options)
+
+    while ($true) {
+        Write-RenderKitInteractiveMenuScreen `
+            -Title $Title `
+            -Subtitle $Subtitle `
+            -Breadcrumb $Breadcrumb `
+            -Status $Status `
+            -Info $Info `
+            -Options $menuOptions `
+            -SelectedIndex $SelectedIndex `
+            -AllowBack:$AllowBack `
+            -AllowCancel:$AllowCancel `
+            -MultiSelect:$MultiSelect `
+            -TextInput |
+            Out-Null
+
+        $prompt = if ($MultiSelect) {
+            "Toggle a number/hotkey, or press Enter to confirm"
+        }
+        else {
+            "Choose a number/hotkey, or press Enter for the highlighted option"
+        }
+
+        $inputValue = Read-Host $prompt
+        if ($null -eq $inputValue) {
+            if ($AllowBack) {
+                return [PSCustomObject]@{
+                    Action          = "Back"
+                    Option          = $null
+                    SelectedOptions = @()
+                    SelectedValues  = @()
+                    SelectedIndex   = $SelectedIndex
+                }
+            }
+
+            if ($AllowCancel) {
+                return [PSCustomObject]@{
+                    Action          = "Cancel"
+                    Option          = $null
+                    SelectedOptions = @()
+                    SelectedValues  = @()
+                    SelectedIndex   = $SelectedIndex
+                }
+            }
+
+            throw "Interactive input is not available in host '$($host.Name)'."
+        }
+
+        $normalizedInput = $inputValue.Trim()
+        if ([string]::IsNullOrWhiteSpace($normalizedInput)) {
+            if ($MultiSelect) {
+                $selectedOptions = @($menuOptions | Where-Object { [bool]$_.Selected })
+                if ($selectedOptions.Count -eq 0 -and -not $AllowEmptySelection) {
+                    Write-Host "  Select at least one item before confirming." -ForegroundColor Yellow
+                    continue
+                }
+
+                return [PSCustomObject]@{
+                    Action          = "Select"
+                    Option          = $null
+                    SelectedOptions = $selectedOptions
+                    SelectedValues  = @($selectedOptions | ForEach-Object { $_.Value })
+                    SelectedIndex   = $SelectedIndex
+                }
+            }
+
+            if ($SelectedIndex -ge 0 -and $SelectedIndex -lt $menuOptions.Count -and [bool]$menuOptions[$SelectedIndex].IsEnabled) {
+                $selectedOption = $menuOptions[$SelectedIndex]
+                return [PSCustomObject]@{
+                    Action          = "Select"
+                    Option          = $selectedOption
+                    Value           = $selectedOption.Value
+                    SelectedOptions = @($selectedOption)
+                    SelectedValues  = @($selectedOption.Value)
+                    SelectedIndex   = $SelectedIndex
+                }
+            }
+
+            continue
+        }
+
+        if ($normalizedInput -eq "0") {
+            if ($AllowBack) {
+                return [PSCustomObject]@{
+                    Action          = "Back"
+                    Option          = $null
+                    SelectedOptions = @()
+                    SelectedValues  = @()
+                    SelectedIndex   = $SelectedIndex
+                }
+            }
+
+            if ($AllowCancel) {
+                return [PSCustomObject]@{
+                    Action          = "Cancel"
+                    Option          = $null
+                    SelectedOptions = @()
+                    SelectedValues  = @()
+                    SelectedIndex   = $SelectedIndex
+                }
+            }
+        }
+
+        if ($MultiSelect -and $normalizedInput -eq "*") {
+            foreach ($option in $menuOptions) {
+                if ([bool]$option.IsEnabled) {
+                    $option.Selected = $true
+                }
+            }
+            continue
+        }
+
+        if ($MultiSelect -and $normalizedInput -eq "-") {
+            foreach ($option in $menuOptions) {
+                $option.Selected = $false
+            }
+            continue
+        }
+
+        $requestedIndex = -1
+        $numericSelection = 0
+        if ([int]::TryParse($normalizedInput, [ref]$numericSelection)) {
+            $candidateIndex = $numericSelection - 1
+            if ($candidateIndex -ge 0 -and $candidateIndex -lt $menuOptions.Count) {
+                $requestedIndex = $candidateIndex
+            }
+        }
+        else {
+            $requestedHotKey = $normalizedInput.Substring(0, 1).ToUpperInvariant()
+            for ($i = 0; $i -lt $menuOptions.Count; $i++) {
+                if (
+                    [bool]$menuOptions[$i].IsEnabled -and
+                    -not [string]::IsNullOrWhiteSpace([string]$menuOptions[$i].HotKey) -and
+                    [string]$menuOptions[$i].HotKey -eq $requestedHotKey
+                ) {
+                    $requestedIndex = $i
+                    break
+                }
+            }
+        }
+
+        if ($requestedIndex -lt 0 -or -not [bool]$menuOptions[$requestedIndex].IsEnabled) {
+            Write-Host "  That selection is not available." -ForegroundColor Yellow
+            continue
+        }
+
+        $SelectedIndex = $requestedIndex
+        if ($MultiSelect) {
+            $menuOptions[$SelectedIndex].Selected = -not [bool]$menuOptions[$SelectedIndex].Selected
+            continue
+        }
+
+        $selectedOption = $menuOptions[$SelectedIndex]
+        return [PSCustomObject]@{
+            Action          = "Select"
+            Option          = $selectedOption
+            Value           = $selectedOption.Value
+            SelectedOptions = @($selectedOption)
+            SelectedValues  = @($selectedOption.Value)
+            SelectedIndex   = $SelectedIndex
+        }
     }
 }
 
@@ -437,10 +685,6 @@ function Invoke-RenderKitInteractiveMenu {
         [switch]$AllowEmptySelection
     )
 
-    if (-not $host.Name -or $host.Name -ne "ConsoleHost") {
-        throw "Interactive menu service requires ConsoleHost."
-    }
-
     $menuOptions = @($Options)
     $selectedIndex = Get-RenderKitInteractiveMenuFirstEnabledIndex -Options $menuOptions
     if ($selectedIndex -lt 0 -and $menuOptions.Count -gt 0) {
@@ -459,13 +703,8 @@ function Invoke-RenderKitInteractiveMenu {
         $selectedIndex = $defaultIndex
     }
 
-    $cursorVisible = $true
-    try {
-        $cursorVisible = [System.Console]::CursorVisible
-        [System.Console]::CursorVisible = $false
-
-        while ($true) {
-            $layout = Write-RenderKitInteractiveMenuScreen `
+    while ($true) {
+        $layout = Write-RenderKitInteractiveMenuScreen `
                 -Title $Title `
                 -Subtitle $Subtitle `
                 -Breadcrumb $Breadcrumb `
@@ -477,8 +716,23 @@ function Invoke-RenderKitInteractiveMenu {
                 -AllowCancel:$AllowCancel `
                 -MultiSelect:$MultiSelect
 
-            $keyInfo = [System.Console]::ReadKey($true)
-            switch ($keyInfo.Key) {
+        $keyInfo = Read-RenderKitInteractiveMenuKey
+        if ($null -eq $keyInfo) {
+            return Invoke-RenderKitInteractiveMenuTextMode `
+                -Title $Title `
+                -Subtitle $Subtitle `
+                -Breadcrumb $Breadcrumb `
+                -Status $Status `
+                -Info $Info `
+                -Options $menuOptions `
+                -SelectedIndex $selectedIndex `
+                -AllowBack:$AllowBack `
+                -AllowCancel:$AllowCancel `
+                -MultiSelect:$MultiSelect `
+                -AllowEmptySelection:$AllowEmptySelection
+        }
+
+        switch ($keyInfo.Key) {
                 "DownArrow" {
                     $nextIndex = Find-RenderKitInteractiveMenuEnabledIndex `
                         -Options $menuOptions `
@@ -645,15 +899,16 @@ function Invoke-RenderKitInteractiveMenu {
                         }
                     }
                 }
-            }
         }
-    }
-    finally {
-        [System.Console]::CursorVisible = $cursorVisible
     }
 }
 
 function Read-RenderKitInteractiveMenuTextInput {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        "PSAvoidUsingWriteHost",
+        "",
+        Justification = "This function renders an interactive text input screen and must keep display text off the success pipeline"
+    )]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -670,41 +925,46 @@ function Read-RenderKitInteractiveMenuTextInput {
     $viewport = Get-RenderKitInteractiveMenuViewport
     $contentWidth = [Math]::Max(20, $viewport.Width - 4)
 
-    Clear-Host
-    Write-Output ""
-    Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $Title -Width $contentWidth))
+    try {
+        Clear-Host -ErrorAction Stop
+    }
+    catch {
+        # Keep text prompts usable in hosts that cannot clear their output pane.
+    }
+    Write-Host ""
+    Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $Title -Width $contentWidth))
 
     if (-not [string]::IsNullOrWhiteSpace($Subtitle)) {
-        Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $Subtitle -Width $contentWidth))
+        Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $Subtitle -Width $contentWidth))
     }
 
     if ($Breadcrumb -and $Breadcrumb.Count -gt 0) {
-        Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text ("Path: {0}" -f ($Breadcrumb -join " > ")) -Width $contentWidth))
+        Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text ("Path: {0}" -f ($Breadcrumb -join " > ")) -Width $contentWidth))
     }
 
     if ($Status) {
-        Write-Output ""
-        Write-Output "  Context"
+        Write-Host ""
+        Write-Host "  Context"
         foreach ($key in $Status.Keys) {
             $line = "{0}: {1}" -f $key, (ConvertTo-RenderKitInteractiveMenuText -Value $Status[$key])
-            Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
+            Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
         }
     }
 
-    Write-Output ""
-    Write-Output "  Notes"
+    Write-Host ""
+    Write-Host "  Notes"
     foreach ($line in @($Info) + @("Press Enter on empty input to go back.")) {
         if (-not [string]::IsNullOrWhiteSpace($line)) {
-            Write-Output ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
+            Write-Host ("  " + (Format-RenderKitInteractiveMenuLine -Text $line -Width $contentWidth))
         }
     }
 
     if (-not [string]::IsNullOrWhiteSpace($CurrentValue)) {
-        Write-Output ""
-        Write-Output ("  Current: " + (Format-RenderKitInteractiveMenuLine -Text $CurrentValue -Width ([Math]::Max(10, $contentWidth - 9))))
+        Write-Host ""
+        Write-Host ("  Current: " + (Format-RenderKitInteractiveMenuLine -Text $CurrentValue -Width ([Math]::Max(10, $contentWidth - 9))))
     }
 
-    Write-Output ""
+    Write-Host ""
     $inputValue = Read-Host $Prompt
     if ([string]::IsNullOrWhiteSpace($inputValue)) {
         return [PSCustomObject]@{
@@ -1036,12 +1296,12 @@ function Select-RenderKitImportSourceFolderActionMenu {
                 -Key "use-folder" `
                 -Label "Use this folder as the source root" `
                 -Description "Scan the selected folder and its content as the source root." `
-                -HotKey "U",
+                -HotKey "U"
             New-RenderKitInteractiveMenuOption `
                 -Key "browse-deeper" `
                 -Label "Browse deeper into this folder" `
                 -Description "Open this folder and continue navigating its subfolders." `
-                -HotKey "B",
+                -HotKey "B"
             New-RenderKitInteractiveMenuOption `
                 -Key "filter-direct-children" `
                 -Label "Only import selected direct subfolders" `
@@ -1279,17 +1539,17 @@ function Select-RenderKitImportSourcePathMenu {
                     -Label "Choose source drive" `
                     -Description "Show matching drive candidates and browse the selected device." `
                     -HotKey "D" `
-                    -IsDefault $true,
+                    -IsDefault $true
                 New-RenderKitInteractiveMenuOption `
                     -Key "manual-path" `
                     -Label "Enter absolute source path manually" `
                     -Description "Use a specific folder path without choosing a drive first." `
-                    -HotKey "M",
+                    -HotKey "M"
                 New-RenderKitInteractiveMenuOption `
                     -Key "toggle-fixed" `
                     -Label ("Include fixed drives: {0}" -f (ConvertTo-RenderKitInteractiveMenuText -Value $effectiveIncludeFixed)) `
                     -Description "Toggle whether fixed disks should appear in the drive candidate list." `
-                    -HotKey "F",
+                    -HotKey "F"
                 New-RenderKitInteractiveMenuOption `
                     -Key "toggle-unsupported" `
                     -Label ("Include unsupported file systems: {0}" -f (ConvertTo-RenderKitInteractiveMenuText -Value $effectiveIncludeUnsupported)) `
@@ -1405,13 +1665,13 @@ function Select-RenderKitImportUnassignedHandlingMenu {
                 -Label "Prompt during classification" `
                 -Description "Ask interactively whenever an unassigned file type appears." `
                 -HotKey "P" `
-                -IsDefault:($Default -eq "Prompt"),
+                -IsDefault:($Default -eq "Prompt")
             New-RenderKitInteractiveMenuOption `
                 -Key "ToSort" `
                 -Label "Send to TO SORT" `
                 -Description "Route unassigned files to the TO SORT folder automatically." `
                 -HotKey "T" `
-                -IsDefault:($Default -eq "ToSort"),
+                -IsDefault:($Default -eq "ToSort")
             New-RenderKitInteractiveMenuOption `
                 -Key "Skip" `
                 -Label "Skip unassigned files" `
@@ -1503,43 +1763,43 @@ function Start-RenderKitImportInteractiveSetupMenu {
                     -Label "Choose destination project" `
                     -Description "Select the RenderKit project that will receive the import." `
                     -HotKey "P" `
-                    -IsDefault:([string]::IsNullOrWhiteSpace([string]$state.ProjectRoot)),
+                    -IsDefault:([string]::IsNullOrWhiteSpace([string]$state.ProjectRoot))
                 New-RenderKitInteractiveMenuOption `
                     -Key "source" `
                     -Label "Choose source folder" `
                     -Description "Select the source drive and folder that should be scanned." `
-                    -HotKey "S",
+                    -HotKey "S"
                 New-RenderKitInteractiveMenuOption `
                     -Key "interactive-filter" `
                     -Label ("Configure additional filters after scan: {0}" -f (ConvertTo-RenderKitInteractiveMenuText -Value $state.InteractiveFilter)) `
                     -Description "When enabled, a dedicated filter menu appears after the scan and before file selection." `
-                    -HotKey "F",
+                    -HotKey "F"
                 New-RenderKitInteractiveMenuOption `
                     -Key "auto-select" `
                     -Label ("Auto-select all matched files: {0}" -f (ConvertTo-RenderKitInteractiveMenuText -Value $state.AutoSelectAll)) `
                     -Description "Skip the manual file subset menu and keep all matched files selected." `
-                    -HotKey "A",
+                    -HotKey "A"
                 New-RenderKitInteractiveMenuOption `
                     -Key "auto-confirm" `
                     -Label ("Auto-confirm import after selection: {0}" -f (ConvertTo-RenderKitInteractiveMenuText -Value $state.AutoConfirm)) `
                     -Description "Skip the final confirmation prompt before classification/import." `
-                    -HotKey "C",
+                    -HotKey "C"
                 New-RenderKitInteractiveMenuOption `
                     -Key "unassigned" `
                     -Label ("Unassigned files: {0}" -f $state.UnassignedHandling) `
                     -Description "Define what should happen when a file type has no mapping." `
-                    -HotKey "U",
+                    -HotKey "U"
                 New-RenderKitInteractiveMenuOption `
                     -Key "classify" `
                     -Label ("Run classification phase: {0}" -f (ConvertTo-RenderKitInteractiveMenuText -Value $state.Classify)) `
                     -Description "Classification assigns files to RenderKit destination folders before transfer." `
-                    -HotKey "L",
+                    -HotKey "L"
                 New-RenderKitInteractiveMenuOption `
                     -Key "transfer" `
                     -Label $transferLabel `
                     -Description "If enabled, RenderKit will ask whether the final transfer should be real or simulated." `
                     -HotKey "T" `
-                    -IsEnabled:$state.Classify,
+                    -IsEnabled:$state.Classify
                 New-RenderKitInteractiveMenuOption `
                     -Key "start" `
                     -Label "Start import with this setup" `
@@ -1676,43 +1936,43 @@ function Read-RenderKitImportAdditionalCriterionMenu {
                     -Key "folder-filter" `
                     -Label "Edit folder filter list" `
                     -Description "Comma-separated folder names or folder wildcards." `
-                    -HotKey "F",
+                    -HotKey "F"
                 New-RenderKitInteractiveMenuOption `
                     -Key "clear-folder-filter" `
                     -Label "Clear folder filter list" `
                     -Description "Remove all additional folder filters." `
                     -HotKey "C" `
-                    -IsEnabled:($state.FolderFilter.Count -gt 0),
+                    -IsEnabled:($state.FolderFilter.Count -gt 0)
                 New-RenderKitInteractiveMenuOption `
                     -Key "from-date" `
                     -Label "Set from date" `
                     -Description "Keep only files on or after this timestamp." `
-                    -HotKey "O",
+                    -HotKey "O"
                 New-RenderKitInteractiveMenuOption `
                     -Key "clear-from-date" `
                     -Label "Clear from date" `
                     -Description "Remove the lower timestamp bound." `
-                    -IsEnabled:($null -ne $state.FromDate),
+                    -IsEnabled:($null -ne $state.FromDate)
                 New-RenderKitInteractiveMenuOption `
                     -Key "to-date" `
                     -Label "Set to date" `
                     -Description "Keep only files on or before this timestamp." `
-                    -HotKey "T",
+                    -HotKey "T"
                 New-RenderKitInteractiveMenuOption `
                     -Key "clear-to-date" `
                     -Label "Clear to date" `
                     -Description "Remove the upper timestamp bound." `
-                    -IsEnabled:($null -ne $state.ToDate),
+                    -IsEnabled:($null -ne $state.ToDate)
                 New-RenderKitInteractiveMenuOption `
                     -Key "wildcard" `
                     -Label "Edit wildcard list" `
                     -Description "Comma-separated file wildcards such as *.mov, *.wav." `
-                    -HotKey "W",
+                    -HotKey "W"
                 New-RenderKitInteractiveMenuOption `
                     -Key "clear-wildcard" `
                     -Label "Clear wildcard list" `
                     -Description "Remove all wildcard restrictions." `
-                    -IsEnabled:($state.Wildcard.Count -gt 0),
+                    -IsEnabled:($state.Wildcard.Count -gt 0)
                 New-RenderKitInteractiveMenuOption `
                     -Key "apply" `
                     -Label "Apply these criteria" `
@@ -1973,7 +2233,7 @@ function Confirm-RenderKitImportSelectionMenu {
                 -Label "Confirm import" `
                 -Description "Continue with the selected files." `
                 -HotKey "Y" `
-                -IsDefault $true,
+                -IsDefault $true
             New-RenderKitInteractiveMenuOption `
                 -Key "cancel" `
                 -Label "Cancel import" `
@@ -2004,12 +2264,12 @@ function Read-RenderKitImportSelectionReviewActionMenu {
                 -Label "Continue with the current selection" `
                 -Description "Proceed to the final confirmation step." `
                 -HotKey "Y" `
-                -IsDefault $true,
+                -IsDefault $true
             New-RenderKitInteractiveMenuOption `
                 -Key "Edit" `
                 -Label "Edit the selected files" `
                 -Description "Return to the file subset menu and adjust the selection." `
-                -HotKey "E",
+                -HotKey "E"
             New-RenderKitInteractiveMenuOption `
                 -Key "Cancel" `
                 -Label "Cancel the import" `
@@ -2040,12 +2300,12 @@ function Read-RenderKitImportTransferModeMenu {
                 -Label "Run the real transfer" `
                 -Description "Copy the classified files into the destination project." `
                 -HotKey "R" `
-                -IsDefault $true,
+                -IsDefault $true
             New-RenderKitInteractiveMenuOption `
                 -Key "Simulate" `
                 -Label "Simulate the transfer first" `
                 -Description "Preview the transfer without changing files." `
-                -HotKey "S",
+                -HotKey "S"
             New-RenderKitInteractiveMenuOption `
                 -Key "None" `
                 -Label "Skip the transfer" `
@@ -2078,7 +2338,7 @@ function Read-RenderKitImportBooleanMenu {
                 -Label "Yes" `
                 -Description "Continue with this action." `
                 -HotKey "Y" `
-                -IsDefault:$Default,
+                -IsDefault:$Default
             New-RenderKitInteractiveMenuOption `
                 -Key "No" `
                 -Label "No" `
