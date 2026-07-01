@@ -336,7 +336,7 @@ function ConvertFrom-RenderKitExifToolMetadata {
 
     $fields = [ordered]@{}
     if ($Raw -is [array]) {
-        $Raw = @($Raw | Select-Object -First 1)
+        $Raw = $Raw | Select-Object -First 1
     }
     if (-not $Raw) {
         return $fields
@@ -616,15 +616,34 @@ function Invoke-RenderKitExifToolMetadataRead {
         [Parameter(Mandatory)]
         [string]$Path,
 
-        [Parameter(Mandatory)]
+        [object]$Reader,
+
         [string]$CommandPath
     )
 
-    $output = & $CommandPath -json -G1 -a -n -api LargeFileSupport=1 $Path 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "ExifTool failed with exit code $LASTEXITCODE`: $($output -join "`n")"
+    $result = Invoke-RenderKitExifToolCommand `
+        -Reader $Reader `
+        -CommandPath $CommandPath `
+        -Arguments @(
+            '-json',
+            '-G1',
+            '-a',
+            '-n',
+            '-api',
+            'LargeFileSupport=1',
+            $Path
+        )
+    $raw = ($result.Output -join "`n") |
+        ConvertFrom-Json -ErrorAction Stop
+
+    return [PSCustomObject]@{
+        Raw = $raw
+        Backend = [string]$result.Backend
+        Source = [string]$result.Source
+        Path = [string]$result.Path
+        PayloadPath = [string]$result.PayloadPath
+        Errors = @($result.Errors)
     }
-    return ($output -join "`n") | ConvertFrom-Json -ErrorAction Stop
 }
 
 function Get-RenderKitFileSystemMetadata {
@@ -740,10 +759,19 @@ function Read-RenderKitFileMetadata {
                             -Source (ConvertFrom-RenderKitMediaInfoMetadata -Raw $readerRaw)
                     }
                     'ExifTool' {
-                        $readerRaw = Invoke-RenderKitExifToolMetadataRead `
+                        $exifToolRead = Invoke-RenderKitExifToolMetadataRead `
                             -Path $file.FullName `
+                            -Reader $reader `
                             -CommandPath ([string]$reader.CommandPath)
+                        $readerRaw = $exifToolRead.Raw
                         $raw['ExifTool'] = $readerRaw
+                        $raw['ExifToolBackend'] = [PSCustomObject]@{
+                            Backend = [string]$exifToolRead.Backend
+                            Source = [string]$exifToolRead.Source
+                            Path = [string]$exifToolRead.Path
+                            PayloadPath = [string]$exifToolRead.PayloadPath
+                            FallbackErrors = @($exifToolRead.Errors)
+                        }
                         Merge-RenderKitMetadataFieldBag `
                             -Target $fields `
                             -Source (ConvertFrom-RenderKitExifToolMetadata -Raw $readerRaw)

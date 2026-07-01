@@ -1,0 +1,4 @@
+src/Resources/ThirdParty/ExifTool/portable/** -text -diff
+src/Resources/ThirdParty/ExifTool/win-x86/** -text -diff
+src/Resources/ThirdParty/ExifTool/win-x64/** -text -diff
+src/Resources/ThirdParty/ExifTool/licenses/** -text -diff

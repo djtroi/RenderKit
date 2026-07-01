@@ -23,6 +23,13 @@
       "id": "ExifTool",
       "displayName": "ExifTool",
       "commandNames": ["exiftool", "exiftool.exe"],
+      "environment": {
+        "cliPath": "RENDERKIT_EXIFTOOL_PATH",
+        "hostPath": "RENDERKIT_EXIFTOOL_HOST",
+        "perlPath": "RENDERKIT_EXIFTOOL_PERL"
+      },
+      "bundleManifest": "src/Resources/ThirdParty/ExifTool/manifest.json",
+      "backendPreference": ["Cli", "Host", "SystemCli"],
       "readerAdapter": "ExifTool",
       "standards": ["EXIF", "XMP", "IPTC", "QuickTime", "ID3"],
       "canRead": true,

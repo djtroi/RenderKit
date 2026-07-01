@@ -297,6 +297,30 @@ MediaInfo is developed by MediaArea.net SARL. See
 <https://mediaarea.net/MediaInfo> and
 <https://mediaarea.net/en/MediaInfo/License>.
 
+RenderKit also bundles ExifTool 13.59 for metadata reads and embedded metadata
+writes. Windows x86/x64 use the official self-contained executable packages;
+macOS and Linux use the official portable Perl distribution. ExifTool does
+not expose a native shared-library integration comparable to MediaInfoLib, so
+its supported application/CLI interface is the primary backend.
+
+ExifTool resolver overrides:
+
+- `RENDERKIT_EXIFTOOL_PATH`: ExifTool-compatible executable to prefer.
+- `RENDERKIT_EXIFTOOL_HOST`: metadata host implementing
+  `<host> exiftool run -- <arguments>`.
+- `RENDERKIT_EXIFTOOL_PERL`: Perl interpreter for the bundled portable
+  macOS/Linux program.
+
+The normal order is explicit CLI, bundled ExifTool, configured host, then
+`exiftool` on `PATH`. Windows ARM64 uses host/system fallback because upstream
+does not publish a native ARM64 executable for this release. Provenance and
+hashes are recorded under `src/Resources/ThirdParty/ExifTool/`; maintainers can
+reproduce the verified payload with
+`pwsh ./build/Sync-RenderKitExifToolAssets.ps1`.
+
+ExifTool is developed by Phil Harvey and distributed under the same terms as
+Perl. See <https://exiftool.org/>.
+
 ## Maintainer Release Workflow
 
 Run the test/build helper used by the repository:

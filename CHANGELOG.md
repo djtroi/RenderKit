@@ -9,6 +9,11 @@
   upstream licenses.
 - Added a reproducible MediaInfo asset sync script that rejects archive and
   extracted-file integrity mismatches.
+- Bundled ExifTool 13.59 for Windows x86/x64 and as the official portable Perl
+  distribution for macOS/Linux, with pinned upstream archive checksums,
+  per-file hashes, and preserved license material.
+- Added a reproducible ExifTool asset sync script and resolver coverage for
+  explicit, bundled, metadata-host, and system-CLI execution.
 
 ### Changed
 
@@ -16,6 +21,13 @@
   existing host/CLI failover when a native library is unsupported or fails at
   load/read time. Linux ARM64 is explicitly modeled as an external fallback
   runtime instead of claiming an unavailable generic bundled binary.
+- ExifTool reads and embedded writes now share one bundled-first resolver and
+  fail over at runtime through a configured metadata host and system ExifTool.
+
+### Fixed
+
+- Fixed ExifTool field normalization on Windows PowerShell 5.1 by unwrapping
+  the first JSON result object instead of retaining it inside a one-item array.
 
 ## 1.0.0 - 2026-06-19
 

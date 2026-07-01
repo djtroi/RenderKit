@@ -54,3 +54,28 @@ at
 
 Binary provenance, source archive/package URLs, and SHA-256 hashes are recorded
 in `src/Resources/ThirdParty/MediaInfo/manifest.json`.
+
+## ExifTool
+
+RenderKit uses and may redistribute ExifTool for metadata inspection and
+embedded metadata writes.
+
+- Project: https://exiftool.org/
+- Bundled version: 13.59
+- Copyright: Copyright 2003-2026, Phil Harvey
+- License: the same terms as Perl itself (Artistic License or GNU GPL)
+
+The complete upstream ExifTool notice is included at
+`src/Resources/ThirdParty/ExifTool/licenses/ExifTool-README.txt`. The Perl
+Artistic and GPL terms are included beside it as `Perl-Artistic.txt` and
+`Perl-Copying.txt`.
+
+The official Windows ExifTool packages include a Strawberry Perl runtime and
+its dependencies. Their complete license files and the upstream
+`Licenses_Strawberry_Perl.zip` archive are preserved inside each
+`src/Resources/ThirdParty/ExifTool/win-*/exiftool_files/` directory.
+
+Source archive URLs, upstream SHA-256 values, runtime selection, and the
+per-file payload hash manifest are recorded in
+`src/Resources/ThirdParty/ExifTool/manifest.json` and
+`src/Resources/ThirdParty/ExifTool/files.sha256`.

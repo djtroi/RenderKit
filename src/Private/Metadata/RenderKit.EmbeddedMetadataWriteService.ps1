@@ -125,17 +125,7 @@ function Invoke-RenderKitEmbeddedMetadataWrite {
     )
 
     $route = Resolve-RenderKitMetadataAdapterRoute -Path $Path
-    $routing = Read-RenderKitMetadataAdapterRouting
-    $exifToolDefinition = Get-RenderKitMetadataAdapterDefinition `
-        -Id 'ExifTool' `
-        -Routing $routing
-    $exifToolCommand = if ($exifToolDefinition) {
-        Get-RenderKitMetadataCommand `
-            -CommandName @($exifToolDefinition.commandNames | ForEach-Object { [string]$_ })
-    }
-    else {
-        $null
-    }
+    $exifToolReader = Resolve-RenderKitExifToolReader
     $map = Read-RenderKitEmbeddedMetadataWriteMap
     $results = New-Object System.Collections.Generic.List[object]
 
@@ -157,7 +147,7 @@ function Invoke-RenderKitEmbeddedMetadataWrite {
             })
             continue
         }
-        if (-not $exifToolCommand) {
+        if (-not [bool]$exifToolReader.Available) {
             $results.Add([PSCustomObject]@{
                 Field = $field
                 Embedded = $false
@@ -173,15 +163,18 @@ function Invoke-RenderKitEmbeddedMetadataWrite {
         $arguments.Add('-overwrite_original')
         $arguments.Add('-P')
         foreach ($tag in @($capability.tags | ForEach-Object { [string]$_ })) {
-            $arguments.Add('-{0}={1}' -f $tag, (ConvertTo-RenderKitExifToolValue -Value $value))
+            $arguments.Add((
+                '-{0}={1}' -f
+                    $tag,
+                    (ConvertTo-RenderKitExifToolValue -Value $value)
+            ))
         }
         $arguments.Add($Path)
 
         try {
-            $output = & ([string]$exifToolCommand.Source) @arguments 2>&1
-            if ($LASTEXITCODE -ne 0) {
-                throw "ExifTool failed with exit code $LASTEXITCODE`: $($output -join "`n")"
-            }
+            $writeResult = Invoke-RenderKitExifToolCommand `
+                -Reader $exifToolReader `
+                -Arguments @($arguments.ToArray())
             $results.Add([PSCustomObject]@{
                 Field = $field
                 Embedded = $true
@@ -189,6 +182,10 @@ function Invoke-RenderKitEmbeddedMetadataWrite {
                 Reason = $null
                 Adapter = 'ExifTool'
                 Tags = @($capability.tags)
+                Backend = [string]$writeResult.Backend
+                BackendSource = [string]$writeResult.Source
+                BackendPath = [string]$writeResult.Path
+                FallbackErrors = @($writeResult.Errors)
             })
         }
         catch {

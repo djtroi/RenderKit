@@ -272,6 +272,9 @@ function Resolve-RenderKitMetadataAdapterRoute {
                 if ([string]$_ -ieq 'MediaInfo') {
                     Resolve-RenderKitMediaInfoReader
                 }
+                elseif ([string]$_ -ieq 'ExifTool') {
+                    Resolve-RenderKitExifToolReader
+                }
                 else {
                     $definition = Get-RenderKitMetadataAdapterDefinition `
                         -Id $_ `

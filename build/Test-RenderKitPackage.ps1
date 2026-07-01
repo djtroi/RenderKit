@@ -28,7 +28,9 @@ try {
         'RenderKit.psd1',
         'RenderKit.psm1',
         'THIRD_PARTY_NOTICES.md',
-        'src/Resources/ThirdParty/MediaInfo/manifest.json'
+        'src/Resources/ThirdParty/MediaInfo/manifest.json',
+        'src/Resources/ThirdParty/ExifTool/manifest.json',
+        'src/Resources/ThirdParty/ExifTool/files.sha256'
     )) {
         if ($entryNames -notcontains $requiredEntry) {
             throw "Package '$PackagePath' does not contain required entry '$requiredEntry'."
@@ -129,6 +131,70 @@ try {
         )
         if ($licenseFiles.Count -eq 0) {
             throw "Package is missing MediaInfo license files for '$($runtime.rid)'."
+        }
+    }
+
+    $exifToolRoot = Join-Path `
+        -Path $extractRoot `
+        -ChildPath 'src/Resources/ThirdParty/ExifTool'
+    $exifToolManifest = Get-Content `
+        -LiteralPath (Join-Path $exifToolRoot 'manifest.json') `
+        -Raw |
+        ConvertFrom-Json
+    foreach ($runtime in @($exifToolManifest.runtimeIdentifiers)) {
+        if (-not [bool]$runtime.bundled) {
+            continue
+        }
+
+        $commandPath = Join-Path `
+            -Path $exifToolRoot `
+            -ChildPath ([string]$runtime.commandRelativePath)
+        if (-not (Test-Path -LiteralPath $commandPath -PathType Leaf)) {
+            throw "Package is missing ExifTool runtime for '$($runtime.rid)': $commandPath"
+        }
+
+        $commandHash = (Get-FileHash `
+            -LiteralPath $commandPath `
+            -Algorithm SHA256).Hash
+        if ($commandHash -ne [string]$runtime.commandSha256) {
+            throw "Package ExifTool command hash mismatch for '$($runtime.rid)'."
+        }
+    }
+
+    $exifToolHashLines = Get-Content `
+        -LiteralPath (Join-Path $exifToolRoot 'files.sha256')
+    foreach ($line in $exifToolHashLines) {
+        $hashMatch = [regex]::Match($line, '^([a-f0-9]{64})  (.+)$')
+        if (-not $hashMatch.Success) {
+            throw "Package ExifTool hash manifest contains an invalid line: '$line'."
+        }
+
+        $expectedHash = $hashMatch.Groups[1].Value
+        $relativePath = $hashMatch.Groups[2].Value
+        $payloadPath = Join-Path $exifToolRoot $relativePath
+        if (-not (Test-Path -LiteralPath $payloadPath -PathType Leaf)) {
+            throw "Package is missing ExifTool payload: '$relativePath'."
+        }
+
+        $actualHash = (Get-FileHash `
+            -LiteralPath $payloadPath `
+            -Algorithm SHA256).Hash
+        if ($actualHash -ne $expectedHash) {
+            throw "Package ExifTool payload hash mismatch: '$relativePath'."
+        }
+    }
+
+    foreach ($licensePath in @(
+        'licenses/ExifTool-README.txt',
+        'licenses/Perl-Artistic.txt',
+        'licenses/Perl-Copying.txt',
+        'win-x86/exiftool_files/Licenses_Strawberry_Perl.zip',
+        'win-x64/exiftool_files/Licenses_Strawberry_Perl.zip'
+    )) {
+        if (-not (Test-Path `
+                -LiteralPath (Join-Path $exifToolRoot $licensePath) `
+                -PathType Leaf)) {
+            throw "Package is missing ExifTool license material: '$licensePath'."
         }
     }
 
