@@ -291,9 +291,12 @@ Describe 'RenderKit import small and large file scheduler slice 2' {
         }
 
         $result = Invoke-RenderKitImportTransactionSafeTransfer `
-            -ClassifiedFiles $classifiedFiles.ToArray() `
-            -ProjectRoot $projectRoot `
-            -SmallFileThresholdMB 1
+    -ClassifiedFiles ($classifiedFiles.ToArray()) `
+    -ProjectRoot $projectRoot `
+    -SmallFileThresholdMB 1 `
+    -HashAlgorithm SHA256 `
+    -VerificationMode Full `
+    -VerifyConcurrency 1
 
         $result.SmallFileCount | Should -Be 0
         $result.LargeFileCount | Should -Be 2
