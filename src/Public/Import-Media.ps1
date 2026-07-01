@@ -68,7 +68,10 @@ Folder name used when unassigned files are routed to the "to sort" destination.
 Enables phase 4 transaction-safe transfer after classification.
 
 .PARAMETER TransferHashAlgorithm
-Hash algorithm used for transfer integrity checks. Allowed values: `SHA256`, `SHA1`, `MD5`.
+Hash algorithm used by `TransferVerificationMode Full`. Allowed values: `SHA256`, `SHA1`, `MD5`.
+
+.PARAMETER TransferVerificationMode
+`Fast` uses the native file-copy path, validates write completion and length, then commits atomically. `Full` additionally hashes source and staging content.
 
 .PARAMETER TransferProfile
 Transfer scheduler profile. `Maximum` prefers bounded parallelism for small files and is the default.
@@ -111,7 +114,7 @@ Import-Media -ScanAndFilter -SourcePath "E:\DCIM" -FromDate (Get-Date).AddDays(-
 Runs scan/filter and classification for the given project and template.
 
 .EXAMPLE
-Import-Media -ScanAndFilter -SourcePath "E:\DCIM" -Classify -Transfer -ProjectRoot "D:\Projects\ClientA_2026" -TemplateName "default" -TransferHashAlgorithm SHA256 -WhatIf
+Import-Media -ScanAndFilter -SourcePath "E:\DCIM" -Classify -Transfer -ProjectRoot "D:\Projects\ClientA_2026" -TemplateName "default" -TransferVerificationMode Full -TransferHashAlgorithm SHA256 -WhatIf
 Simulates classified transfer with integrity hashing.
 
 .INPUTS
@@ -160,6 +163,8 @@ https://github.com/djtroi/RenderKit
         [switch]$Transfer,
         [ValidateSet("SHA256", "SHA1", "MD5")]
         [string]$TransferHashAlgorithm = "SHA256",
+        [ValidateSet("Fast", "Full")]
+        [string]$TransferVerificationMode = "Fast",
         [ValidateSet("Maximum", "Balanced", "Conservative")]
         [string]$TransferProfile = "Maximum",
         [ValidateRange(1, 1024)]
@@ -450,6 +455,7 @@ https://github.com/djtroi/RenderKit
                 -ClassifiedFiles $classificationResult.Files `
                 -ProjectRoot $classificationResult.ProjectRoot `
                 -HashAlgorithm $TransferHashAlgorithm `
+                -VerificationMode $TransferVerificationMode `
                 -TransferProfile $TransferProfile `
                 -SmallFileThresholdMB $SmallFileThresholdMB `
                 -SmallFileConcurrency $SmallFileConcurrency `
@@ -483,6 +489,7 @@ https://github.com/djtroi/RenderKit
                             -ClassifiedFiles $classificationResult.Files `
                             -ProjectRoot $classificationResult.ProjectRoot `
                             -HashAlgorithm $TransferHashAlgorithm `
+                            -VerificationMode $TransferVerificationMode `
                             -TransferProfile $TransferProfile `
                             -SmallFileThresholdMB $SmallFileThresholdMB `
                             -SmallFileConcurrency $SmallFileConcurrency `
@@ -602,6 +609,7 @@ https://github.com/djtroi/RenderKit
         FailedTransferFileCount = if ($transferResult) { $transferResult.FailedFileCount } else { 0 }
         TransferCopiedBytes = if ($transferResult) { $transferResult.CopiedBytes } else { 0 }
         TransferVerifiedBytes = if ($transferResult) { $transferResult.VerifiedBytes } else { 0 }
+        TransferVerificationMode = if ($transferResult) { $transferResult.VerificationMode } else { $TransferVerificationMode }
         TransferCopyDurationSeconds = if ($transferResult) { $transferResult.CopyDurationSeconds } else { 0 }
         TransferVerificationDurationSeconds = if ($transferResult) { $transferResult.VerificationDurationSeconds } else { 0 }
         TransferDurationSeconds = if ($transferResult) { $transferResult.DurationSeconds } else { 0 }
@@ -627,6 +635,8 @@ https://github.com/djtroi/RenderKit
         TransferPeakVerifyConcurrency = if ($transferResult) { $transferResult.PeakVerifyConcurrency } else { 0 }
         TransferPeakInFlightBytes = if ($transferResult) { $transferResult.PeakInFlightBytes } else { 0 }
         TransferSameVolumeMoveFileCount = if ($transferResult) { $transferResult.SameVolumeMoveFileCount } else { 0 }
+        TransferFastCopyFileCount = if ($transferResult) { $transferResult.FastCopyFileCount } else { 0 }
+        TransferFullVerificationFileCount = if ($transferResult) { $transferResult.FullVerificationFileCount } else { 0 }
         TransferRolledBackFileCount = if ($transferResult) { $transferResult.RolledBackFileCount } else { 0 }
         TransferRollbackFailedFileCount = if ($transferResult) { $transferResult.RollbackFailedFileCount } else { 0 }
         FinalReport        = $finalReport

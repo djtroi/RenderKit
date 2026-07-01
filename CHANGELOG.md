@@ -12,6 +12,8 @@
 - Added a PowerShell 5.1-compatible small/large-file scheduler. The default `Maximum` profile prefers up to four byte-bounded parallel workers for small files while keeping large transfers on one stream by default.
 - Split transfer execution into independent copy and staging-verification workers so read-back verification can overlap the next copy, with an adaptive copy-worker limit and an in-flight byte budget covering both pipeline stages.
 - Added explicit `-SourceDisposition Move` for rename-only same-volume imports on Windows, including commit rollback to the original source path and preserved staging diagnostics when rollback fails.
+- Fixed large files monopolizing the complete in-flight budget until read-back verification completed. Pipeline admission now accounts for estimated resident buffers rather than logical file size.
+- Added `-TransferVerificationMode Fast|Full`. The default `Fast` mode uses the native file-copy path with staging-length validation and atomic commit, while `Full` retains independent SHA read-back verification.
 
 ## 1.0.0 - 2026-06-19
 

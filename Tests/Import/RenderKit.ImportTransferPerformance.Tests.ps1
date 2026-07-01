@@ -79,7 +79,8 @@ Describe 'RenderKit import transfer performance slice 1' {
         $result = Invoke-RenderKitImportTransactionSafeTransfer `
             -ClassifiedFiles @($classifiedFile) `
             -ProjectRoot $projectRoot `
-            -HashAlgorithm SHA256
+            -HashAlgorithm SHA256 `
+            -VerificationMode Full
 
         $transaction = $result.Transactions[0]
         $finalPath = Join-Path $destinationDirectory 'clip.bin'
@@ -88,6 +89,9 @@ Describe 'RenderKit import transfer performance slice 1' {
         $result.FailedFileCount | Should -Be 0
         $result.CopiedBytes | Should -Be $bytes.Length
         $result.VerifiedBytes | Should -Be $bytes.Length
+        $result.VerificationMode | Should -Be 'Full'
+        $result.FullVerificationFileCount | Should -Be 1
+        $result.FastCopyFileCount | Should -Be 0
         $result.ProcessedBytes | Should -Be $bytes.Length
         $result.CopyDurationSeconds | Should -BeGreaterOrEqual 0
         $result.VerificationDurationSeconds | Should -BeGreaterOrEqual 0
@@ -97,6 +101,8 @@ Describe 'RenderKit import transfer performance slice 1' {
         $result.AverageSpeedMBps | Should -Be $result.EndToEndAverageSpeedMBps
 
         $transaction.SourceHash | Should -Be $transaction.StagingHash
+        $transaction.CopyEngine | Should -Be 'ManagedHashingStream'
+        $transaction.VerificationMode | Should -Be 'Full'
         $transaction.CopiedBytes | Should -Be $bytes.Length
         $transaction.VerifiedBytes | Should -Be $bytes.Length
         $transaction.CopySpeedMBps | Should -BeGreaterThan 0
@@ -136,7 +142,8 @@ Describe 'RenderKit import transfer performance slice 1' {
         $result = Invoke-RenderKitImportTransactionSafeTransfer `
             -ClassifiedFiles @($classifiedFile) `
             -ProjectRoot $projectRoot `
-            -HashAlgorithm SHA256
+            -HashAlgorithm SHA256 `
+            -VerificationMode Full
 
         $transaction = $result.Transactions[0]
         $finalPath = Join-Path $destinationDirectory 'damaged.bin'
@@ -189,7 +196,8 @@ Describe 'RenderKit import small and large file scheduler slice 2' {
         $result = Invoke-RenderKitImportTransactionSafeTransfer `
             -ClassifiedFiles $classifiedFiles.ToArray() `
             -ProjectRoot $projectRoot `
-            -HashAlgorithm SHA256
+            -HashAlgorithm SHA256 `
+            -VerificationMode Full
 
         $result.TransferProfile | Should -Be 'Maximum'
         $result.SmallFileThresholdMB | Should -Be 64
@@ -413,6 +421,66 @@ Describe 'RenderKit copy verify pipeline and same-volume move slices 3 and 4' {
     BeforeEach {
         Mock Write-RenderKitLog
         Mock Write-Progress
+    }
+
+    It 'uses estimated worker buffers instead of logical large-file size for admission' {
+        $workItem = [PSCustomObject]@{
+            Bytes          = [int64]38GB
+            TransferMethod = 'Copy'
+        }
+
+        $admissionBytes = Get-RenderKitImportTransferAdmissionByte `
+            -WorkItem $workItem `
+            -BufferSizeBytes 8MB
+
+        $admissionBytes | Should -Be 24MB
+        $admissionBytes | Should -BeLessThan $workItem.Bytes
+    }
+
+    It 'uses native fast copy without hashing or destination read-back by default' {
+        $sourceRoot = Join-Path $TestDrive 'fast-source'
+        $projectRoot = Join-Path $TestDrive 'fast-project'
+        $destinationDirectory = Join-Path $projectRoot 'MEDIA'
+        New-Item -ItemType Directory -Path $sourceRoot, $projectRoot -Force | Out-Null
+        $sourcePath = Join-Path $sourceRoot 'fast.bin'
+        [IO.File]::WriteAllBytes($sourcePath, (New-Object byte[] 256KB))
+
+        Mock Copy-RenderKitImportFileToPath {
+            throw 'Managed hashing copy must not run in Fast mode.'
+        }
+        Mock Get-RenderKitImportFileHashValue {
+            throw 'Read-back hashing must not run in Fast mode.'
+        }
+
+        $classifiedFile = [PSCustomObject]@{
+            Name                    = 'fast.bin'
+            FullName                = $sourcePath
+            Length                  = [int64]256KB
+            Classification          = 'Assigned'
+            MappingId               = 'video'
+            TypeName                = 'fast'
+            DestinationRelativePath = 'MEDIA'
+            DestinationPath         = $destinationDirectory
+        }
+
+        $result = Invoke-RenderKitImportTransactionSafeTransfer `
+            -ClassifiedFiles @($classifiedFile) `
+            -ProjectRoot $projectRoot
+
+        $transaction = $result.Transactions[0]
+        $result.VerificationMode | Should -Be 'Fast'
+        $result.HashAlgorithm | Should -BeNullOrEmpty
+        $result.FastCopyFileCount | Should -Be 1
+        $result.FullVerificationFileCount | Should -Be 0
+        $result.ImportedFileCount | Should -Be 1
+        $result.CopiedBytes | Should -Be 256KB
+        $result.VerifiedBytes | Should -Be 0
+        $transaction.CopyEngine | Should -Be 'NativeFileCopy'
+        $transaction.VerificationMode | Should -Be 'Fast'
+        $transaction.HashAlgorithm | Should -BeNullOrEmpty
+        $transaction.StagingHash | Should -BeNullOrEmpty
+        Should -Invoke Copy-RenderKitImportFileToPath -Times 0 -Exactly
+        Should -Invoke Get-RenderKitImportFileHashValue -Times 0 -Exactly
     }
 
     It 'keeps copied files in the byte budget until verification completes' {

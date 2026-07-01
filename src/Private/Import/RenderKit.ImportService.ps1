@@ -1986,6 +1986,46 @@ function Copy-RenderKitImportFileToPath {
         SourceHash     = $sourceHash
         HashAlgorithm  = $HashAlgorithm
         DurationSeconds = [double]$copyStopwatch.Elapsed.TotalSeconds
+        CopyEngine     = "ManagedHashingStream"
+    }
+}
+
+function Copy-RenderKitImportFileFastToPath {
+    [CmdletBinding()]
+    [OutputType([System.Object])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$SourcePath,
+        [Parameter(Mandatory)]
+        [string]$DestinationPath
+    )
+
+    $sourceItem = Get-Item -LiteralPath $SourcePath -ErrorAction Stop
+    $copyStopwatch = [Diagnostics.Stopwatch]::StartNew()
+
+    try {
+        [IO.File]::Copy($sourceItem.FullName, $DestinationPath, $false)
+        $destinationItem = Get-Item -LiteralPath $DestinationPath -ErrorAction Stop
+        if ([int64]$destinationItem.Length -ne [int64]$sourceItem.Length) {
+            throw "Fast copy length mismatch for '$SourcePath'. Source '$($sourceItem.Length)', staging '$($destinationItem.Length)'."
+        }
+    }
+    catch {
+        if (Test-Path -LiteralPath $DestinationPath -PathType Leaf) {
+            Remove-Item -LiteralPath $DestinationPath -Force -ErrorAction SilentlyContinue
+        }
+        throw
+    }
+    finally {
+        $copyStopwatch.Stop()
+    }
+
+    return [PSCustomObject]@{
+        BytesCopied     = [int64]$sourceItem.Length
+        SourceHash      = $null
+        HashAlgorithm   = $null
+        DurationSeconds = [double]$copyStopwatch.Elapsed.TotalSeconds
+        CopyEngine      = "NativeFileCopy"
     }
 }
 
@@ -2131,6 +2171,27 @@ function Get-RenderKitImportTransferSchedulerConfiguration {
     }
 }
 
+function Get-RenderKitImportTransferAdmissionByte {
+    [CmdletBinding()]
+    [OutputType([System.Int64])]
+    param(
+        [Parameter(Mandatory)]
+        [object]$WorkItem,
+        [ValidateRange(65536, 67108864)]
+        [int]$BufferSizeBytes = 8MB
+    )
+
+    if ([string]$WorkItem.TransferMethod -eq "SameVolumeMove") {
+        return [int64]0
+    }
+
+    # The scheduler budget protects resident pipeline memory and I/O queue
+    # pressure. Reserving the complete logical file size made every file above
+    # MaxInFlightMB monopolize the pipeline until verification had finished.
+    $estimatedWorkerBytes = [int64]$BufferSizeBytes * 3
+    return [Math]::Min([int64]$WorkItem.Bytes, $estimatedWorkerBytes)
+}
+
 function Test-RenderKitImportSameVolume {
     [CmdletBinding()]
     [OutputType([bool])]
@@ -2183,6 +2244,13 @@ function Invoke-RenderKitImportCopyWorkItem {
     $sourceMovedToStaging = $false
     $rollbackStatus = "NotRequired"
     $rollbackError = $null
+    $copyEngine = $null
+    $verificationMode = if ($WorkItem.PSObject.Properties["VerificationMode"]) {
+        [string]$WorkItem.VerificationMode
+    }
+    else {
+        "Full"
+    }
 
     try {
         if (-not [string]::IsNullOrWhiteSpace([string]$WorkItem.PreparationError)) {
@@ -2197,11 +2265,21 @@ function Invoke-RenderKitImportCopyWorkItem {
                     -Destination $WorkItem.StagingPath `
                     -ErrorAction Stop
                 $sourceMovedToStaging = $true
+                $copyEngine = "SameVolumeRename"
             }
             finally {
                 $moveStopwatch.Stop()
                 $durationSeconds = [double]$moveStopwatch.Elapsed.TotalSeconds
             }
+        }
+        elseif ($verificationMode -eq "Fast") {
+            $copyResult = Copy-RenderKitImportFileFastToPath `
+                -SourcePath $WorkItem.SourcePath `
+                -DestinationPath $WorkItem.StagingPath
+
+            $copiedBytes = [int64]$copyResult.BytesCopied
+            $durationSeconds = [double]$copyResult.DurationSeconds
+            $copyEngine = [string]$copyResult.CopyEngine
         }
         else {
             $copyResult = Copy-RenderKitImportFileToPath `
@@ -2213,6 +2291,7 @@ function Invoke-RenderKitImportCopyWorkItem {
             $sourceHash = [string]$copyResult.SourceHash
             $copiedBytes = [int64]$copyResult.BytesCopied
             $durationSeconds = [double]$copyResult.DurationSeconds
+            $copyEngine = [string]$copyResult.CopyEngine
         }
     }
     catch {
@@ -2259,6 +2338,7 @@ function Invoke-RenderKitImportCopyWorkItem {
         StartedAt            = $startedAt
         CopyEndedAt          = $endedAt
         SourceMovedToStaging = $sourceMovedToStaging
+        CopyEngine           = $copyEngine
         RollbackStatus       = $rollbackStatus
         RollbackError        = $rollbackError
         Error                = $errorMessage
@@ -2286,12 +2366,36 @@ function Invoke-RenderKitImportVerifyWorkItem {
     $rollbackStatus = [string]$CopyResult.RollbackStatus
     $rollbackError = [string]$CopyResult.RollbackError
     $endedAt = Get-Date
+    $verificationMode = if ($workItem.PSObject.Properties["VerificationMode"]) {
+        [string]$workItem.VerificationMode
+    }
+    else {
+        "Full"
+    }
 
     if ($status -eq "Copied") {
         try {
             if ([string]$workItem.TransferMethod -eq "SameVolumeMove") {
                 $commitStopwatch = [Diagnostics.Stopwatch]::StartNew()
                 try {
+                    Move-Item `
+                        -LiteralPath $workItem.StagingPath `
+                        -Destination $workItem.FinalDestinationPath `
+                        -ErrorAction Stop
+                }
+                finally {
+                    $commitStopwatch.Stop()
+                    $verificationDurationSeconds = [double]$commitStopwatch.Elapsed.TotalSeconds
+                }
+            }
+            elseif ($verificationMode -eq "Fast") {
+                $commitStopwatch = [Diagnostics.Stopwatch]::StartNew()
+                try {
+                    $stagingItem = Get-Item -LiteralPath $workItem.StagingPath -ErrorAction Stop
+                    if ([int64]$stagingItem.Length -ne [int64]$workItem.Bytes) {
+                        throw "Fast verification length mismatch for '$($workItem.SourcePath)'. Expected '$($workItem.Bytes)', staging '$($stagingItem.Length)'."
+                    }
+
                     Move-Item `
                         -LiteralPath $workItem.StagingPath `
                         -Destination $workItem.FinalDestinationPath `
@@ -2385,8 +2489,11 @@ function Invoke-RenderKitImportVerifyWorkItem {
         DestinationPath             = [string]$workItem.FinalDestinationPath
         StagingPath                 = [string]$workItem.StagingPath
         TransferMethod              = [string]$workItem.TransferMethod
-        VerificationMode            = if ([string]$workItem.TransferMethod -eq "SameVolumeMove") { "RenameIdentity" } else { "HashReadBack" }
-        HashAlgorithm               = if ([string]$workItem.TransferMethod -eq "SameVolumeMove") { $null } else { $HashAlgorithm }
+        VerificationMode            = if ([string]$workItem.TransferMethod -eq "SameVolumeMove") { "RenameIdentity" } else { $verificationMode }
+        HashAlgorithm               = if (
+            [string]$workItem.TransferMethod -eq "SameVolumeMove" -or
+            $verificationMode -eq "Fast"
+        ) { $null } else { $HashAlgorithm }
         SourceHash                  = $CopyResult.SourceHash
         StagingHash                 = $stagingHash
         Bytes                       = [int64]$workItem.Bytes
@@ -2402,6 +2509,7 @@ function Invoke-RenderKitImportVerifyWorkItem {
         VerificationSpeedMBps       = [Math]::Round($verificationSpeedMBps, 3)
         SpeedMBps                   = [Math]::Round($speedMBps, 3)
         SourceMovedToStaging        = [bool]$CopyResult.SourceMovedToStaging
+        CopyEngine                  = [string]$CopyResult.CopyEngine
         RollbackStatus              = $rollbackStatus
         RollbackError               = $rollbackError
         Error                       = $errorMessage
@@ -2484,7 +2592,9 @@ function Invoke-RenderKitImportParallelTransferWorkItem {
             PeakConcurrency            = 1
             PeakCopyConcurrency        = 1
             PeakVerifyConcurrency      = 1
-            PeakInFlightBytes          = if ([string]$WorkItems[0].TransferMethod -eq "SameVolumeMove") { [int64]0 } else { [int64]$WorkItems[0].Bytes }
+            PeakInFlightBytes          = Get-RenderKitImportTransferAdmissionByte `
+                -WorkItem $WorkItems[0] `
+                -BufferSizeBytes $BufferSizeBytes
             ConcurrencyAdjustments     = 0
         }
     }
@@ -2493,6 +2603,7 @@ function Invoke-RenderKitImportParallelTransferWorkItem {
     foreach ($functionName in @(
             "Get-RenderKitImportFileHashValue",
             "Copy-RenderKitImportFileToPath",
+            "Copy-RenderKitImportFileFastToPath",
             "Invoke-RenderKitImportCopyWorkItem",
             "Invoke-RenderKitImportVerifyWorkItem"
         )) {
@@ -2627,12 +2738,9 @@ Invoke-RenderKitImportVerifyWorkItem `
                 $activeCopy.Count -lt $currentCopyLimit
             ) {
                 $nextItem = $pendingCopy.Peek()
-                $admissionBytes = if ([string]$nextItem.TransferMethod -eq "SameVolumeMove") {
-                    [int64]0
-                }
-                else {
-                    [int64]$nextItem.Bytes
-                }
+                $admissionBytes = Get-RenderKitImportTransferAdmissionByte `
+                    -WorkItem $nextItem `
+                    -BufferSizeBytes $BufferSizeBytes
                 if (
                     $inFlightBytes -gt 0 -and
                     ($inFlightBytes + $admissionBytes) -gt $MaxInFlightBytes
@@ -2715,6 +2823,7 @@ Invoke-RenderKitImportVerifyWorkItem `
                         StartedAt            = $now
                         CopyEndedAt          = $now
                         SourceMovedToStaging = $false
+                        CopyEngine           = $null
                         RollbackStatus       = "NotRequired"
                         RollbackError        = $null
                         Error                = $_.Exception.Message
@@ -2890,6 +2999,8 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
         [string]$ProjectRoot,
         [ValidateSet("SHA256", "SHA1", "MD5")]
         [string]$HashAlgorithm = "SHA256",
+        [ValidateSet("Fast", "Full")]
+        [string]$VerificationMode = "Fast",
         [ValidateSet("Maximum", "Balanced", "Conservative")]
         [string]$TransferProfile = "Maximum",
         [ValidateRange(1, 1024)]
@@ -2934,7 +3045,9 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
             RunId                   = $null
             TempRunRoot             = $null
             Simulated               = [bool]$Simulate
-            HashAlgorithm           = $HashAlgorithm
+            HashAlgorithm           = if ($VerificationMode -eq "Full" -and $SourceDisposition -eq "Keep") { $HashAlgorithm } else { $null }
+            RequestedHashAlgorithm  = $HashAlgorithm
+            VerificationMode        = $VerificationMode
             TransferProfile         = $schedulerConfiguration.TransferProfile
             SmallFileThresholdMB    = $schedulerConfiguration.SmallFileThresholdMB
             SmallFileConcurrency    = $schedulerConfiguration.SmallFileConcurrency
@@ -2953,6 +3066,8 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
             ConcurrencyAdjustments  = 0
             PeakInFlightBytes       = [int64]0
             SameVolumeMoveFileCount = 0
+            FastCopyFileCount       = 0
+            FullVerificationFileCount = 0
             RolledBackFileCount     = 0
             RollbackFailedFileCount = 0
             PlannedFileCount        = 0
@@ -3002,6 +3117,8 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
     $concurrencyAdjustments = 0
     $peakInFlightBytes = [int64]0
     $sameVolumeMoveFileCount = 0
+    $fastCopyFileCount = 0
+    $fullVerificationFileCount = 0
     $rolledBackFileCount = 0
     $rollbackFailedFileCount = 0
 
@@ -3080,6 +3197,7 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
                 Bytes                   = [int64]$file.Length
                 SchedulerClass          = $schedulerClass
                 TransferMethod          = $transferMethod
+                VerificationMode        = $VerificationMode
                 PreparationError        = $preparationError
             })
     }
@@ -3205,6 +3323,12 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
             if ($parallelTransaction.TransferMethod -eq "SameVolumeMove") {
                 $sameVolumeMoveFileCount++
             }
+            elseif ($parallelTransaction.VerificationMode -eq "Fast") {
+                $fastCopyFileCount++
+            }
+            elseif ($parallelTransaction.VerificationMode -eq "Full") {
+                $fullVerificationFileCount++
+            }
             if ($parallelTransaction.RollbackStatus -eq "Succeeded") {
                 $rolledBackFileCount++
             }
@@ -3267,8 +3391,14 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
             $fileCopyDurationSeconds = [double]0
             $fileVerificationDurationSeconds = [double]0
             $transferMethod = [string]$workItem.TransferMethod
-            $verificationMode = if ($transferMethod -eq "SameVolumeMove") { "RenameIdentity" } else { "HashReadBack" }
+            $verificationMode = if ($transferMethod -eq "SameVolumeMove") {
+                "RenameIdentity"
+            }
+            else {
+                [string]$workItem.VerificationMode
+            }
             $sourceMovedToStaging = $false
+            $copyEngine = if ($Simulate) { "Simulated" } else { $null }
             $rollbackStatus = "NotRequired"
             $rollbackError = $null
             $progressBytesForCurrentFile = if ($Simulate) { $bytes } else { [int64]($bytes * 2) }
@@ -3279,12 +3409,9 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
             }
 
             if (-not $Simulate) {
-                $serialInFlightBytes = if ($workItem.TransferMethod -eq "SameVolumeMove") {
-                    [int64]0
-                }
-                else {
-                    $bytes
-                }
+                $serialInFlightBytes = Get-RenderKitImportTransferAdmissionByte `
+                    -WorkItem $workItem `
+                    -BufferSizeBytes $schedulerConfiguration.TransferBufferSizeBytes
                 $peakInFlightBytes = [Math]::Max($peakInFlightBytes, $serialInFlightBytes)
             }
 
@@ -3324,6 +3451,7 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
                     $fileCopyDurationSeconds = [double]$serialResult.CopyDurationSeconds
                     $fileVerificationDurationSeconds = [double]$serialResult.VerificationDurationSeconds
                     $sourceMovedToStaging = [bool]$serialResult.SourceMovedToStaging
+                    $copyEngine = [string]$serialResult.CopyEngine
                     $rollbackStatus = [string]$serialResult.RollbackStatus
                     $rollbackError = [string]$serialResult.RollbackError
                     $copiedBytes += $fileCopiedBytes
@@ -3417,7 +3545,10 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
                         StagingPath             = $stagingPath
                         TransferMethod          = $transferMethod
                         VerificationMode        = $verificationMode
-                        HashAlgorithm           = if ($transferMethod -eq "SameVolumeMove") { $null } else { $HashAlgorithm }
+                        HashAlgorithm           = if (
+                            $transferMethod -eq "SameVolumeMove" -or
+                            $verificationMode -eq "Fast"
+                        ) { $null } else { $HashAlgorithm }
                         SourceHash              = $sourceHash
                         StagingHash             = $stagingHash
                         Bytes                   = $bytes
@@ -3433,6 +3564,7 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
                         VerificationSpeedMBps   = [Math]::Round($fileVerificationSpeedMBps, 3)
                         SpeedMBps               = [Math]::Round($fileSpeedMBps, 3)
                         SourceMovedToStaging    = $sourceMovedToStaging
+                        CopyEngine              = $copyEngine
                         RollbackStatus          = $rollbackStatus
                         RollbackError           = $rollbackError
                         Error                   = $errorMessage
@@ -3441,6 +3573,12 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
 
                 if ($transferMethod -eq "SameVolumeMove") {
                     $sameVolumeMoveFileCount++
+                }
+                elseif ($verificationMode -eq "Fast") {
+                    $fastCopyFileCount++
+                }
+                elseif ($verificationMode -eq "Full") {
+                    $fullVerificationFileCount++
                 }
                 if ($rollbackStatus -eq "Succeeded") {
                     $rolledBackFileCount++
@@ -3513,7 +3651,8 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
     }
 
     Write-RenderKitLog -Level Info -Message (
-        "Phase 4 transfer completed: planned={0}, imported={1}, simulated={2}, failed={3}, processed={4}, duration={5:N2}s, copy={6:N2} MB/s, verify={7:N2} MB/s, endToEnd={8:N2} MB/s." -f `
+        "Phase 4 transfer completed: mode={0}, planned={1}, imported={2}, simulated={3}, failed={4}, processed={5}, duration={6:N2}s, copy={7:N2} MB/s, verify={8:N2} MB/s, endToEnd={9:N2} MB/s." -f `
+            $VerificationMode, `
             $transferCandidates.Count, `
             $importedCount, `
             $simulatedCount, `
@@ -3530,7 +3669,9 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
         RunId                    = $runId
         TempRunRoot              = $tempRunRoot
         Simulated                = [bool]$Simulate
-        HashAlgorithm            = $HashAlgorithm
+        HashAlgorithm            = if ($VerificationMode -eq "Full" -and $SourceDisposition -eq "Keep") { $HashAlgorithm } else { $null }
+        RequestedHashAlgorithm   = $HashAlgorithm
+        VerificationMode         = $VerificationMode
         TransferProfile          = $schedulerConfiguration.TransferProfile
         SmallFileThresholdMB     = $schedulerConfiguration.SmallFileThresholdMB
         SmallFileConcurrency     = $schedulerConfiguration.SmallFileConcurrency
@@ -3549,6 +3690,8 @@ function Invoke-RenderKitImportTransactionSafeTransfer {
         ConcurrencyAdjustments   = $concurrencyAdjustments
         PeakInFlightBytes        = $peakInFlightBytes
         SameVolumeMoveFileCount  = $sameVolumeMoveFileCount
+        FastCopyFileCount        = $fastCopyFileCount
+        FullVerificationFileCount = $fullVerificationFileCount
         RolledBackFileCount      = $rolledBackFileCount
         RollbackFailedFileCount  = $rollbackFailedFileCount
         PlannedFileCount         = $transferCandidates.Count
@@ -3634,6 +3777,12 @@ function New-RenderKitImportFinalReport {
     $copyAverageSpeedMBps = if ($Transfer) { [double]$Transfer.CopyAverageSpeedMBps } else { [double]0.0 }
     $verificationAverageSpeedMBps = if ($Transfer) { [double]$Transfer.VerificationAverageSpeedMBps } else { [double]0.0 }
     $endToEndAverageSpeedMBps = if ($Transfer) { [double]$Transfer.EndToEndAverageSpeedMBps } else { [double]0.0 }
+    $verificationMode = if ($Transfer -and $Transfer.PSObject.Properties["VerificationMode"]) {
+        [string]$Transfer.VerificationMode
+    }
+    else {
+        "Fast"
+    }
     $transferProfile = if ($Transfer) { [string]$Transfer.TransferProfile } else { "Maximum" }
     $smallFileCount = if ($Transfer) { [int]$Transfer.SmallFileCount } else { 0 }
     $largeFileCount = if ($Transfer) { [int]$Transfer.LargeFileCount } else { 0 }
@@ -3646,6 +3795,14 @@ function New-RenderKitImportFinalReport {
     $sameVolumeMoveFileCount = if ($Transfer) { [int]$Transfer.SameVolumeMoveFileCount } else { 0 }
     $rolledBackFileCount = if ($Transfer) { [int]$Transfer.RolledBackFileCount } else { 0 }
     $rollbackFailedFileCount = if ($Transfer) { [int]$Transfer.RollbackFailedFileCount } else { 0 }
+    $fastCopyFileCount = if ($Transfer -and $Transfer.PSObject.Properties["FastCopyFileCount"]) {
+        [int]$Transfer.FastCopyFileCount
+    }
+    else { 0 }
+    $fullVerificationFileCount = if ($Transfer -and $Transfer.PSObject.Properties["FullVerificationFileCount"]) {
+        [int]$Transfer.FullVerificationFileCount
+    }
+    else { 0 }
     $importedBytes = Get-RenderKitImportTransferredBytesByStatus -Transfer $Transfer -Status "Imported"
 
     $manualAssignedCount = 0
@@ -3695,6 +3852,7 @@ function New-RenderKitImportFinalReport {
         AverageCopySpeedMBps     = [Math]::Round($copyAverageSpeedMBps, 3)
         AverageVerificationSpeedMBps = [Math]::Round($verificationAverageSpeedMBps, 3)
         AverageEndToEndSpeedMBps = [Math]::Round($endToEndAverageSpeedMBps, 3)
+        VerificationMode         = $verificationMode
         TransferProfile          = $transferProfile
         SmallFileCount           = $smallFileCount
         LargeFileCount           = $largeFileCount
@@ -3707,6 +3865,8 @@ function New-RenderKitImportFinalReport {
         SameVolumeMoveFileCount  = $sameVolumeMoveFileCount
         RolledBackFileCount      = $rolledBackFileCount
         RollbackFailedFileCount  = $rollbackFailedFileCount
+        FastCopyFileCount        = $fastCopyFileCount
+        FullVerificationFileCount = $fullVerificationFileCount
         UnassignedHandledCount   = $unassignedHandledCount
         UnassignedUnhandledCount = $unassignedUnhandledCount
         ClassificationBreakdown  = $classificationSourceCounts
@@ -3730,6 +3890,7 @@ function Show-RenderKitImportFinalReport {
         [PSCustomObject]@{ Metric = "Average Copy Speed"; Value = ("{0:N2} MB/s" -f [double]$Report.AverageCopySpeedMBps) }
         [PSCustomObject]@{ Metric = "Average Verify Speed"; Value = ("{0:N2} MB/s" -f [double]$Report.AverageVerificationSpeedMBps) }
         [PSCustomObject]@{ Metric = "End-to-End Speed"; Value = ("{0:N2} MB/s" -f [double]$Report.AverageEndToEndSpeedMBps) }
+        [PSCustomObject]@{ Metric = "Verification Mode"; Value = $Report.VerificationMode }
         [PSCustomObject]@{ Metric = "Transfer Profile"; Value = $Report.TransferProfile }
         [PSCustomObject]@{ Metric = "Small / Large Files"; Value = ("{0} / {1}" -f $Report.SmallFileCount, $Report.LargeFileCount) }
         [PSCustomObject]@{ Metric = "Parallelized Files"; Value = $Report.ParallelizedFileCount }
@@ -3738,6 +3899,7 @@ function Show-RenderKitImportFinalReport {
         [PSCustomObject]@{ Metric = "Adaptive Adjustments"; Value = $Report.ConcurrencyAdjustments }
         [PSCustomObject]@{ Metric = "Source Disposition"; Value = $Report.SourceDisposition }
         [PSCustomObject]@{ Metric = "Move / Rollback / Failed"; Value = ("{0} / {1} / {2}" -f $Report.SameVolumeMoveFileCount, $Report.RolledBackFileCount, $Report.RollbackFailedFileCount) }
+        [PSCustomObject]@{ Metric = "Fast / Full Files"; Value = ("{0} / {1}" -f $Report.FastCopyFileCount, $Report.FullVerificationFileCount) }
         [PSCustomObject]@{ Metric = "Unassigned handled"; Value = $Report.UnassignedHandledCount }
         [PSCustomObject]@{ Metric = "Unassigned unhandled"; Value = $Report.UnassignedUnhandledCount }
     )
@@ -3866,6 +4028,10 @@ function Write-RenderKitImportRevisionLog {
     $copiedBytes = if ($Transfer) { [int64]$Transfer.CopiedBytes } else { [int64]0 }
     $verifiedBytes = if ($Transfer) { [int64]$Transfer.VerifiedBytes } else { [int64]0 }
     $hashAlgorithm = if ($Transfer -and $Transfer.HashAlgorithm) { [string]$Transfer.HashAlgorithm } else { "-" }
+    $verificationMode = if ($Transfer -and $Transfer.PSObject.Properties["VerificationMode"]) {
+        [string]$Transfer.VerificationMode
+    }
+    else { "-" }
     $copyAverageSpeedMBps = if ($Transfer) { [double]$Transfer.CopyAverageSpeedMBps } else { 0 }
     $verificationAverageSpeedMBps = if ($Transfer) { [double]$Transfer.VerificationAverageSpeedMBps } else { 0 }
     $endToEndAverageSpeedMBps = if ($Transfer) { [double]$Transfer.EndToEndAverageSpeedMBps } else { 0 }
@@ -3893,6 +4059,14 @@ function Write-RenderKitImportRevisionLog {
     $sameVolumeMoveFileCount = if ($Transfer) { [int]$Transfer.SameVolumeMoveFileCount } else { 0 }
     $rolledBackFileCount = if ($Transfer) { [int]$Transfer.RolledBackFileCount } else { 0 }
     $rollbackFailedFileCount = if ($Transfer) { [int]$Transfer.RollbackFailedFileCount } else { 0 }
+    $fastCopyFileCount = if ($Transfer -and $Transfer.PSObject.Properties["FastCopyFileCount"]) {
+        [int]$Transfer.FastCopyFileCount
+    }
+    else { 0 }
+    $fullVerificationFileCount = if ($Transfer -and $Transfer.PSObject.Properties["FullVerificationFileCount"]) {
+        [int]$Transfer.FullVerificationFileCount
+    }
+    else { 0 }
     $transactions = if ($Transfer -and $Transfer.Transactions) { @($Transfer.Transactions) } else { @() }
 
     $lines = New-Object System.Collections.Generic.List[string]
@@ -3953,6 +4127,7 @@ function Write-RenderKitImportRevisionLog {
     $lines.Add("")
 
     $lines.Add("[Transfer]")
+    $lines.Add(("VerificationMode: {0}" -f $verificationMode))
     $lines.Add(("HashAlgorithm: {0}" -f $hashAlgorithm))
     $lines.Add(("TransferProfile: {0}" -f $transferProfile))
     $lines.Add(("SmallFileThresholdMB: {0}" -f $smallFileThresholdMB))
@@ -3974,6 +4149,8 @@ function Write-RenderKitImportRevisionLog {
     $lines.Add(("SameVolumeMoveFileCount: {0}" -f $sameVolumeMoveFileCount))
     $lines.Add(("RolledBackFileCount: {0}" -f $rolledBackFileCount))
     $lines.Add(("RollbackFailedFileCount: {0}" -f $rollbackFailedFileCount))
+    $lines.Add(("FastCopyFileCount: {0}" -f $fastCopyFileCount))
+    $lines.Add(("FullVerificationFileCount: {0}" -f $fullVerificationFileCount))
     $lines.Add(("CopyDurationSeconds: {0:N3}" -f [double]$copyDurationSeconds))
     $lines.Add(("VerificationDurationSeconds: {0:N3}" -f [double]$verificationDurationSeconds))
     $lines.Add(("TransferDurationSeconds: {0:N3}" -f [double]$transferDurationSeconds))
@@ -3988,10 +4165,14 @@ function Write-RenderKitImportRevisionLog {
         $lines.Add("No transfer transactions recorded.")
     }
     else {
-        $lines.Add("Status | Method | Verification | Rollback | Size | Mapping | Destination | File | Error")
+        $lines.Add("Status | Method | CopyEngine | Verification | Rollback | Size | Mapping | Destination | File | Error")
         foreach ($tx in $transactions) {
             $txStatus = if ($tx.Status) { [string]$tx.Status } else { "-" }
             $txMethod = if ($tx.TransferMethod) { [string]$tx.TransferMethod } else { "-" }
+            $txCopyEngine = if ($tx.PSObject.Properties["CopyEngine"] -and $tx.CopyEngine) {
+                [string]$tx.CopyEngine
+            }
+            else { "-" }
             $txVerification = if ($tx.VerificationMode) { [string]$tx.VerificationMode } else { "-" }
             $txRollback = if ($tx.RollbackStatus) { [string]$tx.RollbackStatus } else { "-" }
             $txSize = ConvertTo-RenderKitHumanSize -Bytes ([int64]$tx.Bytes)
@@ -4008,9 +4189,10 @@ function Write-RenderKitImportRevisionLog {
                 "-"
             }
 
-            $lines.Add(("{0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} | {8}" -f `
+            $lines.Add(("{0} | {1} | {2} | {3} | {4} | {5} | {6} | {7} | {8} | {9}" -f `
                         $txStatus, `
                         $txMethod, `
+                        $txCopyEngine, `
                         $txVerification, `
                         $txRollback, `
                         $txSize, `
