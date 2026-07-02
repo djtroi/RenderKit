@@ -60,6 +60,7 @@
 ### Major
 
 ### Added
+
 - Added internal project search index and discovered-project overview state for fast `Get-Project`reads and indexed discovery refreshes.
 - Added internal project discovery that scans indexed roots for `.renderkit`markers, validates metadata, updates discovery diagnostics, and prepares duplicate-project-id conflict details for future repair workflows
 - Added new Cmdlet: Get-Project. The command returns table-friendly project summary objects with these fields:
@@ -84,6 +85,7 @@
 - Added regression coverage for the reported case: initialize project logging, delete `renderkit.log`, then write another log entry without throwing and verify the file is recreated.
 
 ### Changed
+
 - Changed `Get-Project`to read `DiscoveredProjects.json`by default and to run internal indexed discovery only when `-Refresh`is supplied.
 - Changed `Get-Project` to return discovered project summary objects directly so callers and tests can access properties without receiving formatting records.
 - Changed `Set-ProjectRoot`and `New-Project`to feed the project search index so current roots, previous roots, explicit absolute project paths, and parant folders can be discovered efficiently.
@@ -92,41 +94,42 @@
 - Changed project commands and import/export flows to update project registry entries and lifecycle state consistently through internal services.
 - Changed event and job documentation to describe the vNext envelopes, worker semantics, bridge behavior, and host-facing engine contracts.
 - Changed docs index pages to include storage, artifact versioning, project registry, project lifecycle, events, jobs, workers, automation, repair, and engine contracts.
-- Changed `Export-Project` parameter handling: `Export-Project` nor correctly detects if the second parameter `-DestinationPath`is an existing directory or a path ending with a `/` or `\`. In these cases it atuomatically generates the default filename `<ProjectName>.rkit` for ManifestOnly or `<ProjectName>.rkitpkg` for SelftContained inside that folder, instead of strictly expecting a file path. 
+- Changed `Export-Project` parameter handling: `Export-Project` nor correctly detects if the second parameter `-DestinationPath`is an existing directory or a path ending with a `/` or `\`. In these cases it atuomatically generates the default filename `<ProjectName>.rkit` for ManifestOnly or `<ProjectName>.rkitpkg` for SelftContained inside that folder, instead of strictly expecting a file path.
 
 ### Fixed
+
 - Fixed resilience of JSON state updates by introducing atomic write, lock, backup, and validation behavior for internal state files.
 - Fixed host-facing project detail lookups so project registry read failures return stable `RK_STORAGE_UNAVAILABLE` result envelopes instead of leaking raw exceptions.
 - Fixed PowerShell automatic-variable sensitivity in the engine project detail lookup by avoiding `$Matches`/`$matches` naming in new facade code.
 - Fixed `Import-Project` path handling so quoted user input is normalized, supported archive paths are validated, and accidentally swapped destination/archive arguments can be recovered.
 - Fixed `Remove-Project` success logging after project deletion by clearing stale logging state when the active log target points inside the removed project.
 - Fixed project registry upsert filtering so it replaces only the exact same `id` + `rootPath` entry, instead of dropping entries that share only the same project ID or only the same root path. This preserves duplicate-ID registry entries at different roots so conflict/repair flows can see them
-- Fixed `Add-FolderToTemplate` path handling by filtering out empty path segments after splitting on `/` or `\`, so inputs like `\test1\test2\test3` no longer create a template folder node with an empty `Name`. 
+- Fixed `Add-FolderToTemplate` path handling by filtering out empty path segments after splitting on `/` or `\`, so inputs like `\test1\test2\test3` no longer create a template folder node with an empty `Name`.
 - Fixed access denied error on directory export. Fixed an issue where passing an existing folder (e.g. `C:\install`) caused `ZipFile.Open()` to mistakenly attempt to open the directory as a file. Project roots located directly under root directories or second-level paths are no longer artifically blocker by RenderKit, as long as Windows/ACL write permissions are met. 
 - Fixed project logging so `Write-RenderKitLog` no longer calls `Add-Content` directly against a potentially deleted `renderkit.log`; it now routes file writes through `Write-RenderKitLogFileEntry`.
 - Fixed the debug-level comparison typo so debug entries are written when `-Level Debug` is used.
 
-
 ## 0.3.9 - 2026-06-18
 
-### Patch 
+### Patch
 
 ---
 
-
 ### Changed
+
 - Documented PSResourceGet as the recommended installer and PowerShellGet as a compatibility-tested legacy path without treating a package-manager upgrade as a fix for server hash mismatches.
 - Clarified that Windows PowerShell 5.1 remains a supported RenderKit runtime and that package hash or archive failures occur before the module runtime is loaded.
 - Expanded installation troubleshooting with a Windows PowerShell 5.1 package-manager bootstrap and separate guidance for Gallery hash mismatches and their secondary Central Directory extraction errors.
 - Changed PSGallery publishing to use `Publish-PSResource -Path` on the validated staged module so the official publisher creates the Gallery package instead of uploading the separately generated `dotnet pack` artifact.
 
 ### Fixed
+
 - Fixed release builds after removal of the optional RenderKit logo asset by omitting icon metadata and package files when the image is not present.
 - Improved `dotnet pack` failure reporting by preserving the native exit code, printing normal-verbosity output, including the generated nuspec in the exception, and uploading staging diagnostics from CI.
 
 ## 0.3.8 - 2026-06-16
 
-### Patch 
+### Patch
 
 ---
 
@@ -162,7 +165,6 @@
 - Fixed exported documentation coverage by listing the newly merged project lifecycle and delivery commands.
 - Fixed release publishing robustness by registering PSGallery idempotently before `Publish-PSResource` runs.
 
-
 ## 0.3.7 - 2026-04-21
 
 ### Patch
@@ -182,8 +184,6 @@
 
 - Fixed wizard configuration binding so classification now reads `wizardConfig.Classify` correctly
 - Fixed wizard transfer prompting so the transfer mode menu only appears when transfer was enabled during setup
-
-
 
 ## 0.3.6 - 2026-04-xx
 
@@ -222,10 +222,6 @@
 - Fixes #197 - PSScriptAnalyzer Warning
 - Fixes #124 - PSScriptAnalyzer Warning
 - Fixes #112 - PSScriptAnalyzer Warning
-
-
-
-
 
 ## 0.3.5 - 2026-04-11
 
