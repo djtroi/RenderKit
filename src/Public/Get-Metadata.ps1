@@ -240,6 +240,9 @@ function New-RenderKitMetadataDisplayRecord {
 
     if ($IncludeMetadata) {
         $properties['Metadata'] = $fields
+        $properties['FieldProvenance'] = $ReadResult.FieldProvenance
+        $properties['MetadataConflicts'] = @($ReadResult.Conflicts)
+        $properties['IptcState'] = [string]$ReadResult.IptcState
         $properties['Warnings'] = @($ReadResult.Warnings)
         $properties['Adapters'] = @($ReadResult.AdapterIds)
         $properties['Readers'] = @($ReadResult.Readers)

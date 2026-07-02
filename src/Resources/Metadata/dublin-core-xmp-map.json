@@ -1,0 +1,122 @@
+{
+  "schemaVersion": "1.0",
+  "artifactType": "DublinCoreXmpMap",
+  "standard": "Dublin Core Metadata Element Set",
+  "standardVersion": "1.1",
+  "termsRecommendation": "2020-01-20",
+  "namespaceUri": "http://purl.org/dc/elements/1.1/",
+  "xmpNamespace": "XMP-dc",
+  "sourceUrl": "https://www.dublincore.org/specifications/dublin-core/dcmi-terms/",
+  "fields": [
+    {
+      "field": "Contributor",
+      "dcElement": "contributor",
+      "fieldType": "List<String>",
+      "registryCardinality": "Multiple",
+      "xmpCardinality": "Multiple",
+      "readStrategy": "All",
+      "readTags": ["XMP-dc:Contributor"],
+      "writeTags": ["XMP-dc:Contributor"]
+    },
+    {
+      "field": "CopyrightNotice",
+      "dcElement": "rights",
+      "fieldType": "String",
+      "registryCardinality": "Single",
+      "xmpCardinality": "Single",
+      "readStrategy": "FirstNonEmpty",
+      "readTags": ["XMP-dc:Rights"],
+      "writeTags": ["XMP-dc:Rights-x-default"]
+    },
+    {
+      "field": "Creator",
+      "dcElement": "creator",
+      "fieldType": "List<String>",
+      "registryCardinality": "Multiple",
+      "xmpCardinality": "Multiple",
+      "readStrategy": "All",
+      "readTags": ["XMP-dc:Creator"],
+      "writeTags": ["XMP-dc:Creator"]
+    },
+    {
+      "field": "Description",
+      "dcElement": "description",
+      "fieldType": "String",
+      "registryCardinality": "Single",
+      "xmpCardinality": "LanguageAlternative",
+      "readStrategy": "FirstNonEmpty",
+      "readTags": ["XMP-dc:Description"],
+      "writeTags": ["XMP-dc:Description-x-default"]
+    },
+    {
+      "field": "Language",
+      "dcElement": "language",
+      "fieldType": "String",
+      "registryCardinality": "Single",
+      "xmpCardinality": "Multiple",
+      "readStrategy": "FirstNonEmpty",
+      "readTags": ["XMP-dc:Language"],
+      "writeTags": ["XMP-dc:Language"]
+    },
+    {
+      "field": "Publisher",
+      "dcElement": "publisher",
+      "fieldType": "String",
+      "registryCardinality": "Single",
+      "xmpCardinality": "Multiple",
+      "readStrategy": "FirstNonEmpty",
+      "readTags": ["XMP-dc:Publisher"],
+      "writeTags": ["XMP-dc:Publisher"]
+    },
+    {
+      "field": "Subject",
+      "dcElement": "subject",
+      "fieldType": "List<String>",
+      "registryCardinality": "Multiple",
+      "xmpCardinality": "Multiple",
+      "readStrategy": "All",
+      "readTags": ["XMP-dc:Subject"],
+      "writeTags": ["XMP-dc:Subject"]
+    },
+    {
+      "field": "Title",
+      "dcElement": "title",
+      "fieldType": "String",
+      "registryCardinality": "Single",
+      "xmpCardinality": "LanguageAlternative",
+      "readStrategy": "FirstNonEmpty",
+      "readTags": ["XMP-dc:Title"],
+      "writeTags": ["XMP-dc:Title-x-default"]
+    }
+  ],
+  "unmappedElements": [
+    {
+      "dcElement": "coverage",
+      "reason": "No canonical RenderKit field has the same broad spatial, temporal, or jurisdictional semantics."
+    },
+    {
+      "dcElement": "date",
+      "reason": "DCMES date is any lifecycle date and must not be guessed as creation or release time."
+    },
+    {
+      "dcElement": "format",
+      "reason": "RenderKit technical format fields describe observed file facts rather than a descriptive Dublin Core value."
+    },
+    {
+      "dcElement": "identifier",
+      "reason": "RenderKit internal and external identifiers have narrower ownership and identity semantics."
+    },
+    {
+      "dcElement": "relation",
+      "reason": "No generic related-resource field exists in the canonical registry."
+    },
+    {
+      "dcElement": "source",
+      "reason": "DCMES source means a related resource from which the asset is derived; the existing IPTC Source field describes the content supply chain."
+    },
+    {
+      "dcElement": "type",
+      "reason": "RenderKit media kind and technical content fields are not a generic DCMI resource type."
+    }
+  ]
+}

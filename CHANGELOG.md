@@ -4,6 +4,15 @@
 
 ### Added
 
+- Added a versioned Dublin Core/XMP application profile covering all 15 DCMES
+  elements as eight semantic mappings and seven explicit unmapped decisions.
+- Added Dublin Core/XMP integration slices for qualified terms, standard XMP
+  namespaces, sidecars, provenance, Studio editing, and production workflows.
+- Added a versioned IPTC Core 1.5 and Extension 1.9 field map with deterministic
+  XMP/IIM precedence, structured values, controlled vocabularies, and embedded
+  read/write coverage.
+- Added IPTC profile import/export, template and batch support, provenance,
+  conflict/state modeling, catalog synchronization, and reference-image smokes.
 - Bundled MediaInfoLib 26.01 native readers for Windows x64/ARM64, macOS
   x64/ARM64, and Linux x64, with pinned source and file hashes plus preserved
   upstream licenses.
@@ -17,6 +26,14 @@
 
 ### Changed
 
+- Embedded writes now compose compatible Dublin Core/XMP and IPTC profile tags
+  without falling back to language-destructive unqualified XMP writes.
+- Dublin Core repeated values remain lists, while scalar registry fields apply
+  an explicit first-non-empty application-profile constraint.
+- IPTC Core list fields now retain true repeated values during ExifTool writes,
+  and default-language XMP updates preserve other language alternatives.
+- IPTC Extension structures remain object lists; ambiguous scalar projections
+  now emit conflicts instead of silently selecting an arbitrary value.
 - MediaInfo metadata reads now prefer bundled native libraries and retain the
   existing host/CLI failover when a native library is unsupported or fails at
   load/read time. Linux ARM64 is explicitly modeled as an external fallback

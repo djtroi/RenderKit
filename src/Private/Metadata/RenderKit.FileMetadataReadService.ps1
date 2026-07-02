@@ -468,6 +468,14 @@ function ConvertFrom-RenderKitExifToolMetadata {
             Get-RenderKitMetadataPropertyValue -Object $Raw -Name @('SourceImageHeight', 'ImageHeight')
         ))
 
+    Merge-RenderKitMetadataFieldBag `
+        -Target $fields `
+        -Source (ConvertFrom-RenderKitIptcMetadata -Raw $Raw)
+
+    Merge-RenderKitMetadataFieldBag `
+        -Target $fields `
+        -Source (ConvertFrom-RenderKitDublinCoreXmpMetadata -Raw $Raw)
+
     return $fields
 }
 
@@ -629,6 +637,7 @@ function Invoke-RenderKitExifToolMetadataRead {
             '-G1',
             '-a',
             '-n',
+            '-struct',
             '-api',
             'LargeFileSupport=1',
             $Path
@@ -691,7 +700,12 @@ function Merge-RenderKitMetadataFieldBag {
         [System.Collections.IDictionary]$Target,
 
         [AllowNull()]
-        [System.Collections.IDictionary]$Source
+        [System.Collections.IDictionary]$Source,
+
+        [string]$SourceName,
+
+        [AllowNull()]
+        [System.Collections.IDictionary]$Provenance
     )
 
     if (-not $Source) { return }
@@ -700,6 +714,13 @@ function Merge-RenderKitMetadataFieldBag {
             -Fields $Target `
             -Name ([string]$key) `
             -Value $Source[$key]
+        if ($Provenance -and
+            -not [string]::IsNullOrWhiteSpace($SourceName) -and
+            $Target.Contains([string]$key)) {
+            $Provenance[[string]$key] = [PSCustomObject]@{
+                EffectiveSource = $SourceName
+            }
+        }
     }
 }
 
@@ -725,12 +746,19 @@ function Read-RenderKitFileMetadata {
 
     $route = Resolve-RenderKitMetadataAdapterRoute -Path $file.FullName
     $fields = [ordered]@{}
+    $fieldProvenance = [ordered]@{}
     $raw = [ordered]@{}
     $warnings = New-Object System.Collections.Generic.List[string]
+    $conflicts = New-Object System.Collections.Generic.List[object]
+    $iptcReadAttempted = $false
+    $iptcReadSucceeded = $false
+    $iptcFieldCount = 0
 
     Merge-RenderKitMetadataFieldBag `
         -Target $fields `
-        -Source (Get-RenderKitFileSystemMetadata -File $file -Route $route)
+        -Source (Get-RenderKitFileSystemMetadata -File $file -Route $route) `
+        -SourceName 'FileSystem' `
+        -Provenance $fieldProvenance
 
     if (-not $NoExternalAdapters) {
         foreach ($reader in @($route.Readers)) {
@@ -756,9 +784,12 @@ function Read-RenderKitFileMetadata {
                         }
                         Merge-RenderKitMetadataFieldBag `
                             -Target $fields `
-                            -Source (ConvertFrom-RenderKitMediaInfoMetadata -Raw $readerRaw)
+                            -Source (ConvertFrom-RenderKitMediaInfoMetadata -Raw $readerRaw) `
+                            -SourceName 'EmbeddedMediaInfo' `
+                            -Provenance $fieldProvenance
                     }
                     'ExifTool' {
+                        $iptcReadAttempted = $true
                         $exifToolRead = Invoke-RenderKitExifToolMetadataRead `
                             -Path $file.FullName `
                             -Reader $reader `
@@ -772,9 +803,27 @@ function Read-RenderKitFileMetadata {
                             PayloadPath = [string]$exifToolRead.PayloadPath
                             FallbackErrors = @($exifToolRead.Errors)
                         }
+                        $exifFields = ConvertFrom-RenderKitExifToolMetadata `
+                            -Raw $readerRaw
                         Merge-RenderKitMetadataFieldBag `
                             -Target $fields `
-                            -Source (ConvertFrom-RenderKitExifToolMetadata -Raw $readerRaw)
+                            -Source $exifFields `
+                            -SourceName 'EmbeddedExifTool' `
+                            -Provenance $fieldProvenance
+
+                        $iptc = ConvertFrom-RenderKitIptcMetadataDetailed `
+                            -Raw $readerRaw
+                        $iptcReadSucceeded = $true
+                        $iptcFieldCount = @($iptc.Fields.Keys).Count
+                        foreach ($property in @(
+                            $iptc.Provenance.GetEnumerator()
+                        )) {
+                            $fieldProvenance[[string]$property.Key] =
+                                $property.Value
+                        }
+                        foreach ($conflict in @($iptc.Conflicts)) {
+                            $conflicts.Add($conflict)
+                        }
                     }
                     default {
                         $warnings.Add("Metadata reader '$($reader.Id)' has no MVP reader implementation.")
@@ -798,6 +847,41 @@ function Read-RenderKitFileMetadata {
             }
         }
         $fields = $selected
+
+        $selectedProvenance = [ordered]@{}
+        foreach ($name in $Field) {
+            if ($fieldProvenance.Contains($name)) {
+                $selectedProvenance[$name] = $fieldProvenance[$name]
+            }
+        }
+        $fieldProvenance = $selectedProvenance
+        $selectedConflicts = New-Object System.Collections.Generic.List[object]
+        foreach ($conflict in @($conflicts.ToArray())) {
+            if ($Field -notcontains [string]$conflict.Field) {
+                continue
+            }
+            $selectedConflicts.Add($conflict)
+        }
+        $conflicts = New-Object System.Collections.Generic.List[object]
+        foreach ($conflict in @($selectedConflicts.ToArray())) {
+            $conflicts.Add($conflict)
+        }
+    }
+
+    $iptcState = if ([string]$route.MediaKind -ne 'Image') {
+        'Unsupported'
+    }
+    elseif (-not $iptcReadAttempted -or -not $iptcReadSucceeded) {
+        'Unavailable'
+    }
+    elseif ($conflicts.Count -gt 0) {
+        'Conflicting'
+    }
+    elseif ($iptcFieldCount -eq 0) {
+        'Absent'
+    }
+    else {
+        'Embedded'
     }
 
     return [PSCustomObject]@{
@@ -811,6 +895,9 @@ function Read-RenderKitFileMetadata {
         AdapterIds = @($route.AdapterIds)
         Readers = @($route.Readers)
         Fields = [PSCustomObject]$fields
+        FieldProvenance = [PSCustomObject]$fieldProvenance
+        Conflicts = @($conflicts.ToArray())
+        IptcState = $iptcState
         Warnings = @($warnings.ToArray())
         Raw = if ($IncludeRaw) { [PSCustomObject]$raw } else { $null }
     }

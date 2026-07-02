@@ -267,6 +267,64 @@ Get-Help <FunctionName> -Full
 Get-Help <FunctionName> -Examples
 ```
 
+## IPTC metadata
+
+RenderKit maps the IPTC Core 1.5 and IPTC Extension 1.9 properties represented
+by its canonical metadata registry through the bundled ExifTool adapter. The
+map is versioned at `src/Resources/Metadata/iptc-field-map.json` and follows
+IPTC Photo Metadata Standard 2025.1.
+
+Reads prefer the current XMP representation and use legacy IIM or EXIF tags as
+explicit fallbacks. Multiple values remain arrays; RenderKit does not guess
+list boundaries from commas or other punctuation. Image writes update the
+compatible XMP and IIM/EXIF representations, and default-language XMP writes
+preserve any other language alternatives.
+
+Extension structures remain object lists. Scalar compatibility fields are only
+projected when a single unambiguous value exists; otherwise the structured
+value and a conflict are retained. Digital Source Type and PLUS release-status
+values use explicit canonical-value-to-URI mappings.
+
+```powershell
+Add-Metadata -Path '.\photo.png' -Field Headline -Value 'Product launch'
+Add-Metadata -Path '.\photo.png' -Field Keywords -Value @('press', 'launch')
+Add-Metadata `
+    -Path '.\photo.png' `
+    -Field DigitalSourceType `
+    -Value TrainedAlgorithmicMedia
+
+Get-Metadata `
+    -Path '.\photo.png' `
+    -Field Headline, Keywords `
+    -IncludeMetadata
+```
+
+Templates and batches use the same map. `Export-Metadata` includes an explicit
+IPTC profile and `Import-Metadata` restores it without flattening repeated or
+structured values. The completed implementation boundaries are recorded in
+[`docs/iptc-integration-slices.md`](docs/iptc-integration-slices.md).
+
+### Dublin Core / XMP
+
+RenderKit's Dublin Core application profile maps eight DCMES 1.1 elements to
+semantically equivalent registry fields in the XMP `dc` namespace. The
+remaining seven standard elements are recorded as explicitly unmapped instead
+of being guessed from narrower internal, technical, or IPTC fields.
+
+Repeated contributors, creators, and subjects remain arrays. The scalar
+Language and Publisher registry fields use an explicit first-non-empty profile
+constraint when an external XMP packet contains multiple values.
+
+```powershell
+Add-Metadata -Path '.\asset.png' -Field Contributor -Value @('Editor One', 'Editor Two')
+Add-Metadata -Path '.\asset.png' -Field Publisher -Value 'RenderKit Press'
+Add-Metadata -Path '.\asset.png' -Field Subject -Value @('architecture', 'design')
+```
+
+The wider XMP namespace, sidecar, broker/catalog, Studio, and production
+workflow boundaries are tracked in
+[`docs/dublin-core-xmp-integration-slices.md`](docs/dublin-core-xmp-integration-slices.md).
+
 ## Third-Party Components
 
 RenderKit metadata extraction uses MediaInfo / MediaInfoLib for media file

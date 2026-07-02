@@ -32,6 +32,7 @@
         'Get-RenderKitDriveCandidate'
         'Get-RenderKitMetadataFieldRegistry'
         'Import-BackupConfigProfile'
+        'Import-Metadata'
         'Import-Media'
         'New-BackupConfigProfile'
         'New-MetadataTemplate'

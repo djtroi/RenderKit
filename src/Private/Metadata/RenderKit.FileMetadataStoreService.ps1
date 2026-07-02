@@ -293,6 +293,28 @@ function New-RenderKitFileMetadataRecord {
             adapterIds = @($MetadataResult.AdapterIds)
             readers = @($MetadataResult.Readers)
             warnings = @($MetadataResult.Warnings)
+            fieldProvenance = if (
+                $MetadataResult.PSObject.Properties.Name -contains
+                    'FieldProvenance'
+            ) {
+                $MetadataResult.FieldProvenance
+            } else {
+                $null
+            }
+            conflicts = if (
+                $MetadataResult.PSObject.Properties.Name -contains 'Conflicts'
+            ) {
+                @($MetadataResult.Conflicts)
+            } else {
+                @()
+            }
+            iptcState = if (
+                $MetadataResult.PSObject.Properties.Name -contains 'IptcState'
+            ) {
+                [string]$MetadataResult.IptcState
+            } else {
+                $null
+            }
         }
         history = @($history)
     }

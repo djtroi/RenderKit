@@ -24050,16 +24050,12 @@
       "appliesTo": "All",
       "sourceStandards": "IPTC Extension",
       "sourceUrls": "https://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata",
-      "acceptedInput": "Unknown|NotApplicable|Needed|Requested|Granted|Denied|Expired|Partial",
+      "acceptedInput": "None|NotApplicable|Unlimited|Limited",
       "validateSet": [
-        "Denied",
-        "Expired",
-        "Granted",
-        "Needed",
+        "Limited",
+        "None",
         "NotApplicable",
-        "Partial",
-        "Requested",
-        "Unknown"
+        "Unlimited"
       ],
       "editable": null,
       "required": null,
@@ -24082,16 +24078,12 @@
           "sourceUrls": [
             "https://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata"
           ],
-          "acceptedInput": "Unknown|NotApplicable|Needed|Requested|Granted|Denied|Expired|Partial",
+          "acceptedInput": "None|NotApplicable|Unlimited|Limited",
           "validateSet": [
-            "Unknown",
+            "None",
             "NotApplicable",
-            "Needed",
-            "Requested",
-            "Granted",
-            "Denied",
-            "Expired",
-            "Partial"
+            "Unlimited",
+            "Limited"
           ],
           "editable": null,
           "required": null,
@@ -27935,16 +27927,12 @@
       "appliesTo": "All",
       "sourceStandards": "IPTC Extension",
       "sourceUrls": "https://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata",
-      "acceptedInput": "Unknown|NotApplicable|Needed|Requested|Granted|Denied|Expired|Partial",
+      "acceptedInput": "None|NotApplicable|Unlimited|Limited",
       "validateSet": [
-        "Denied",
-        "Expired",
-        "Granted",
-        "Needed",
+        "Limited",
+        "None",
         "NotApplicable",
-        "Partial",
-        "Requested",
-        "Unknown"
+        "Unlimited"
       ],
       "editable": null,
       "required": null,
@@ -27967,16 +27955,12 @@
           "sourceUrls": [
             "https://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata"
           ],
-          "acceptedInput": "Unknown|NotApplicable|Needed|Requested|Granted|Denied|Expired|Partial",
+          "acceptedInput": "None|NotApplicable|Unlimited|Limited",
           "validateSet": [
-            "Unknown",
+            "None",
             "NotApplicable",
-            "Needed",
-            "Requested",
-            "Granted",
-            "Denied",
-            "Expired",
-            "Partial"
+            "Unlimited",
+            "Limited"
           ],
           "editable": null,
           "required": null,

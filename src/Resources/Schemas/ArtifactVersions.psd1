@@ -120,6 +120,20 @@
             MinimumWritable = '1.0'
             MaximumWritable = '1.0'
         }
+        IptcMetadataMap = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        DublinCoreXmpMap = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
         MetadataTemplate = @{
             Current = '1.0'
             MinimumReadable = '1.0'

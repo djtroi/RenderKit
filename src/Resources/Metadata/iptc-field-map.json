@@ -1,0 +1,667 @@
+{
+  "schemaVersion": "1.0",
+  "artifactType": "IptcMetadataMap",
+  "standard": "IPTC Photo Metadata Standard",
+  "standardVersion": "2025.1",
+  "profile": "IPTC Core 1.5 + IPTC Extension 1.9",
+  "sourceUrl": "https://iptc.org/std/photometadata/specification/iptc-pmd-techreference_2025.1.json",
+  "fields": [
+    {
+      "field": "City",
+      "iptcPropertyId": "cityName",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-photoshop:City", "IPTC:City"],
+      "writeTags": ["XMP-photoshop:City", "IPTC:City"]
+    },
+    {
+      "field": "CopyrightNotice",
+      "iptcPropertyId": "copyrightNotice",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-dc:Rights", "IPTC:CopyrightNotice", "IFD0:Copyright"],
+      "writeTags": ["XMP-dc:Rights-x-default", "IPTC:CopyrightNotice", "IFD0:Copyright"]
+    },
+    {
+      "field": "CountryCode",
+      "iptcPropertyId": "countryCode",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcCore:CountryCode", "IPTC:Country-PrimaryLocationCode"],
+      "writeTags": ["XMP-iptcCore:CountryCode", "IPTC:Country-PrimaryLocationCode"]
+    },
+    {
+      "field": "Creator",
+      "iptcPropertyId": "creatorNames",
+      "fieldType": "List<String>",
+      "cardinality": "Multiple",
+      "readTags": ["XMP-dc:Creator", "IPTC:By-line", "IFD0:Artist"],
+      "writeTags": ["XMP-dc:Creator", "IPTC:By-line", "IFD0:Artist"]
+    },
+    {
+      "field": "CreatorAddress",
+      "iptcPropertyId": "creatorContactInfo.address",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcCore:CreatorAddress"],
+      "writeTags": ["XMP-iptcCore:CreatorAddress"]
+    },
+    {
+      "field": "CreatorCity",
+      "iptcPropertyId": "creatorContactInfo.city",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcCore:CreatorCity"],
+      "writeTags": ["XMP-iptcCore:CreatorCity"]
+    },
+    {
+      "field": "CreatorCountry",
+      "iptcPropertyId": "creatorContactInfo.country",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcCore:CreatorCountry"],
+      "writeTags": ["XMP-iptcCore:CreatorCountry"]
+    },
+    {
+      "field": "CreatorWorkEmail",
+      "iptcPropertyId": "creatorContactInfo.emailwork",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcCore:CreatorWorkEmail"],
+      "writeTags": ["XMP-iptcCore:CreatorWorkEmail"]
+    },
+    {
+      "field": "CreatorPhone",
+      "iptcPropertyId": "creatorContactInfo.phonework",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcCore:CreatorWorkTelephone"],
+      "writeTags": ["XMP-iptcCore:CreatorWorkTelephone"]
+    },
+    {
+      "field": "CreatorPostalCode",
+      "iptcPropertyId": "creatorContactInfo.postalCode",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcCore:CreatorPostalCode"],
+      "writeTags": ["XMP-iptcCore:CreatorPostalCode"]
+    },
+    {
+      "field": "CreatorRegion",
+      "iptcPropertyId": "creatorContactInfo.region",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcCore:CreatorRegion"],
+      "writeTags": ["XMP-iptcCore:CreatorRegion"]
+    },
+    {
+      "field": "CreatorWorkUrl",
+      "iptcPropertyId": "creatorContactInfo.weburlwork",
+      "fieldType": "URI",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcCore:CreatorWorkURL"],
+      "writeTags": ["XMP-iptcCore:CreatorWorkURL"]
+    },
+    {
+      "field": "CreatorTitle",
+      "iptcPropertyId": "jobtitle",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-photoshop:AuthorsPosition", "IPTC:By-lineTitle"],
+      "writeTags": ["XMP-photoshop:AuthorsPosition", "IPTC:By-lineTitle"]
+    },
+    {
+      "field": "CreditLine",
+      "iptcPropertyId": "creditLine",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-photoshop:Credit", "IPTC:Credit"],
+      "writeTags": ["XMP-photoshop:Credit", "IPTC:Credit"]
+    },
+    {
+      "field": "DateCreated",
+      "iptcPropertyId": "dateCreated",
+      "fieldType": "DateTime",
+      "cardinality": "Single",
+      "readTags": ["XMP-photoshop:DateCreated", "IPTC:DateCreated", "ExifIFD:DateTimeOriginal"],
+      "writeTags": ["XMP-photoshop:DateCreated", "IPTC:DateCreated", "IPTC:TimeCreated", "ExifIFD:DateTimeOriginal"]
+    },
+    {
+      "field": "Description",
+      "iptcPropertyId": "description",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-dc:Description", "IPTC:Caption-Abstract", "IFD0:ImageDescription"],
+      "writeTags": ["XMP-dc:Description-x-default", "IPTC:Caption-Abstract", "IFD0:ImageDescription"]
+    },
+    {
+      "field": "CaptionWriter",
+      "iptcPropertyId": "captionWriter",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-photoshop:CaptionWriter", "IPTC:Writer-Editor"],
+      "writeTags": ["XMP-photoshop:CaptionWriter", "IPTC:Writer-Editor"]
+    },
+    {
+      "field": "Headline",
+      "iptcPropertyId": "headline",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-photoshop:Headline", "IPTC:Headline"],
+      "writeTags": ["XMP-photoshop:Headline", "IPTC:Headline"]
+    },
+    {
+      "field": "Instructions",
+      "iptcPropertyId": "instructions",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-photoshop:Instructions", "IPTC:SpecialInstructions"],
+      "writeTags": ["XMP-photoshop:Instructions", "IPTC:SpecialInstructions"]
+    },
+    {
+      "field": "IntellectualGenre",
+      "iptcPropertyId": "intellectualGenre",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcCore:IntellectualGenre", "IPTC:ObjectAttributeReference"],
+      "writeTags": ["XMP-iptcCore:IntellectualGenre", "IPTC:ObjectAttributeReference"]
+    },
+    {
+      "field": "JobId",
+      "iptcPropertyId": "jobid",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-photoshop:TransmissionReference", "IPTC:OriginalTransmissionReference"],
+      "writeTags": ["XMP-photoshop:TransmissionReference", "IPTC:OriginalTransmissionReference"]
+    },
+    {
+      "field": "Keywords",
+      "iptcPropertyId": "keywords",
+      "fieldType": "List<String>",
+      "cardinality": "Multiple",
+      "readTags": ["XMP-dc:Subject", "IPTC:Keywords"],
+      "writeTags": ["XMP-dc:Subject", "IPTC:Keywords"]
+    },
+    {
+      "field": "Region",
+      "iptcPropertyId": "provinceState",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-photoshop:State", "IPTC:Province-State"],
+      "writeTags": ["XMP-photoshop:State", "IPTC:Province-State"]
+    },
+    {
+      "field": "RightsUsageTerms",
+      "iptcPropertyId": "usageTerms",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-xmpRights:UsageTerms"],
+      "writeTags": ["XMP-xmpRights:UsageTerms-x-default"]
+    },
+    {
+      "field": "IptcSceneCode",
+      "iptcPropertyId": "sceneCodes",
+      "fieldType": "List<String>",
+      "cardinality": "Multiple",
+      "readTags": ["XMP-iptcCore:Scene"],
+      "writeTags": ["XMP-iptcCore:Scene"]
+    },
+    {
+      "field": "Source",
+      "iptcPropertyId": "source",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-photoshop:Source", "IPTC:Source"],
+      "writeTags": ["XMP-photoshop:Source", "IPTC:Source"]
+    },
+    {
+      "field": "IptcSubjectCode",
+      "iptcPropertyId": "subjectCodes",
+      "fieldType": "List<String>",
+      "cardinality": "Multiple",
+      "readTags": ["XMP-iptcCore:SubjectCode", "IPTC:SubjectReference"],
+      "writeTags": ["XMP-iptcCore:SubjectCode", "IPTC:SubjectReference"]
+    },
+    {
+      "field": "SubLocation",
+      "iptcPropertyId": "sublocationName",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcCore:Location", "IPTC:Sub-location"],
+      "writeTags": ["XMP-iptcCore:Location", "IPTC:Sub-location"]
+    },
+    {
+      "field": "Title",
+      "iptcPropertyId": "title",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-dc:Title", "IPTC:ObjectName"],
+      "writeTags": ["XMP-dc:Title-x-default", "IPTC:ObjectName"]
+    },
+    {
+      "field": "AdditionalModelInformation",
+      "iptcPropertyId": "additionalModelInfo",
+      "profile": "Extension",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcExt:AdditionalModelInformation"],
+      "writeTags": ["XMP-iptcExt:AdditionalModelInformation"]
+    },
+    {
+      "field": "ArtworkOrObject",
+      "iptcPropertyId": "artworkOrObjects",
+      "profile": "Extension",
+      "fieldType": "List<Object>",
+      "cardinality": "Multiple",
+      "readTags": ["XMP-iptcExt:ArtworkOrObject"],
+      "writeTags": ["XMP-iptcExt:ArtworkOrObject"],
+      "writeMode": "Structure",
+      "structureMembers": {
+        "circaDateCreated": "AOCircaDateCreated",
+        "contentDescription": "AOContentDescription",
+        "contributionDescription": "AOContributionDescription",
+        "copyrightNotice": "AOCopyrightNotice",
+        "creator": "AOCreator",
+        "creatorId": "AOCreatorId",
+        "currentCopyrightOwnerId": "AOCurrentCopyrightOwnerID",
+        "currentCopyrightOwnerName": "AOCurrentCopyrightOwnerName",
+        "currentLicensorId": "AOCurrentLicensorID",
+        "currentLicensorName": "AOCurrentLicensorName",
+        "dateCreated": "AODateCreated",
+        "physicalDescription": "AOPhysicalDescription",
+        "source": "AOSource",
+        "sourceInventoryNumber": "AOSourceInvNo",
+        "sourceInventoryUrl": "AOSourceInvURL",
+        "stylePeriod": "AOStylePeriod",
+        "title": "AOTitle"
+      }
+    },
+    {
+      "field": "CopyrightOwner",
+      "iptcPropertyId": "copyrightOwners.name",
+      "profile": "Extension",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-plus:CopyrightOwner"],
+      "selector": "CopyrightOwnerName",
+      "requireSingleStructure": true,
+      "writeTags": ["XMP-plus:CopyrightOwnerName"]
+    },
+    {
+      "field": "CopyrightOwnerId",
+      "iptcPropertyId": "copyrightOwners.id",
+      "profile": "Extension",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-plus:CopyrightOwner"],
+      "selector": "CopyrightOwnerID",
+      "requireSingleStructure": true,
+      "writeTags": ["XMP-plus:CopyrightOwnerID"]
+    },
+    {
+      "field": "RightsOwner",
+      "iptcPropertyId": "copyrightOwners.name",
+      "profile": "Extension",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-plus:CopyrightOwner"],
+      "selector": "CopyrightOwnerName",
+      "requireSingleStructure": true,
+      "writeTags": ["XMP-plus:CopyrightOwnerName"]
+    },
+    {
+      "field": "RightsOwnerId",
+      "iptcPropertyId": "copyrightOwners.id",
+      "profile": "Extension",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-plus:CopyrightOwner"],
+      "selector": "CopyrightOwnerID",
+      "requireSingleStructure": true,
+      "writeTags": ["XMP-plus:CopyrightOwnerID"]
+    },
+    {
+      "field": "DigitalSourceType",
+      "iptcPropertyId": "digitalSourceType",
+      "profile": "Extension",
+      "fieldType": "Enum",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcExt:DigitalSourceType"],
+      "writeTags": ["XMP-iptcExt:DigitalSourceType"],
+      "controlledVocabulary": "DigitalSourceType"
+    },
+    {
+      "field": "EventIdentifier",
+      "iptcPropertyId": "eventId",
+      "profile": "Extension",
+      "fieldType": "List<String>",
+      "cardinality": "Multiple",
+      "readTags": ["XMP-iptcExt:EventID"],
+      "writeTags": ["XMP-iptcExt:EventID"]
+    },
+    {
+      "field": "EventId",
+      "iptcPropertyId": "eventId",
+      "profile": "Extension",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcExt:EventID"],
+      "requireSingleValue": true,
+      "writeTags": ["XMP-iptcExt:EventID"]
+    },
+    {
+      "field": "EventName",
+      "iptcPropertyId": "eventName",
+      "profile": "Extension",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcExt:Event"],
+      "writeTags": ["XMP-iptcExt:Event-x-default"]
+    },
+    {
+      "field": "EventShown",
+      "iptcPropertyId": "eventName",
+      "profile": "Extension",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcExt:Event"],
+      "writeTags": ["XMP-iptcExt:Event-x-default"]
+    },
+    {
+      "field": "ImageCreatorId",
+      "iptcPropertyId": "imageCreators.id",
+      "profile": "Extension",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-plus:ImageCreator"],
+      "selector": "ImageCreatorID",
+      "requireSingleStructure": true,
+      "writeTags": ["XMP-plus:ImageCreatorID"]
+    },
+    {
+      "field": "ImageSupplier",
+      "iptcPropertyId": "suppliers.name",
+      "profile": "Extension",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-plus:ImageSupplier"],
+      "selector": "ImageSupplierName",
+      "requireSingleStructure": true,
+      "writeTags": ["XMP-plus:ImageSupplierName"]
+    },
+    {
+      "field": "ImageSupplierId",
+      "iptcPropertyId": "suppliers.id",
+      "profile": "Extension",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-plus:ImageSupplier"],
+      "selector": "ImageSupplierID",
+      "requireSingleStructure": true,
+      "writeTags": ["XMP-plus:ImageSupplierID"]
+    },
+    {
+      "field": "LicensorEmail",
+      "iptcPropertyId": "licensors.email",
+      "profile": "Extension",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-plus:Licensor"],
+      "selector": "LicensorEmail",
+      "requireSingleStructure": true,
+      "writeTags": ["XMP-plus:LicensorEmail"]
+    },
+    {
+      "field": "LicensorId",
+      "iptcPropertyId": "licensors.id",
+      "profile": "Extension",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-plus:Licensor"],
+      "selector": "LicensorID",
+      "requireSingleStructure": true,
+      "writeTags": ["XMP-plus:LicensorID"]
+    },
+    {
+      "field": "LicensorName",
+      "iptcPropertyId": "licensors.name",
+      "profile": "Extension",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-plus:Licensor"],
+      "selector": "LicensorName",
+      "requireSingleStructure": true,
+      "writeTags": ["XMP-plus:LicensorName"]
+    },
+    {
+      "field": "LicensorPhone",
+      "iptcPropertyId": "licensors.telephone1",
+      "profile": "Extension",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-plus:Licensor"],
+      "selector": "LicensorTelephone1",
+      "requireSingleStructure": true,
+      "writeTags": ["XMP-plus:LicensorTelephone1"]
+    },
+    {
+      "field": "LicensorUrl",
+      "iptcPropertyId": "licensors.url",
+      "profile": "Extension",
+      "fieldType": "URI",
+      "cardinality": "Single",
+      "readTags": ["XMP-plus:Licensor"],
+      "selector": "LicensorURL",
+      "requireSingleStructure": true,
+      "writeTags": ["XMP-plus:LicensorURL"]
+    },
+    {
+      "field": "LocationIdentifier",
+      "iptcPropertyId": "locationsShown.identifiers",
+      "profile": "Extension",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcExt:LocationShown"],
+      "selector": "LocationId",
+      "requireSingleStructure": true,
+      "requireSingleValue": true,
+      "writeTags": ["XMP-iptcExt:LocationShownLocationId"]
+    },
+    {
+      "field": "LocationName",
+      "iptcPropertyId": "locationsShown.name",
+      "profile": "Extension",
+      "fieldType": "String",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcExt:LocationShown"],
+      "selector": "LocationName",
+      "requireSingleStructure": true,
+      "writeTags": ["XMP-iptcExt:LocationShownLocationName"]
+    },
+    {
+      "field": "ModelAge",
+      "iptcPropertyId": "modelAges",
+      "profile": "Extension",
+      "fieldType": "Integer",
+      "cardinality": "Single",
+      "readTags": ["XMP-iptcExt:ModelAge"],
+      "requireSingleValue": true,
+      "writeTags": ["XMP-iptcExt:ModelAge"]
+    },
+    {
+      "field": "ModelReleaseId",
+      "iptcPropertyId": "modelReleaseDocuments",
+      "profile": "Extension",
+      "fieldType": "List<String>",
+      "cardinality": "Multiple",
+      "readTags": ["XMP-plus:ModelReleaseID"],
+      "writeTags": ["XMP-plus:ModelReleaseID"]
+    },
+    {
+      "field": "ModelReleaseStatus",
+      "iptcPropertyId": "modelReleaseStatus",
+      "profile": "Extension",
+      "fieldType": "Enum",
+      "cardinality": "Single",
+      "readTags": ["XMP-plus:ModelReleaseStatus"],
+      "writeTags": ["XMP-plus:ModelReleaseStatus"],
+      "controlledVocabulary": "ModelReleaseStatus"
+    },
+    {
+      "field": "OrganisationShown",
+      "iptcPropertyId": "organisationInImageNames",
+      "profile": "Extension",
+      "fieldType": "List<String>",
+      "cardinality": "Multiple",
+      "readTags": ["XMP-iptcExt:OrganisationInImageName"],
+      "writeTags": ["XMP-iptcExt:OrganisationInImageName"]
+    },
+    {
+      "field": "OrganizationShown",
+      "iptcPropertyId": "organisationInImageNames",
+      "profile": "Extension",
+      "fieldType": "List<String>",
+      "cardinality": "Multiple",
+      "readTags": ["XMP-iptcExt:OrganisationInImageName"],
+      "writeTags": ["XMP-iptcExt:OrganisationInImageName"]
+    },
+    {
+      "field": "PeopleShown",
+      "iptcPropertyId": "personInImageNames",
+      "profile": "Extension",
+      "fieldType": "List<String>",
+      "cardinality": "Multiple",
+      "readTags": ["XMP-iptcExt:PersonInImage"],
+      "writeTags": ["XMP-iptcExt:PersonInImage"]
+    },
+    {
+      "field": "PersonShown",
+      "iptcPropertyId": "personInImageNames",
+      "profile": "Extension",
+      "fieldType": "List<String>",
+      "cardinality": "Multiple",
+      "readTags": ["XMP-iptcExt:PersonInImage"],
+      "writeTags": ["XMP-iptcExt:PersonInImage"]
+    },
+    {
+      "field": "PersonShownDetails",
+      "iptcPropertyId": "personsShown",
+      "profile": "Extension",
+      "fieldType": "List<Object>",
+      "cardinality": "Multiple",
+      "readTags": ["XMP-iptcExt:PersonInImageWDetails"],
+      "writeTags": ["XMP-iptcExt:PersonInImageWDetails"],
+      "writeMode": "Structure",
+      "structureMembers": {
+        "name": "PersonName",
+        "id": "PersonId",
+        "identifiers": "PersonId",
+        "description": "PersonDescription",
+        "characteristics": "PersonCharacteristic"
+      }
+    },
+    {
+      "field": "ProductShown",
+      "iptcPropertyId": "productsShown",
+      "profile": "Extension",
+      "fieldType": "List<Object>",
+      "cardinality": "Multiple",
+      "readTags": ["XMP-iptcExt:ProductInImage"],
+      "writeTags": ["XMP-iptcExt:ProductInImage"],
+      "writeMode": "Structure",
+      "structureMembers": {
+        "name": "ProductName",
+        "gtin": "ProductGTIN",
+        "id": "ProductId",
+        "identifiers": "ProductId",
+        "description": "ProductDescription"
+      }
+    },
+    {
+      "field": "PropertyReleaseId",
+      "iptcPropertyId": "propertyReleaseDocuments",
+      "profile": "Extension",
+      "fieldType": "List<String>",
+      "cardinality": "Multiple",
+      "readTags": ["XMP-plus:PropertyReleaseID"],
+      "writeTags": ["XMP-plus:PropertyReleaseID"]
+    },
+    {
+      "field": "PropertyReleaseStatus",
+      "iptcPropertyId": "propertyReleaseStatus",
+      "profile": "Extension",
+      "fieldType": "Enum",
+      "cardinality": "Single",
+      "readTags": ["XMP-plus:PropertyReleaseStatus"],
+      "writeTags": ["XMP-plus:PropertyReleaseStatus"],
+      "controlledVocabulary": "PropertyReleaseStatus"
+    },
+    {
+      "field": "LicenseUrl",
+      "iptcPropertyId": "webstatementRights",
+      "profile": "Extension",
+      "fieldType": "URI",
+      "cardinality": "Single",
+      "readTags": ["XMP-xmpRights:WebStatement"],
+      "writeTags": ["XMP-xmpRights:WebStatement"]
+    },
+    {
+      "field": "WebStatementOfRights",
+      "iptcPropertyId": "webstatementRights",
+      "profile": "Extension",
+      "fieldType": "URI",
+      "cardinality": "Single",
+      "readTags": ["XMP-xmpRights:WebStatement"],
+      "writeTags": ["XMP-xmpRights:WebStatement"]
+    }
+  ],
+  "controlledVocabularies": {
+    "DigitalSourceType": {
+      "baseUri": "http://cv.iptc.org/newscodes/digitalsourcetype/",
+      "values": [
+        { "value": "AlgorithmicallyEnhanced", "uris": ["http://cv.iptc.org/newscodes/digitalsourcetype/algorithmicallyEnhanced"] },
+        { "value": "Composite", "uris": ["http://cv.iptc.org/newscodes/digitalsourcetype/composite", "http://cv.iptc.org/newscodes/digitalsourcetype/compositeCapture", "http://cv.iptc.org/newscodes/digitalsourcetype/compositeSynthetic", "http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia"] },
+        { "value": "DigitizedFromFilm", "uris": ["http://cv.iptc.org/newscodes/digitalsourcetype/negativeFilm", "http://cv.iptc.org/newscodes/digitalsourcetype/positiveFilm"], "writeUri": null },
+        { "value": "DigitizedFromPrint", "uris": ["http://cv.iptc.org/newscodes/digitalsourcetype/print"] },
+        { "value": "OriginalDigitalCapture", "uris": ["http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture"] },
+        { "value": "PureAlgorithmicMedia", "uris": ["http://cv.iptc.org/newscodes/digitalsourcetype/algorithmicMedia"] },
+        { "value": "TrainedAlgorithmicMedia", "uris": ["http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia"] },
+        { "value": "Unknown", "uris": [], "writeUri": null }
+      ]
+    },
+    "ModelReleaseStatus": {
+      "values": [
+        { "value": "None", "uris": ["MR-NON"] },
+        { "value": "NotApplicable", "uris": ["MR-NAP"] },
+        { "value": "Unlimited", "uris": ["MR-UMR"] },
+        { "value": "Limited", "uris": ["MR-LMR"] }
+      ]
+    },
+    "PropertyReleaseStatus": {
+      "values": [
+        { "value": "None", "uris": ["PR-NON"] },
+        { "value": "NotApplicable", "uris": ["PR-NAP"] },
+        { "value": "Unlimited", "uris": ["PR-UPR"] },
+        { "value": "Limited", "uris": ["PR-LPR"] }
+      ]
+    }
+  },
+  "unmappedFields": [
+    {
+      "field": "CompositeImage",
+      "reason": "No IPTC Photo Metadata 2025.1 property has this semantic."
+    },
+    {
+      "field": "CompositeImageCount",
+      "reason": "No IPTC Photo Metadata 2025.1 property has this semantic."
+    },
+    {
+      "field": "SourceImageCount",
+      "reason": "No IPTC Photo Metadata 2025.1 property has this semantic."
+    },
+    {
+      "field": "SourceImages",
+      "reason": "No IPTC Photo Metadata 2025.1 property has this semantic."
+    }
+  ]
+}

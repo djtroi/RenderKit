@@ -148,6 +148,7 @@ function Export-Metadata {
             format = $Format
             projectRoot = $resolvedProjectRoot
             includeHistory = [bool]$IncludeHistory
+            profiles = @('IPTC')
             recordCount = $recordItems.Count
             errorCount = $errors.Count
             records = @($recordItems.ToArray())
@@ -262,10 +263,28 @@ function New-RenderKitMetadataExportRecord {
             -ChildPath ($relativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar)
     }
 
+    $iptcMap = Read-RenderKitIptcMetadataMap
+    $iptcMetadata = [ordered]@{}
+    foreach ($definition in @($iptcMap.fields)) {
+        $name = [string]$definition.field
+        $property = @(
+            $Record.metadata.PSObject.Properties |
+                Where-Object { $_.Name -ieq $name } |
+                Select-Object -First 1
+        )
+        if ($property -and
+            -not (Test-RenderKitMetadataValueIsEmpty -Value $property.Value)) {
+            $iptcMetadata[$name] = $property.Value
+        }
+    }
+
     [PSCustomObject]@{
         sourcePath = if ([string]::IsNullOrWhiteSpace($absolutePath)) { $null } else { [System.IO.Path]::GetFullPath($absolutePath) }
         relativePath = $relativePath
         recordPath = [System.IO.Path]::GetFullPath($RecordPath)
+        profiles = [PSCustomObject]@{
+            iptc = [PSCustomObject]$iptcMetadata
+        }
         record = [PSCustomObject]$output
     }
 }

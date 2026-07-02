@@ -72,6 +72,48 @@ function Get-RenderKitMetadataFieldRegistry {
         )
     }
 
+    $iptcMap = Read-RenderKitIptcMetadataMap
+    $iptcDefinitions = @{}
+    foreach ($definition in @($iptcMap.fields)) {
+        $iptcDefinitions[[string]$definition.field] = $definition
+    }
+    $iptcUnmapped = [System.Collections.Generic.HashSet[string]]::new(
+        [System.StringComparer]::OrdinalIgnoreCase
+    )
+    foreach ($definition in @($iptcMap.unmappedFields)) {
+        [void]$iptcUnmapped.Add([string]$definition.field)
+    }
+    $fields = @(
+        foreach ($definition in $fields) {
+            $copy = [ordered]@{}
+            foreach ($property in @($definition.PSObject.Properties)) {
+                $copy[[string]$property.Name] = $property.Value
+            }
+            $name = [string]$definition.name
+            if ($iptcDefinitions.ContainsKey($name)) {
+                $iptcDefinition = $iptcDefinitions[$name]
+                $copy['iptcProfile'] = if (
+                    [string]$iptcDefinition.profile -eq 'Extension'
+                ) {
+                    'Extension'
+                } else {
+                    'Core'
+                }
+                $copy['embeddedWritable'] =
+                    @($iptcDefinition.writeTags).Count -gt 0
+            }
+            elseif ($iptcUnmapped.Contains($name)) {
+                $copy['iptcProfile'] = 'Extension'
+                $copy['embeddedWritable'] = $false
+            }
+            else {
+                $copy['iptcProfile'] = $null
+                $copy['embeddedWritable'] = $null
+            }
+            [PSCustomObject]$copy
+        }
+    )
+
     if ($AsHashtable) {
         $result = [ordered]@{}
         foreach ($definition in $fields) {
