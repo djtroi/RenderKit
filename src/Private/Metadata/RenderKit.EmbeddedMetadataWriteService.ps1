@@ -70,11 +70,23 @@ function Get-RenderKitEmbeddedMetadataWriteCapability {
 
         [string]$MediaKind,
 
+        [string]$Path,
+
         [object]$Map
     )
 
     if (-not $Map) {
         $Map = Read-RenderKitEmbeddedMetadataWriteMap
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($Path)) {
+        $riffCapability =
+            Get-RenderKitRiffEmbeddedMetadataWriteCapability `
+                -Field $Field `
+                -Path $Path
+        if ($riffCapability) {
+            return $riffCapability
+        }
     }
 
     $profileTags = New-Object System.Collections.Generic.List[string]
@@ -248,6 +260,21 @@ function ConvertTo-RenderKitIptcStructureObject {
             if ($mapped) {
                 $targetName = [string]$mapped.Value
             }
+            else {
+                $knownTarget = @(
+                    $MemberMap.PSObject.Properties |
+                        Where-Object {
+                            [string]$_.Value -ieq $name
+                        } |
+                        Select-Object -First 1
+                )
+                if ($knownTarget) {
+                    $targetName = [string]$knownTarget.Value
+                }
+                else {
+                    throw "IPTC structure member '$name' is not defined by the profile."
+                }
+            }
         }
         if ($targetName -notmatch '^[A-Za-z][A-Za-z0-9]*$') {
             throw "IPTC structure member '$name' is not supported."
@@ -342,12 +369,67 @@ function Invoke-RenderKitEmbeddedMetadataWrite {
     $map = Read-RenderKitEmbeddedMetadataWriteMap
     $results = New-Object System.Collections.Generic.List[object]
 
+    $riffMetadata = [ordered]@{}
+    $riffCapabilities = @{}
+    foreach ($key in @($Metadata.Keys | Sort-Object)) {
+        $field = [string]$key
+        $capability = Get-RenderKitEmbeddedMetadataWriteCapability `
+            -Field $field `
+            -MediaKind ([string]$route.MediaKind) `
+            -Path $Path `
+            -Map $map
+        if ($capability -and
+            [string]$capability.adapter -eq 'RenderKitRiff') {
+            $riffMetadata[$field] = $Metadata[$key]
+            $riffCapabilities[$field] = $capability
+        }
+    }
+
+    if ($riffMetadata.Count -gt 0) {
+        try {
+            $riffWrite = Invoke-RenderKitRiffMetadataWrite `
+                -Path $Path `
+                -Metadata $riffMetadata
+            foreach ($field in @($riffMetadata.Keys)) {
+                $capability = $riffCapabilities[[string]$field]
+                $results.Add([PSCustomObject]@{
+                    Field = [string]$field
+                    Embedded = $true
+                    Status = 'Written'
+                    Reason = $null
+                    Adapter = 'RenderKitRiff'
+                    Tags = @($capability.tags)
+                    Backend = [string]$riffWrite.Backend
+                    BackendSource = 'BuiltIn'
+                    BackendPath = $null
+                    FallbackErrors = @()
+                    Verified = [bool]$riffWrite.Verified
+                    Chunks = @($riffWrite.Chunks)
+                })
+            }
+        }
+        catch {
+            foreach ($field in @($riffMetadata.Keys)) {
+                $capability = $riffCapabilities[[string]$field]
+                $results.Add([PSCustomObject]@{
+                    Field = [string]$field
+                    Embedded = $false
+                    Status = 'Failed'
+                    Reason = $_.Exception.Message
+                    Adapter = 'RenderKitRiff'
+                    Tags = @($capability.tags)
+                })
+            }
+        }
+    }
+
     foreach ($key in @($Metadata.Keys | Sort-Object)) {
         $field = [string]$key
         $value = $Metadata[$key]
         $capability = Get-RenderKitEmbeddedMetadataWriteCapability `
             -Field $field `
             -MediaKind ([string]$route.MediaKind) `
+            -Path $Path `
             -Map $map
         if (-not $capability) {
             $results.Add([PSCustomObject]@{
@@ -358,6 +440,9 @@ function Invoke-RenderKitEmbeddedMetadataWrite {
                 Adapter = $null
                 Tags = @()
             })
+            continue
+        }
+        if ([string]$capability.adapter -eq 'RenderKitRiff') {
             continue
         }
         if (-not [bool]$exifToolReader.Available) {

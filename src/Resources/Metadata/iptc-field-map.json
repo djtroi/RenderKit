@@ -43,7 +43,9 @@
       "iptcPropertyId": "creatorContactInfo.address",
       "fieldType": "String",
       "cardinality": "Single",
-      "readTags": ["XMP-iptcCore:CreatorAddress"],
+      "readTags": ["XMP-iptcCore:CreatorAddress", "XMP-iptcCore:CreatorContactInfo"],
+      "selector": "CiAdrExtadr",
+      "requireSingleStructure": true,
       "writeTags": ["XMP-iptcCore:CreatorAddress"]
     },
     {
@@ -51,7 +53,9 @@
       "iptcPropertyId": "creatorContactInfo.city",
       "fieldType": "String",
       "cardinality": "Single",
-      "readTags": ["XMP-iptcCore:CreatorCity"],
+      "readTags": ["XMP-iptcCore:CreatorCity", "XMP-iptcCore:CreatorContactInfo"],
+      "selector": "CiAdrCity",
+      "requireSingleStructure": true,
       "writeTags": ["XMP-iptcCore:CreatorCity"]
     },
     {
@@ -59,7 +63,9 @@
       "iptcPropertyId": "creatorContactInfo.country",
       "fieldType": "String",
       "cardinality": "Single",
-      "readTags": ["XMP-iptcCore:CreatorCountry"],
+      "readTags": ["XMP-iptcCore:CreatorCountry", "XMP-iptcCore:CreatorContactInfo"],
+      "selector": "CiAdrCtry",
+      "requireSingleStructure": true,
       "writeTags": ["XMP-iptcCore:CreatorCountry"]
     },
     {
@@ -67,7 +73,9 @@
       "iptcPropertyId": "creatorContactInfo.emailwork",
       "fieldType": "String",
       "cardinality": "Single",
-      "readTags": ["XMP-iptcCore:CreatorWorkEmail"],
+      "readTags": ["XMP-iptcCore:CreatorWorkEmail", "XMP-iptcCore:CreatorContactInfo"],
+      "selector": "CiEmailWork",
+      "requireSingleStructure": true,
       "writeTags": ["XMP-iptcCore:CreatorWorkEmail"]
     },
     {
@@ -75,7 +83,9 @@
       "iptcPropertyId": "creatorContactInfo.phonework",
       "fieldType": "String",
       "cardinality": "Single",
-      "readTags": ["XMP-iptcCore:CreatorWorkTelephone"],
+      "readTags": ["XMP-iptcCore:CreatorWorkTelephone", "XMP-iptcCore:CreatorContactInfo"],
+      "selector": "CiTelWork",
+      "requireSingleStructure": true,
       "writeTags": ["XMP-iptcCore:CreatorWorkTelephone"]
     },
     {
@@ -83,7 +93,9 @@
       "iptcPropertyId": "creatorContactInfo.postalCode",
       "fieldType": "String",
       "cardinality": "Single",
-      "readTags": ["XMP-iptcCore:CreatorPostalCode"],
+      "readTags": ["XMP-iptcCore:CreatorPostalCode", "XMP-iptcCore:CreatorContactInfo"],
+      "selector": "CiAdrPcode",
+      "requireSingleStructure": true,
       "writeTags": ["XMP-iptcCore:CreatorPostalCode"]
     },
     {
@@ -91,7 +103,9 @@
       "iptcPropertyId": "creatorContactInfo.region",
       "fieldType": "String",
       "cardinality": "Single",
-      "readTags": ["XMP-iptcCore:CreatorRegion"],
+      "readTags": ["XMP-iptcCore:CreatorRegion", "XMP-iptcCore:CreatorContactInfo"],
+      "selector": "CiAdrRegion",
+      "requireSingleStructure": true,
       "writeTags": ["XMP-iptcCore:CreatorRegion"]
     },
     {
@@ -99,7 +113,9 @@
       "iptcPropertyId": "creatorContactInfo.weburlwork",
       "fieldType": "URI",
       "cardinality": "Single",
-      "readTags": ["XMP-iptcCore:CreatorWorkURL"],
+      "readTags": ["XMP-iptcCore:CreatorWorkURL", "XMP-iptcCore:CreatorContactInfo"],
+      "selector": "CiUrlWork",
+      "requireSingleStructure": true,
       "writeTags": ["XMP-iptcCore:CreatorWorkURL"]
     },
     {

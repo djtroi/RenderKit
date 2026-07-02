@@ -1,0 +1,351 @@
+{
+  "schemaVersion": "1.0",
+  "artifactType": "Id3MetadataMap",
+  "profile": "ID3",
+  "standard": "ID3 Tagging Standard",
+  "standardVersion": "2.4.0",
+  "sourceUrl": "https://id3.org/id3v2.4.0-frames",
+  "adapterSettings": {
+    "ExifTool": {
+      "groups": ["ID3v2_4", "ID3v2_3", "ID3v2_2", "ID3v1", "Lyrics3"]
+    }
+  },
+  "writeCapability": {
+    "status": "NotImplemented",
+    "adapter": null,
+    "reason": "ExifTool reads ID3 frames but does not write them; a frame-preserving ID3 writer is required."
+  },
+  "fields": [
+    {
+      "field": "Album",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Album"] } }
+    },
+    {
+      "field": "AlbumArtist",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Band"] } },
+      "semanticNote": "TPE2/TP2 is interpreted as album artist by the de-facto application convention used by common encoders."
+    },
+    {
+      "field": "AlbumSort",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["AlbumSortOrder"] } }
+    },
+    {
+      "field": "Artist",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Artist"] } }
+    },
+    {
+      "field": "ArtistSort",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["PerformerSortOrder"] } }
+    },
+    {
+      "field": "ArtistUrl",
+      "fieldType": "URI",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["ArtistURL"] } }
+    },
+    {
+      "field": "AudioDiscNumber",
+      "fieldType": "Integer",
+      "converter": "FractionNumerator",
+      "read": { "ExifTool": { "paths": ["PartOfSet"] } }
+    },
+    {
+      "field": "AudioDiscTotal",
+      "fieldType": "Integer",
+      "converter": "FractionDenominator",
+      "read": { "ExifTool": { "paths": ["PartOfSet"] } }
+    },
+    {
+      "field": "AudioFileUrl",
+      "fieldType": "URI",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["FileURL"] } }
+    },
+    {
+      "field": "AudioTitle",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Title"] } }
+    },
+    {
+      "field": "AudioTrackNumber",
+      "fieldType": "Integer",
+      "converter": "FractionNumerator",
+      "read": { "ExifTool": { "paths": ["Track"] } }
+    },
+    {
+      "field": "AudioTrackTotal",
+      "fieldType": "Integer",
+      "converter": "FractionDenominator",
+      "read": { "ExifTool": { "paths": ["Track"] } }
+    },
+    {
+      "field": "BandOrOrchestra",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Band"] } }
+    },
+    {
+      "field": "Bpm",
+      "fieldType": "Float",
+      "converter": "Float",
+      "read": { "ExifTool": { "paths": ["BeatsPerMinute"] } }
+    },
+    {
+      "field": "Category",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["PodcastCategory"] } }
+    },
+    {
+      "field": "CommercialUrl",
+      "fieldType": "URI",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["CommercialURL"] } }
+    },
+    {
+      "field": "Composer",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Composer"] } }
+    },
+    {
+      "field": "ComposerSort",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["ComposerSortOrder"] } }
+    },
+    {
+      "field": "Conductor",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Conductor"] } }
+    },
+    {
+      "field": "ContentGroup",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Grouping"] } }
+    },
+    {
+      "field": "CopyrightNotice",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Copyright"] } }
+    },
+    {
+      "field": "CopyrightUrl",
+      "fieldType": "URI",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["CopyrightURL"] } }
+    },
+    {
+      "field": "CoverArtDescription",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["PictureDescription"] } }
+    },
+    {
+      "field": "CoverArtMimeType",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["PictureMIMEType", "PictureFormat"] } }
+    },
+    {
+      "field": "Creator",
+      "fieldType": "List<String>",
+      "converter": "ListString",
+      "read": { "ExifTool": { "paths": ["Artist"] } }
+    },
+    {
+      "field": "Description",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["PodcastDescription"] } }
+    },
+    {
+      "field": "EncodedBy",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["EncodedBy"] } }
+    },
+    {
+      "field": "EncodingDate",
+      "fieldType": "DateTime",
+      "converter": "Date",
+      "read": { "ExifTool": { "paths": ["EncodingTime"] } }
+    },
+    {
+      "field": "Genre",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Genre"] } }
+    },
+    {
+      "field": "InitialKey",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["InitialKey"] } }
+    },
+    {
+      "field": "Isrc",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["ISRC"] } }
+    },
+    {
+      "field": "Label",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Publisher"] } }
+    },
+    {
+      "field": "Language",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Language"] } }
+    },
+    {
+      "field": "Lyricist",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Lyricist"] } }
+    },
+    {
+      "field": "Lyrics",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Lyrics"] } }
+    },
+    {
+      "field": "Mood",
+      "fieldType": "List<String>",
+      "converter": "ListString",
+      "read": { "ExifTool": { "paths": ["Mood"] } }
+    },
+    {
+      "field": "MusicalKey",
+      "fieldType": "Enum",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["InitialKey"] } }
+    },
+    {
+      "field": "OriginalReleaseDate",
+      "fieldType": "DateTime",
+      "converter": "Date",
+      "read": { "ExifTool": { "paths": ["OriginalReleaseTime", "OriginalReleaseYear"] } }
+    },
+    {
+      "field": "Performer",
+      "fieldType": "List<String>",
+      "converter": "ListString",
+      "read": { "ExifTool": { "paths": ["Artist", "InterpretedBy"] } }
+    },
+    {
+      "field": "Publisher",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Publisher"] } }
+    },
+    {
+      "field": "PublisherUrl",
+      "fieldType": "URI",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["PublisherURL"] } }
+    },
+    {
+      "field": "RecordingDate",
+      "fieldType": "DateTime",
+      "converter": "Date",
+      "read": { "ExifTool": { "paths": ["RecordingTime", "RecordingDates", "Year"] } }
+    },
+    {
+      "field": "ReleaseDate",
+      "fieldType": "DateTime",
+      "converter": "Date",
+      "read": { "ExifTool": { "paths": ["ReleaseTime"] } }
+    },
+    {
+      "field": "Subtitle",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Subtitle"] } }
+    },
+    {
+      "field": "SynchronizedLyrics",
+      "fieldType": "List<Object>",
+      "converter": "ListObject",
+      "read": { "ExifTool": { "paths": ["SynchronizedLyricsText"] } }
+    },
+    {
+      "field": "Title",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Title"] } }
+    },
+    {
+      "field": "TitleSort",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["TitleSortOrder"] } }
+    },
+    {
+      "field": "UserComment",
+      "fieldType": "String",
+      "converter": "String",
+      "read": { "ExifTool": { "paths": ["Comment"] } }
+    }
+  ],
+  "unmappedFields": [
+    {
+      "field": "Arranger",
+      "reason": "Arranger is role-qualified data inside TIPL/IPLS; it must not be guessed from an unparsed people list."
+    },
+    {
+      "field": "AttachedPictures",
+      "reason": "The current ExifTool read does not extract APIC/PIC payloads into RenderKit picture objects."
+    },
+    {
+      "field": "AudioChapters",
+      "reason": "ExifTool does not expose ID3 CHAP/CTOC frames as a complete chapter graph."
+    },
+    {
+      "field": "Author",
+      "reason": "ID3 has no general author frame whose semantics match the canonical field."
+    },
+    {
+      "field": "Barcode",
+      "reason": "Barcode is commonly stored in TXXX and requires descriptor-aware parsing."
+    },
+    {
+      "field": "CatalogNumber",
+      "reason": "Catalog number is commonly stored in TXXX and requires descriptor-aware parsing."
+    },
+    {
+      "field": "Chapters",
+      "reason": "ExifTool does not expose ID3 CHAP/CTOC frames as a complete chapter graph."
+    },
+    {
+      "field": "CoverArtPath",
+      "reason": "Embedded APIC/PIC data has no filesystem path unless it is explicitly extracted."
+    },
+    {
+      "field": "LyricsLanguage",
+      "reason": "ExifTool does not expose the USLT/SYLT language as an independent unambiguous value."
+    },
+    {
+      "field": "PodcastShow",
+      "reason": "The podcast flag, feed URL and podcast ID do not identify a show title."
+    }
+  ]
+}

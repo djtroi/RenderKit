@@ -300,7 +300,20 @@ function Get-RenderKitIptcSelectedStructureValue {
         return $null
     }
 
-    if (-not [string]::IsNullOrWhiteSpace([string]$Definition.selector)) {
+    $hasStructuredValue = @(
+        $values |
+            Where-Object {
+                $_ -is [System.Collections.IDictionary] -or
+                (
+                    $null -ne $_ -and
+                    -not ($_ -is [string]) -and
+                    -not ($_ -is [System.ValueType]) -and
+                    @($_.PSObject.Properties).Count -gt 0
+                )
+            }
+    ).Count -gt 0
+    if (-not [string]::IsNullOrWhiteSpace([string]$Definition.selector) -and
+        $hasStructuredValue) {
         $selected = New-Object System.Collections.Generic.List[object]
         foreach ($item in $values) {
             $candidate = Get-RenderKitExactMetadataPropertyValue `

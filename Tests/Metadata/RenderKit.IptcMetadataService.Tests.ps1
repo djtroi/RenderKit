@@ -99,6 +99,24 @@ Describe 'RenderKit IPTC Core metadata mapping' {
         ).Count | Should -Be 1
     }
 
+    It 'reads structured IPTC Core creator contact information' {
+        $fields = InModuleScope -ModuleName RenderKit -ScriptBlock {
+            ConvertFrom-RenderKitIptcMetadata `
+                -Raw ([PSCustomObject][ordered]@{
+                    'XMP-iptcCore:CreatorContactInfo' =
+                        [PSCustomObject]@{
+                            CiAdrCity = 'Berlin'
+                            CiAdrCtry = 'Germany'
+                            CiEmailWork = 'editor@example.test'
+                        }
+                })
+        }
+
+        $fields.CreatorCity | Should -Be 'Berlin'
+        $fields.CreatorCountry | Should -Be 'Germany'
+        $fields.CreatorWorkEmail | Should -Be 'editor@example.test'
+    }
+
     It 'maps controlled vocabulary URIs and rejects ambiguous writes' {
         $result = InModuleScope -ModuleName RenderKit -ScriptBlock {
             [PSCustomObject]@{
@@ -124,6 +142,21 @@ Describe 'RenderKit IPTC Core metadata mapping' {
             'digitalsourcetype/digitalCapture'
         )
         $result.AmbiguousWrite | Should -BeNullOrEmpty
+    }
+
+    It 'rejects undefined members in structured Extension writes' {
+        InModuleScope -ModuleName RenderKit -ScriptBlock {
+            $definition = Get-RenderKitIptcMetadataFieldDefinition `
+                -Field PersonShownDetails
+            {
+                ConvertTo-RenderKitIptcStructureObject `
+                    -Value ([PSCustomObject]@{
+                        name = 'Alice'
+                        inventedRole = 'Editor'
+                    }) `
+                    -MemberMap $definition.structureMembers
+            } | Should -Throw '*inventedRole*not defined*'
+        }
     }
 
     It 'roundtrips IPTC Core scalar and list fields through the bundled runtime' {
@@ -248,6 +281,7 @@ Describe 'RenderKit IPTC Core metadata mapping' {
         $read.IsSupported | Should -BeTrue
         $read.IptcState | Should -BeIn @('Embedded', 'Conflicting')
         @($read.Fields.ArtworkOrObject).Count | Should -BeGreaterThan 0
+        $read.Fields.CreatorCity | Should -Not -BeNullOrEmpty
         @($read.Fields.PersonShownDetails).Count | Should -BeGreaterThan 0
         @($read.Fields.ProductShown).Count | Should -BeGreaterThan 0
     }

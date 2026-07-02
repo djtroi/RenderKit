@@ -4,6 +4,11 @@
 
 ### Added
 
+- Added versioned BWF, iXML, ID3, and Matroska read profiles with complete
+  registry-field coverage through explicit mappings or documented unmapped
+  decisions.
+- Added typed BEXT/iXML/ID3/Matroska normalization for dates, times, booleans,
+  track/disc pairs, 64-bit iXML timestamps, and structured track lists.
 - Added a versioned Dublin Core/XMP application profile covering all 15 DCMES
   elements as eight semantic mappings and seven explicit unmapped decisions.
 - Added Dublin Core/XMP integration slices for qualified terms, standard XMP
@@ -26,6 +31,8 @@
 
 ### Changed
 
+- ID3 adapter capabilities now report the current ExifTool-backed path as
+  read-only instead of advertising an unsupported embedded writer.
 - Embedded writes now compose compatible Dublin Core/XMP and IPTC profile tags
   without falling back to language-destructive unqualified XMP writes.
 - Dublin Core repeated values remain lists, while scalar registry fields apply
@@ -45,6 +52,8 @@
 
 - Fixed ExifTool field normalization on Windows PowerShell 5.1 by unwrapping
   the first JSON result object instead of retaining it inside a one-item array.
+- Fixed successful structured ExifTool imports being reported as failures by
+  Windows PowerShell 5.1 when ExifTool writes its status line to stderr.
 
 ## 1.0.0 - 2026-06-19
 

@@ -28,8 +28,12 @@ try {
         'RenderKit.psd1',
         'RenderKit.psm1',
         'THIRD_PARTY_NOTICES.md',
+        'src/Resources/Metadata/bwf-field-map.json',
         'src/Resources/Metadata/dublin-core-xmp-map.json',
+        'src/Resources/Metadata/id3-field-map.json',
+        'src/Resources/Metadata/ixml-field-map.json',
         'src/Resources/Metadata/iptc-field-map.json',
+        'src/Resources/Metadata/matroska-field-map.json',
         'src/Resources/ThirdParty/MediaInfo/manifest.json',
         'src/Resources/ThirdParty/ExifTool/manifest.json',
         'src/Resources/ThirdParty/ExifTool/files.sha256'

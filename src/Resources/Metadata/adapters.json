@@ -31,7 +31,7 @@
       "bundleManifest": "src/Resources/ThirdParty/ExifTool/manifest.json",
       "backendPreference": ["Cli", "Host", "SystemCli"],
       "readerAdapter": "ExifTool",
-      "standards": ["EXIF", "XMP", "IPTC", "QuickTime", "ID3"],
+      "standards": ["EXIF", "XMP", "IPTC", "QuickTime", "BWF", "iXML", "ID3", "Matroska"],
       "canRead": true,
       "canWrite": true
     },
@@ -87,7 +87,7 @@
       "readerAdapter": "ExifTool",
       "standards": ["ID3"],
       "canRead": true,
-      "canWrite": true
+      "canWrite": false
     },
     {
       "id": "Matroska",

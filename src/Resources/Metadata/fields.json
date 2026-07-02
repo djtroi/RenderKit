@@ -26424,7 +26424,7 @@
       "appliesTo": "Image",
       "sourceStandards": "IPTC Extension",
       "sourceUrls": "https://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata",
-      "acceptedInput": "0..N person objects: name, id, role, description",
+      "acceptedInput": "0..N person objects: name, id, description, characteristics",
       "validateSet": [],
       "editable": null,
       "required": null,
@@ -26447,7 +26447,7 @@
           "sourceUrls": [
             "https://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata"
           ],
-          "acceptedInput": "0..N person objects: name, id, role, description",
+          "acceptedInput": "0..N person objects: name, id, description, characteristics",
           "validateSet": [],
           "editable": null,
           "required": null,

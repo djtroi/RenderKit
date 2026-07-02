@@ -301,8 +301,7 @@ Get-Metadata `
 
 Templates and batches use the same map. `Export-Metadata` includes an explicit
 IPTC profile and `Import-Metadata` restores it without flattening repeated or
-structured values. The completed implementation boundaries are recorded in
-[`docs/iptc-integration-slices.md`](docs/iptc-integration-slices.md).
+structured values.
 
 ### Dublin Core / XMP
 
@@ -324,6 +323,19 @@ Add-Metadata -Path '.\asset.png' -Field Subject -Value @('architecture', 'design
 The wider XMP namespace, sidecar, broker/catalog, Studio, and production
 workflow boundaries are tracked in
 [`docs/dublin-core-xmp-integration-slices.md`](docs/dublin-core-xmp-integration-slices.md).
+
+### BWF, iXML, ID3 and Matroska
+
+RenderKit reads these four audio/container profiles through versioned,
+declarative maps. BEXT and iXML values come from RIFF/WAVE, ID3 tags retain
+their version-group precedence, and Matroska segment tags remain distinct from
+audio/video track metadata. Structured iXML track lists remain objects, while
+track/disc pairs and booleans are normalized to their registry types.
+
+The current adapters are deliberately read-only for profile-specific writes:
+ExifTool does not write BEXT, iXML, ID3, or Matroska metadata. Dedicated,
+container-preserving writers and the broker/Studio path are tracked in
+[`docs/audio-container-metadata-integration-slices.md`](docs/audio-container-metadata-integration-slices.md).
 
 ## Third-Party Components
 

@@ -324,6 +324,11 @@ function ConvertFrom-RenderKitMediaInfoMetadata {
             -Value (Get-RenderKitMetadataPropertyValue -Object $image -Name @('Format'))
     }
 
+    Merge-RenderKitAudioContainerMetadataProfiles `
+        -Fields $fields `
+        -Raw $Raw `
+        -Adapter MediaInfo
+
     return $fields
 }
 
@@ -475,6 +480,11 @@ function ConvertFrom-RenderKitExifToolMetadata {
     Merge-RenderKitMetadataFieldBag `
         -Target $fields `
         -Source (ConvertFrom-RenderKitDublinCoreXmpMetadata -Raw $Raw)
+
+    Merge-RenderKitAudioContainerMetadataProfiles `
+        -Fields $fields `
+        -Raw $Raw `
+        -Adapter ExifTool
 
     return $fields
 }
@@ -832,6 +842,31 @@ function Read-RenderKitFileMetadata {
             }
             catch {
                 $warnings.Add("Metadata reader '$($reader.Id)' failed: $($_.Exception.Message)")
+            }
+        }
+
+        if (Test-RenderKitRiffMetadataWritePath -Path $file.FullName) {
+            try {
+                $riffMetadata = Read-RenderKitRiffEmbeddedMetadata `
+                    -Path $file.FullName
+                Merge-RenderKitMetadataFieldBag `
+                    -Target $fields `
+                    -Source $riffMetadata.Fields `
+                    -SourceName 'EmbeddedRenderKitRiff' `
+                    -Provenance $fieldProvenance
+                foreach ($warning in @($riffMetadata.Warnings)) {
+                    $warnings.Add([string]$warning)
+                }
+                $raw['RenderKitRiff'] = [PSCustomObject]@{
+                    Container = [string]$riffMetadata.Container
+                    BwfPresent = [bool]$riffMetadata.BwfPresent
+                    IxmlPresent = [bool]$riffMetadata.IxmlPresent
+                }
+            }
+            catch {
+                $warnings.Add(
+                    "Native RIFF metadata reader failed: $($_.Exception.Message)"
+                )
             }
         }
     }

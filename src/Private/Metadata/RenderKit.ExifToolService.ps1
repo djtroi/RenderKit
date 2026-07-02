@@ -335,8 +335,19 @@ function Invoke-RenderKitExifToolCandidate {
     )
 
     $commandArguments = @($Candidate.PrefixArguments) + @($Arguments)
-    $output = & ([string]$Candidate.Path) @commandArguments 2>&1
-    $exitCode = $LASTEXITCODE
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        # Windows PowerShell 5.1 turns native stderr into ErrorRecord objects
+        # and may terminate here when the caller uses Stop. ExifTool writes
+        # successful status lines to stderr for some import operations, so its
+        # process exit code remains the authoritative success signal.
+        $ErrorActionPreference = 'Continue'
+        $output = & ([string]$Candidate.Path) @commandArguments 2>&1
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
     if ($exitCode -ne 0) {
         throw "ExifTool $($Candidate.Kind.ToLowerInvariant()) exited with code $exitCode`: $($output -join "`n")"
     }
