@@ -4,6 +4,19 @@
 
 ### Added
 
+- Added a versioned, module-owned `ClientRegistry` in `Clients.json` with
+  atomic transactions, schema validation, backup behavior, stable IDs,
+  bounded contacts/addresses/tags/notes, archive-first lifecycle, and
+  optimistic revisions.
+- Added `Get-RenderKitClient`, `New-RenderKitClient`, and
+  `Set-RenderKitClient` for global client discovery and lifecycle management.
+- Added paged client summary/detail/create/update engine operations with stable
+  validation, access-context, not-found, conflict, and storage errors. List
+  summaries intentionally omit contact details and other personal data.
+- Added focused registry, public-command, engine-operation, actor-guard, and
+  stale-revision regression coverage.
+- Added the client registry to the standard state health and optional
+  backup-restoration diagnostics.
 - Added versioned BWF, iXML, ID3, and Matroska read profiles with complete
   registry-field coverage through explicit mappings or documented unmapped
   decisions.

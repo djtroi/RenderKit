@@ -15,6 +15,20 @@
             MinimumWritable = '1.0'
             MaximumWritable = '1.0'
         }
+        ClientRegistry = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        PublishingSchedule = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
             ProjectSearchIndex = @{
             Current = '1.0'
             MinimumReadable = '1.0'
