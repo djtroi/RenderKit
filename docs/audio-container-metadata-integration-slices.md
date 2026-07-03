@@ -31,30 +31,31 @@ Status: abgeschlossen.
   TRACK-/SYNC_POINT-Objekte erhalten.
 - Atomarer Austausch, Backup/Rollback und Verify-after-write.
 
-Status: offen.
+Status: abgeschlossen.
 
 ## Slice 3: ID3-Schreibadapter
 
 - Dedizierten ID3-Writer auswählen und samt Hashes, Lizenz und Notices
   paketieren; ExifTool ist für ID3 read-only.
-- ID3v2.4 als Standard, kontrollierter ID3v2.3-Kompatibilitätsmodus und
-  explizite Behandlung bestehender ID3v1-Tags.
-- Mehrfachwerte, APIC, USLT/SYLT, CHAP/CTOC, TXXX/WXXX sowie unbekannte Frames
-  verlustfrei behandeln.
+- ID3v2.4 als Schreibstandard; bestehende ID3v2-Tags werden beim Ändern
+  kontrolliert auf v2.4 angehoben, vorhandene ID3v1-Tags nicht entfernt.
+- Mehrfachwerte, APIC, USLT/SYLT, CHAP/CTOC, TXXX, URL-Frames sowie unbekannte
+  Frames verlustfrei behandeln.
 - Padding, atomarer Austausch, Rollback und Byte-/Semantik-Verifikation.
 
-Status: offen.
+Status: abgeschlossen.
 
 ## Slice 4: Matroska-Schreibadapter
 
-- `mkvpropedit`-basierte In-place-Änderungen mit gebündeltem/systemweitem
-  Resolver, Hash-/Lizenzprüfung und klarer Nichtverfügbarkeitsmeldung.
+- `mkvpropedit`-/`mkvextract`-basierte Änderungen mit
+  gebündeltem/systemweitem Resolver, Hash-/Lizenzprüfung, korrespondierendem
+  Quellarchiv und klarer Nichtverfügbarkeitsmeldung.
 - Segment-Tags, Track-Metadaten und Edition/Chapter-Ziele getrennt adressieren.
 - Wiederholte SimpleTags als wiederholte Werte erhalten; keine
   Trennzeichen-Flattening-Heuristik.
 - Tag-vs-TrackEntry-vs-Chapter-Präzedenz testen, atomaren Rollback anbieten.
 
-Status: offen.
+Status: abgeschlossen.
 
 ## Slice 5: Broker, Katalog und Verträge
 

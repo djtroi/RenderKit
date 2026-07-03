@@ -69,7 +69,7 @@
       "readerAdapter": "MediaInfo",
       "standards": ["BWF", "BEXT"],
       "canRead": true,
-      "canWrite": false
+      "canWrite": true
     },
     {
       "id": "iXML",
@@ -78,7 +78,7 @@
       "readerAdapter": "ExifTool",
       "standards": ["iXML"],
       "canRead": true,
-      "canWrite": false
+      "canWrite": true
     },
     {
       "id": "ID3",
@@ -87,7 +87,7 @@
       "readerAdapter": "ExifTool",
       "standards": ["ID3"],
       "canRead": true,
-      "canWrite": false
+      "canWrite": true
     },
     {
       "id": "Matroska",
@@ -96,7 +96,7 @@
       "readerAdapter": "MediaInfo",
       "standards": ["Matroska"],
       "canRead": true,
-      "canWrite": false
+      "canWrite": true
     }
   ],
   "routes": [
@@ -114,8 +114,18 @@
     },
     {
       "mediaKind": "Video",
-      "extensions": [".mkv", ".webm"],
-      "mimeTypes": ["video/x-matroska", "video/webm"],
+      "extensions": [".mkv", ".mk3d", ".mks", ".webm"],
+      "mimeTypes": [
+        "video/x-matroska",
+        "application/x-matroska",
+        "video/webm"
+      ],
+      "adapters": ["MediaInfo", "Matroska", "ExifTool", "XMP"]
+    },
+    {
+      "mediaKind": "Audio",
+      "extensions": [".mka"],
+      "mimeTypes": ["audio/x-matroska"],
       "adapters": ["MediaInfo", "Matroska", "ExifTool", "XMP"]
     },
     {

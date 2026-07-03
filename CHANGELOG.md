@@ -41,11 +41,23 @@
   per-file hashes, and preserved license material.
 - Added a reproducible ExifTool asset sync script and resolver coverage for
   explicit, bundled, metadata-host, and system-CLI execution.
+- Bundled hash-verified TagLibSharp 2.3.0 assemblies and LGPL license material
+  for native ID3v2.4 reads and writes on Windows PowerShell and PowerShell 7.
+- Added atomic ID3v2.4 writes for scalar and repeated text, URL and TXXX
+  frames, APIC artwork, USLT/SYLT lyrics, and CHAP/CTOC chapters, with native
+  semantic readback and preservation tests for unrelated frames.
+- Bundled hash-verified MKVToolNix 99.0 `mkvpropedit` and `mkvextract`
+  runtimes, complete notices, and corresponding source for Windows x64, with
+  environment/system resolution on other platforms.
+- Added atomic Matroska writes for preserved global SimpleTags, first-of-type
+  audio/video track headers, stereo layout, and structured chapters, plus
+  native tag/chapter readback and provenance.
 
 ### Changed
 
-- ID3 adapter capabilities now report the current ExifTool-backed path as
-  read-only instead of advertising an unsupported embedded writer.
+- ID3 adapter capabilities now route supported audio writes through the
+  bundled TagLibSharp backend while retaining ExifTool as the broad fallback
+  reader.
 - Embedded writes now compose compatible Dublin Core/XMP and IPTC profile tags
   without falling back to language-destructive unqualified XMP writes.
 - Dublin Core repeated values remain lists, while scalar registry fields apply

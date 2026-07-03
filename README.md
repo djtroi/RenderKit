@@ -329,12 +329,15 @@ workflow boundaries are tracked in
 RenderKit reads these four audio/container profiles through versioned,
 declarative maps. BEXT and iXML values come from RIFF/WAVE, ID3 tags retain
 their version-group precedence, and Matroska segment tags remain distinct from
-audio/video track metadata. Structured iXML track lists remain objects, while
-track/disc pairs and booleans are normalized to their registry types.
+audio/video track metadata. Structured track, picture, lyric, and chapter
+values remain objects rather than flattened strings.
 
-The current adapters are deliberately read-only for profile-specific writes:
-ExifTool does not write BEXT, iXML, ID3, or Matroska metadata. Dedicated,
-container-preserving writers and the broker/Studio path are tracked in
+BWF and iXML writes use RenderKit's native RIFF/RF64 chunk writer. ID3 writes
+use the bundled, hash-verified TagLibSharp runtime and write ID3v2.4.
+Matroska writes use bundled `mkvpropedit`/`mkvextract` for preserved global
+tags, first-of-type track headers, and canonical chapter trees. Each writer
+works on an atomic same-directory copy and verifies semantic readback before
+replacement. The remaining broker/Studio work is tracked in
 [`docs/audio-container-metadata-integration-slices.md`](docs/audio-container-metadata-integration-slices.md).
 
 ## Third-Party Components
@@ -390,6 +393,11 @@ reproduce the verified payload with
 
 ExifTool is developed by Phil Harvey and distributed under the same terms as
 Perl. See <https://exiftool.org/>.
+
+TagLibSharp 2.3.0 provides ID3v2.4 frame reads and writes. MKVToolNix 99.0
+provides Matroska tag, track-header, and chapter reads and writes. Their pinned
+hashes and licenses are recorded below `src/Resources/ThirdParty/`; the
+MKVToolNix corresponding source archive is included with the module.
 
 ## Maintainer Release Workflow
 

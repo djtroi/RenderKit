@@ -467,6 +467,19 @@ function ConvertTo-RenderKitBwfLoudnessInt16 {
     return [int16]$scaled
 }
 
+function ConvertTo-RenderKitRiffComparableJson {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [AllowNull()]
+        [object]$Value
+    )
+
+    return ([PSCustomObject]@{
+        Value = $Value
+    } | ConvertTo-Json -Depth 50 -Compress)
+}
+
 function Get-RenderKitBwfMetadataAssignments {
     [CmdletBinding()]
     param(
@@ -484,9 +497,9 @@ function Get-RenderKitBwfMetadataAssignments {
             $target = [string]$definition.Target
             $value = $Metadata[$field]
             if ($assignments.Contains($target)) {
-                $existingJson = ConvertTo-RenderKitMetadataComparableJson `
+                $existingJson = ConvertTo-RenderKitRiffComparableJson `
                     -Value $assignments[$target].Value
-                $nextJson = ConvertTo-RenderKitMetadataComparableJson `
+                $nextJson = ConvertTo-RenderKitRiffComparableJson `
                     -Value $value
                 if ($existingJson -ne $nextJson) {
                     throw "BWF fields '$($assignments[$target].Field)' and '$field' target '$target' with conflicting values."
@@ -954,9 +967,9 @@ function Get-RenderKitIxmlMetadataAssignments {
             $target = [string]$definition.Target
             $value = $Metadata[$field]
             if ($assignments.Contains($target)) {
-                $existingJson = ConvertTo-RenderKitMetadataComparableJson `
+                $existingJson = ConvertTo-RenderKitRiffComparableJson `
                     -Value $assignments[$target].Value
-                $nextJson = ConvertTo-RenderKitMetadataComparableJson `
+                $nextJson = ConvertTo-RenderKitRiffComparableJson `
                     -Value $value
                 if ($existingJson -ne $nextJson) {
                     throw "iXML fields '$($assignments[$target].Field)' and '$field' target '$target' with conflicting values."

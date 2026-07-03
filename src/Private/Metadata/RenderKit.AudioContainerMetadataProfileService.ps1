@@ -472,6 +472,25 @@ function ConvertTo-RenderKitAudioContainerMetadataFieldValue {
                 -Value $Value `
                 -Converter 'ListObject'
         }
+        'StereoMode' {
+            $text = ([string]$Value).Trim().ToLowerInvariant()
+            if ($text -match 'mono|2d') {
+                return 'Mono'
+            }
+            if ($text -match 'side.by.side|left.right|right.left') {
+                return 'LeftRight'
+            }
+            if ($text -match 'top.bottom|bottom.top') {
+                return 'TopBottom'
+            }
+            if ($text -match 'anaglyph') {
+                return 'Anaglyph'
+            }
+            if ($text -match 'separate|both eyes laced') {
+                return 'SeparateStreams'
+            }
+            return 'Unknown'
+        }
         'Object' {
             return $Value
         }

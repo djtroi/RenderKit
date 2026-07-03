@@ -47,7 +47,12 @@ Describe 'RenderKit BWF, iXML, ID3 and Matroska metadata profiles' {
         foreach ($result in @($coverage)) {
             $result.ArtifactType | Should -Match 'MetadataMap$'
             $expectedStatus = if (
-                $result.Profile -in @('BWF', 'iXML')
+                $result.Profile -in @(
+                    'BWF',
+                    'iXML',
+                    'ID3',
+                    'Matroska'
+                )
             ) {
                 'Available'
             }
@@ -61,7 +66,7 @@ Describe 'RenderKit BWF, iXML, ID3 and Matroska metadata profiles' {
         }
     }
 
-    It 'does not advertise an ExifTool-backed ID3 writer' {
+    It 'advertises the native ID3 writer without routing writes to ExifTool' {
         $adapter = InModuleScope -ModuleName RenderKit -ScriptBlock {
             $routing = Read-RenderKitMetadataAdapterRouting -Reload
             $routing.adapters |
@@ -70,8 +75,21 @@ Describe 'RenderKit BWF, iXML, ID3 and Matroska metadata profiles' {
         }
 
         $adapter.canRead | Should -BeTrue
-        $adapter.canWrite | Should -BeFalse
+        $adapter.canWrite | Should -BeTrue
         $adapter.readerAdapter | Should -Be 'ExifTool'
+    }
+
+    It 'advertises target-aware Matroska writes alongside MediaInfo reads' {
+        $adapter = InModuleScope -ModuleName RenderKit -ScriptBlock {
+            $routing = Read-RenderKitMetadataAdapterRouting -Reload
+            $routing.adapters |
+                Where-Object id -eq 'Matroska' |
+                Select-Object -First 1
+        }
+
+        $adapter.canRead | Should -BeTrue
+        $adapter.canWrite | Should -BeTrue
+        $adapter.readerAdapter | Should -Be 'MediaInfo'
     }
 
     It 'normalizes BEXT values from ExifTool and keeps date and time separate' {

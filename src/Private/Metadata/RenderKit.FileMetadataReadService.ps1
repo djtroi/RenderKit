@@ -869,6 +869,58 @@ function Read-RenderKitFileMetadata {
                 )
             }
         }
+
+        if (Test-RenderKitTagLibSharpId3Path -Path $file.FullName) {
+            try {
+                $tagLibMetadata =
+                    Read-RenderKitTagLibSharpEmbeddedMetadata `
+                        -Path $file.FullName
+                Merge-RenderKitMetadataFieldBag `
+                    -Target $fields `
+                    -Source $tagLibMetadata.Fields `
+                    -SourceName 'EmbeddedTagLibSharp' `
+                    -Provenance $fieldProvenance
+                $raw['TagLibSharp'] = [PSCustomObject]@{
+                    Profile = [string]$tagLibMetadata.Profile
+                    TagPresent = [bool]$tagLibMetadata.TagPresent
+                    TagVersion = $tagLibMetadata.TagVersion
+                    Runtime = $tagLibMetadata.Runtime
+                }
+            }
+            catch {
+                $warnings.Add(
+                    "TagLibSharp metadata reader failed: $($_.Exception.Message)"
+                )
+            }
+        }
+
+        if (Test-RenderKitMkvToolNixPath -Path $file.FullName) {
+            try {
+                $mkvToolNixMetadata =
+                    Read-RenderKitMkvToolNixEmbeddedMetadata `
+                        -Path $file.FullName
+                Merge-RenderKitMetadataFieldBag `
+                    -Target $fields `
+                    -Source $mkvToolNixMetadata.Fields `
+                    -SourceName 'EmbeddedMkvToolNix' `
+                    -Provenance $fieldProvenance
+                $raw['MkvToolNix'] = [PSCustomObject]@{
+                    Profile = [string]$mkvToolNixMetadata.Profile
+                    GlobalTagCount =
+                        [int]$mkvToolNixMetadata.GlobalTagCount
+                    EditionCount =
+                        [int]$mkvToolNixMetadata.EditionCount
+                    ChapterCount =
+                        [int]$mkvToolNixMetadata.ChapterCount
+                    Runtime = $mkvToolNixMetadata.Runtime
+                }
+            }
+            catch {
+                $warnings.Add(
+                    "MKVToolNix metadata reader failed: $($_.Exception.Message)"
+                )
+            }
+        }
     }
 
     if ($Field -and $Field.Count -gt 0) {

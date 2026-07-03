@@ -87,6 +87,22 @@ function Get-RenderKitEmbeddedMetadataWriteCapability {
         if ($riffCapability) {
             return $riffCapability
         }
+
+        $mkvToolNixCapability =
+            Get-RenderKitMkvToolNixEmbeddedMetadataWriteCapability `
+                -Field $Field `
+                -Path $Path
+        if ($mkvToolNixCapability) {
+            return $mkvToolNixCapability
+        }
+
+        $tagLibCapability =
+            Get-RenderKitTagLibSharpEmbeddedMetadataWriteCapability `
+                -Field $Field `
+                -Path $Path
+        if ($tagLibCapability) {
+            return $tagLibCapability
+        }
     }
 
     $profileTags = New-Object System.Collections.Generic.List[string]
@@ -423,6 +439,122 @@ function Invoke-RenderKitEmbeddedMetadataWrite {
         }
     }
 
+    $tagLibMetadata = [ordered]@{}
+    $tagLibCapabilities = @{}
+    foreach ($key in @($Metadata.Keys | Sort-Object)) {
+        $field = [string]$key
+        $capability = Get-RenderKitEmbeddedMetadataWriteCapability `
+            -Field $field `
+            -MediaKind ([string]$route.MediaKind) `
+            -Path $Path `
+            -Map $map
+        if ($capability -and
+            [string]$capability.adapter -eq 'TagLibSharp') {
+            $tagLibMetadata[$field] = $Metadata[$key]
+            $tagLibCapabilities[$field] = $capability
+        }
+    }
+
+    if ($tagLibMetadata.Count -gt 0) {
+        try {
+            $tagLibWrite = Invoke-RenderKitTagLibSharpMetadataWrite `
+                -Path $Path `
+                -Metadata $tagLibMetadata
+            foreach ($field in @($tagLibMetadata.Keys)) {
+                $capability = $tagLibCapabilities[[string]$field]
+                $results.Add([PSCustomObject]@{
+                    Field = [string]$field
+                    Embedded = $true
+                    Status = 'Written'
+                    Reason = $null
+                    Adapter = 'TagLibSharp'
+                    Tags = @($capability.tags)
+                    Backend = [string]$tagLibWrite.Backend
+                    BackendSource = [string]$tagLibWrite.BackendSource
+                    BackendPath = [string]$tagLibWrite.BackendPath
+                    BackendVersion = [string]$tagLibWrite.BackendVersion
+                    FallbackErrors = @()
+                    Verified = [bool]$tagLibWrite.Verified
+                    TagVersion = $tagLibWrite.TagVersion
+                })
+            }
+        }
+        catch {
+            foreach ($field in @($tagLibMetadata.Keys)) {
+                $capability = $tagLibCapabilities[[string]$field]
+                $results.Add([PSCustomObject]@{
+                    Field = [string]$field
+                    Embedded = $false
+                    Status = 'Failed'
+                    Reason = $_.Exception.Message
+                    Adapter = 'TagLibSharp'
+                    Tags = @($capability.tags)
+                })
+            }
+        }
+    }
+
+    $mkvToolNixMetadata = [ordered]@{}
+    $mkvToolNixCapabilities = @{}
+    foreach ($key in @($Metadata.Keys | Sort-Object)) {
+        $field = [string]$key
+        $capability = Get-RenderKitEmbeddedMetadataWriteCapability `
+            -Field $field `
+            -MediaKind ([string]$route.MediaKind) `
+            -Path $Path `
+            -Map $map
+        if ($capability -and
+            [string]$capability.adapter -eq 'MkvToolNix') {
+            $mkvToolNixMetadata[$field] = $Metadata[$key]
+            $mkvToolNixCapabilities[$field] = $capability
+        }
+    }
+
+    if ($mkvToolNixMetadata.Count -gt 0) {
+        try {
+            $mkvToolNixWrite =
+                Invoke-RenderKitMkvToolNixMetadataWrite `
+                    -Path $Path `
+                    -Metadata $mkvToolNixMetadata
+            foreach ($field in @($mkvToolNixMetadata.Keys)) {
+                $capability =
+                    $mkvToolNixCapabilities[[string]$field]
+                $results.Add([PSCustomObject]@{
+                    Field = [string]$field
+                    Embedded = $true
+                    Status = 'Written'
+                    Reason = $null
+                    Adapter = 'MkvToolNix'
+                    Tags = @($capability.tags)
+                    Backend = [string]$mkvToolNixWrite.Backend
+                    BackendSource =
+                        [string]$mkvToolNixWrite.BackendSource
+                    BackendPath =
+                        [string]$mkvToolNixWrite.BackendPath
+                    BackendVersion =
+                        [string]$mkvToolNixWrite.BackendVersion
+                    FallbackErrors = @()
+                    Verified = [bool]$mkvToolNixWrite.Verified
+                    ChapterCount = $mkvToolNixWrite.ChapterCount
+                })
+            }
+        }
+        catch {
+            foreach ($field in @($mkvToolNixMetadata.Keys)) {
+                $capability =
+                    $mkvToolNixCapabilities[[string]$field]
+                $results.Add([PSCustomObject]@{
+                    Field = [string]$field
+                    Embedded = $false
+                    Status = 'Failed'
+                    Reason = $_.Exception.Message
+                    Adapter = 'MkvToolNix'
+                    Tags = @($capability.tags)
+                })
+            }
+        }
+    }
+
     foreach ($key in @($Metadata.Keys | Sort-Object)) {
         $field = [string]$key
         $value = $Metadata[$key]
@@ -442,7 +574,11 @@ function Invoke-RenderKitEmbeddedMetadataWrite {
             })
             continue
         }
-        if ([string]$capability.adapter -eq 'RenderKitRiff') {
+        if ([string]$capability.adapter -in @(
+                'RenderKitRiff',
+                'TagLibSharp',
+                'MkvToolNix'
+            )) {
             continue
         }
         if (-not [bool]$exifToolReader.Available) {

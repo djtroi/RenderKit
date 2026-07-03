@@ -79,3 +79,35 @@ Source archive URLs, upstream SHA-256 values, runtime selection, and the
 per-file payload hash manifest are recorded in
 `src/Resources/ThirdParty/ExifTool/manifest.json` and
 `src/Resources/ThirdParty/ExifTool/files.sha256`.
+
+## TagLibSharp
+
+RenderKit uses and redistributes TagLibSharp 2.3.0 for ID3 metadata reads and
+writes.
+
+- Project: https://github.com/mono/taglib-sharp
+- NuGet package: https://www.nuget.org/packages/TagLibSharp/2.3.0
+- License: GNU Lesser General Public License 2.1
+
+The unmodified framework-specific assemblies are loaded dynamically. The
+complete LGPL 2.1 license text is included at
+`src/Resources/ThirdParty/TagLibSharp/licenses/COPYING`. Exact package,
+assembly, source-revision, and license hashes are recorded in
+`src/Resources/ThirdParty/TagLibSharp/manifest.json`.
+
+## MKVToolNix
+
+RenderKit redistributes the `mkvpropedit` and `mkvextract` command-line tools
+from MKVToolNix 99.0 for Matroska tag, track-header, and chapter metadata.
+
+- Project: https://mkvtoolnix.download/
+- Source: https://mkvtoolnix.download/sources/mkvtoolnix-99.0.tar.xz
+- Copyright: Moritz Bunkus and the MKVToolNix contributors
+- License: GNU General Public License, version 2
+
+The complete corresponding source archive is included at
+`src/Resources/ThirdParty/MKVToolNix/source/mkvtoolnix-99.0.tar.xz`.
+The GPL text, upstream README, and third-party dependency notices are included
+under `src/Resources/ThirdParty/MKVToolNix/licenses/`. Exact archive, source,
+command, and license hashes are recorded in
+`src/Resources/ThirdParty/MKVToolNix/manifest.json`.
