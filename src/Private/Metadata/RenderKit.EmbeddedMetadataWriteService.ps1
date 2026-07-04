@@ -377,7 +377,9 @@ function Invoke-RenderKitEmbeddedMetadataWrite {
         [string]$Path,
 
         [Parameter(Mandatory)]
-        [System.Collections.IDictionary]$Metadata
+        [System.Collections.IDictionary]$Metadata,
+
+        [switch]$PreferXmpSidecar
     )
 
     $route = Resolve-RenderKitMetadataAdapterRoute -Path $Path
@@ -385,10 +387,81 @@ function Invoke-RenderKitEmbeddedMetadataWrite {
     $map = Read-RenderKitEmbeddedMetadataWriteMap
     $results = New-Object System.Collections.Generic.List[object]
 
+    $xmpSidecarSelection = Resolve-RenderKitXmpSidecar -Path $Path
+    $useXmpSidecar = [bool]$PreferXmpSidecar -or
+        [bool]$xmpSidecarSelection.Exists
+    $xmpSidecarMetadata = [ordered]@{}
+    $xmpSidecarDefinitions = @{}
+    $xmpSidecarFieldSet =
+        [System.Collections.Generic.HashSet[string]]::new(
+            [System.StringComparer]::OrdinalIgnoreCase
+        )
+    if ($useXmpSidecar) {
+        foreach ($key in @($Metadata.Keys | Sort-Object)) {
+            $field = [string]$key
+            $definition =
+                Get-RenderKitDublinCoreXmpFieldDefinition `
+                    -Field $field
+            if (-not $definition -or
+                @($definition.writeTags).Count -eq 0) {
+                continue
+            }
+            $xmpSidecarMetadata[$field] = $Metadata[$key]
+            $xmpSidecarDefinitions[$field] = $definition
+            [void]$xmpSidecarFieldSet.Add($field)
+        }
+    }
+
+    if ($xmpSidecarMetadata.Count -gt 0) {
+        try {
+            $sidecarWrite = Invoke-RenderKitXmpSidecarMetadataWrite `
+                -Path $Path `
+                -Metadata $xmpSidecarMetadata
+            foreach ($field in @($xmpSidecarMetadata.Keys)) {
+                $definition =
+                    $xmpSidecarDefinitions[[string]$field]
+                $results.Add([PSCustomObject]@{
+                    Field = [string]$field
+                    Embedded = $false
+                    Sidecar = $true
+                    Status = 'Written'
+                    Reason = $null
+                    Adapter = 'ExifToolXmpSidecar'
+                    Tags = @($definition.writeTags)
+                    Backend = [string]$sidecarWrite.Backend
+                    BackendSource =
+                        [string]$sidecarWrite.BackendSource
+                    BackendPath = [string]$sidecarWrite.BackendPath
+                    FallbackErrors = @()
+                    Verified = [bool]$sidecarWrite.Verified
+                    SidecarDescriptor = $sidecarWrite.Sidecar
+                })
+            }
+        }
+        catch {
+            foreach ($field in @($xmpSidecarMetadata.Keys)) {
+                $definition =
+                    $xmpSidecarDefinitions[[string]$field]
+                $results.Add([PSCustomObject]@{
+                    Field = [string]$field
+                    Embedded = $false
+                    Sidecar = $true
+                    Status = 'Failed'
+                    Reason = $_.Exception.Message
+                    Adapter = 'ExifToolXmpSidecar'
+                    Tags = @($definition.writeTags)
+                })
+            }
+        }
+    }
+
     $riffMetadata = [ordered]@{}
     $riffCapabilities = @{}
     foreach ($key in @($Metadata.Keys | Sort-Object)) {
         $field = [string]$key
+        if ($xmpSidecarFieldSet.Contains($field)) {
+            continue
+        }
         $capability = Get-RenderKitEmbeddedMetadataWriteCapability `
             -Field $field `
             -MediaKind ([string]$route.MediaKind) `
@@ -443,6 +516,9 @@ function Invoke-RenderKitEmbeddedMetadataWrite {
     $tagLibCapabilities = @{}
     foreach ($key in @($Metadata.Keys | Sort-Object)) {
         $field = [string]$key
+        if ($xmpSidecarFieldSet.Contains($field)) {
+            continue
+        }
         $capability = Get-RenderKitEmbeddedMetadataWriteCapability `
             -Field $field `
             -MediaKind ([string]$route.MediaKind) `
@@ -498,6 +574,9 @@ function Invoke-RenderKitEmbeddedMetadataWrite {
     $mkvToolNixCapabilities = @{}
     foreach ($key in @($Metadata.Keys | Sort-Object)) {
         $field = [string]$key
+        if ($xmpSidecarFieldSet.Contains($field)) {
+            continue
+        }
         $capability = Get-RenderKitEmbeddedMetadataWriteCapability `
             -Field $field `
             -MediaKind ([string]$route.MediaKind) `
@@ -557,6 +636,9 @@ function Invoke-RenderKitEmbeddedMetadataWrite {
 
     foreach ($key in @($Metadata.Keys | Sort-Object)) {
         $field = [string]$key
+        if ($xmpSidecarFieldSet.Contains($field)) {
+            continue
+        }
         $value = $Metadata[$key]
         $capability = Get-RenderKitEmbeddedMetadataWriteCapability `
             -Field $field `

@@ -5,10 +5,10 @@ function Import-Metadata {
 Imports versioned RenderKit metadata exports.
 
 .DESCRIPTION
-Imports the IPTC profile from a RenderKit MetadataExport. File paths are
-resolved from project-relative paths when -ProjectRoot is supplied. Structured
-IPTC values remain structured and are embedded through the normal ExifTool
-writer unless -NoEmbedded is used.
+Imports IPTC, Dublin Core, and standard XMP profiles from a RenderKit
+MetadataExport. File paths are resolved from project-relative paths when
+-ProjectRoot is supplied. Structured values remain structured and use the
+normal embedded or explicit XMP-sidecar writer unless -NoEmbedded is used.
 #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -21,6 +21,8 @@ writer unless -NoEmbedded is used.
         [string]$ConflictAction = 'Merge',
 
         [switch]$NoEmbedded,
+
+        [switch]$XmpSidecar,
 
         [switch]$Force
     )
@@ -49,11 +51,18 @@ writer unless -NoEmbedded is used.
         (Resolve-Path -LiteralPath $ProjectRoot -ErrorAction Stop).ProviderPath
     }
     $iptcMap = Read-RenderKitIptcMetadataMap
-    $iptcFields = [System.Collections.Generic.HashSet[string]]::new(
+    $profileFields = [System.Collections.Generic.HashSet[string]]::new(
         [System.StringComparer]::OrdinalIgnoreCase
     )
     foreach ($definition in @($iptcMap.fields)) {
-        [void]$iptcFields.Add([string]$definition.field)
+        [void]$profileFields.Add([string]$definition.field)
+    }
+    $dublinCoreMap = Read-RenderKitDublinCoreXmpMap
+    foreach ($definition in @(
+        Get-RenderKitDublinCoreXmpFieldDefinitions `
+            -Map $dublinCoreMap
+    )) {
+        [void]$profileFields.Add([string]$definition.field)
     }
 
     $entries = New-Object System.Collections.Generic.List[object]
@@ -94,28 +103,48 @@ writer unless -NoEmbedded is used.
                 throw "Metadata import target '$targetPath' was not found."
             }
 
-            $metadataSource = if (
-                $item.profiles -and $item.profiles.iptc
-            ) {
-                $item.profiles.iptc
-            }
-            else {
-                $item.record.metadata
-            }
             $metadata = [ordered]@{}
-            foreach ($property in @($metadataSource.PSObject.Properties)) {
-                if (-not $iptcFields.Contains([string]$property.Name)) {
-                    continue
+            $metadataSources = New-Object `
+                System.Collections.Generic.List[object]
+            if ($item.profiles) {
+                foreach ($profileName in @(
+                    'iptc',
+                    'dublinCoreXmp',
+                    'xmp'
+                )) {
+                    $profile = @(
+                        $item.profiles.PSObject.Properties |
+                            Where-Object {
+                                [string]$_.Name -ieq $profileName
+                            } |
+                            Select-Object -First 1
+                    )
+                    if ($profile -and $profile[0].Value) {
+                        $metadataSources.Add($profile[0].Value)
+                    }
                 }
-                Assert-RenderKitMetadataFieldWrite `
-                    -Field ([string]$property.Name) `
-                    -Value $property.Value `
-                    -Force:$Force |
-                    Out-Null
-                Set-RenderKitMetadataFieldValue `
-                    -Fields $metadata `
-                    -Name ([string]$property.Name) `
-                    -Value $property.Value
+            }
+            if ($metadataSources.Count -eq 0) {
+                $metadataSources.Add($item.record.metadata)
+            }
+            foreach ($metadataSource in $metadataSources) {
+                foreach ($property in @(
+                    $metadataSource.PSObject.Properties
+                )) {
+                    if (-not $profileFields.Contains(
+                            [string]$property.Name)) {
+                        continue
+                    }
+                    Assert-RenderKitMetadataFieldWrite `
+                        -Field ([string]$property.Name) `
+                        -Value $property.Value `
+                        -Force:$Force |
+                        Out-Null
+                    Set-RenderKitMetadataFieldValue `
+                        -Fields $metadata `
+                        -Name ([string]$property.Name) `
+                        -Value $property.Value
+                }
             }
 
             if ($metadata.Count -eq 0) {
@@ -123,7 +152,7 @@ writer unless -NoEmbedded is used.
                 $entries.Add([PSCustomObject]@{
                     Path = $targetPath
                     Status = 'Skipped'
-                    Reason = 'NoIptcMetadata'
+                    Reason = 'NoProfileMetadata'
                     Changes = @()
                     Embedded = @()
                 })
@@ -147,7 +176,7 @@ writer unless -NoEmbedded is used.
             }
             if (-not $PSCmdlet.ShouldProcess(
                     $targetPath,
-                    "Import IPTC metadata"
+                    "Import metadata profiles"
                 )) {
                 continue
             }
@@ -167,7 +196,8 @@ writer unless -NoEmbedded is used.
             $embedded = if (-not $NoEmbedded -and $changed.Count -gt 0) {
                 @(Invoke-RenderKitEmbeddedMetadataWrite `
                     -Path $targetPath `
-                    -Metadata $changed)
+                    -Metadata $changed `
+                    -PreferXmpSidecar:$XmpSidecar)
             }
             else {
                 @()
@@ -199,6 +229,11 @@ writer unless -NoEmbedded is used.
         Path = $resolvedExportPath
         ProjectRoot = $resolvedProjectRoot
         Profile = 'IPTC'
+        Profiles = @(
+            'IPTC',
+            'DublinCoreXmp',
+            'XMP'
+        )
         ConflictAction = $ConflictAction
         Total = @($export.records).Count
         Succeeded = $succeeded

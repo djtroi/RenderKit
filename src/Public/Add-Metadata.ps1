@@ -25,6 +25,8 @@ value into the file through the configured adapter.
 
         [switch]$NoEmbedded,
 
+        [switch]$XmpSidecar,
+
         [switch]$Force
     )
 
@@ -76,7 +78,8 @@ value into the file through the configured adapter.
         if (-not $NoEmbedded -and $changedMetadata.Count -gt 0) {
             $embeddedResults = @(Invoke-RenderKitEmbeddedMetadataWrite `
                 -Path $resolvedPath `
-                -Metadata $changedMetadata)
+                -Metadata $changedMetadata `
+                -PreferXmpSidecar:$XmpSidecar)
         }
 
         return [PSCustomObject]@{

@@ -25,6 +25,8 @@ function Test-RenderKitDublinCoreXmpMapSchema {
         [string]$Map.standardVersion -ne '1.1' -or
         [string]::IsNullOrWhiteSpace([string]$Map.schemaVersion) -or
         -not $Map.fields -or
+        -not $Map.xmpProfiles -or
+        -not $Map.qualifiedTerms -or
         -not $Map.unmappedElements) {
         return $false
     }
@@ -54,6 +56,48 @@ function Test-RenderKitDublinCoreXmpMapSchema {
         if ([string]::IsNullOrWhiteSpace([string]$definition.dcElement) -or
             [string]::IsNullOrWhiteSpace([string]$definition.reason) -or
             -not $dcElements.Add([string]$definition.dcElement)) {
+            return $false
+        }
+    }
+
+    foreach ($profile in @($Map.xmpProfiles)) {
+        if ([string]::IsNullOrWhiteSpace([string]$profile.profile) -or
+            [string]::IsNullOrWhiteSpace([string]$profile.namespace) -or
+            [string]::IsNullOrWhiteSpace(
+                [string]$profile.namespaceUri
+            ) -or
+            $null -eq $profile.fields -or
+            $null -eq $profile.unmappedProperties) {
+            return $false
+        }
+        foreach ($definition in @($profile.fields)) {
+            if ([string]::IsNullOrWhiteSpace(
+                    [string]$definition.field) -or
+                [string]::IsNullOrWhiteSpace(
+                    [string]$definition.property) -or
+                [string]::IsNullOrWhiteSpace(
+                    [string]$definition.readStrategy) -or
+                -not $definition.readTags -or
+                -not $definition.writeTags -or
+                -not $fieldNames.Add([string]$definition.field)) {
+                return $false
+            }
+        }
+        foreach ($unmapped in @($profile.unmappedProperties)) {
+            if ([string]::IsNullOrWhiteSpace(
+                    [string]$unmapped.property) -or
+                [string]::IsNullOrWhiteSpace(
+                    [string]$unmapped.reason)) {
+                return $false
+            }
+        }
+    }
+    foreach ($term in @($Map.qualifiedTerms)) {
+        if ([string]::IsNullOrWhiteSpace([string]$term.term) -or
+            [string]::IsNullOrWhiteSpace(
+                [string]$term.namespaceUri) -or
+            [string]::IsNullOrWhiteSpace([string]$term.status) -or
+            [string]::IsNullOrWhiteSpace([string]$term.reason)) {
             return $false
         }
     }
@@ -104,9 +148,31 @@ function Get-RenderKitDublinCoreXmpFieldDefinition {
     }
 
     return @(
-        $Map.fields |
+        @($Map.fields) +
+            @(
+                $Map.xmpProfiles |
+                    ForEach-Object { @($_.fields) }
+            ) |
             Where-Object { [string]$_.field -ieq $Field } |
             Select-Object -First 1
+    )
+}
+
+function Get-RenderKitDublinCoreXmpFieldDefinitions {
+    [CmdletBinding()]
+    param(
+        [object]$Map
+    )
+
+    if (-not $Map) {
+        $Map = Read-RenderKitDublinCoreXmpMap
+    }
+    return @(
+        @($Map.fields) +
+            @(
+                $Map.xmpProfiles |
+                    ForEach-Object { @($_.fields) }
+            )
     )
 }
 
@@ -143,6 +209,9 @@ function ConvertTo-RenderKitDublinCoreXmpFieldValue {
     if ([string]$Definition.readStrategy -eq 'All') {
         return ,([string[]]$values.ToArray())
     }
+    if ([string]$Definition.fieldType -eq 'Integer') {
+        return ConvertTo-RenderKitMetadataInt64 -Value $values[0]
+    }
 
     return [string]$values[0]
 }
@@ -164,7 +233,9 @@ function ConvertFrom-RenderKitDublinCoreXmpMetadata {
         $Map = Read-RenderKitDublinCoreXmpMap
     }
 
-    foreach ($definition in @($Map.fields)) {
+    foreach ($definition in @(
+        Get-RenderKitDublinCoreXmpFieldDefinitions -Map $Map
+    )) {
         $rawValue = Get-RenderKitExactMetadataPropertyValue `
             -Object $Raw `
             -Name @($definition.readTags | ForEach-Object { [string]$_ })

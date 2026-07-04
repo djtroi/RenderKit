@@ -763,6 +763,12 @@ function Read-RenderKitFileMetadata {
     $iptcReadAttempted = $false
     $iptcReadSucceeded = $false
     $iptcFieldCount = 0
+    $iptcConflictCount = 0
+    $embeddedXmpFields = [ordered]@{}
+    $xmpReadAttempted = $false
+    $xmpReadSucceeded = $false
+    $xmpSidecarRead = $null
+    $xmpConflictCount = 0
 
     Merge-RenderKitMetadataFieldBag `
         -Target $fields `
@@ -800,11 +806,16 @@ function Read-RenderKitFileMetadata {
                     }
                     'ExifTool' {
                         $iptcReadAttempted = $true
+                        $xmpReadAttempted = $true
                         $exifToolRead = Invoke-RenderKitExifToolMetadataRead `
                             -Path $file.FullName `
                             -Reader $reader `
                             -CommandPath ([string]$reader.CommandPath)
                         $readerRaw = $exifToolRead.Raw
+                        $xmpReadSucceeded = $true
+                        $embeddedXmpFields =
+                            Get-RenderKitXmpSidecarProfileFields `
+                                -Raw $readerRaw
                         $raw['ExifTool'] = $readerRaw
                         $raw['ExifToolBackend'] = [PSCustomObject]@{
                             Backend = [string]$exifToolRead.Backend
@@ -825,6 +836,7 @@ function Read-RenderKitFileMetadata {
                             -Raw $readerRaw
                         $iptcReadSucceeded = $true
                         $iptcFieldCount = @($iptc.Fields.Keys).Count
+                        $iptcConflictCount = @($iptc.Conflicts).Count
                         foreach ($property in @(
                             $iptc.Provenance.GetEnumerator()
                         )) {
@@ -921,6 +933,47 @@ function Read-RenderKitFileMetadata {
                 )
             }
         }
+
+        if ([string]$file.Extension -ine '.xmp') {
+            try {
+                $xmpSidecarRead =
+                    Read-RenderKitXmpSidecarMetadata `
+                        -Path $file.FullName
+                $conflictsBeforeSidecar = $conflicts.Count
+                Merge-RenderKitXmpSidecarFields `
+                    -Fields $fields `
+                    -EmbeddedFields $embeddedXmpFields `
+                    -Provenance $fieldProvenance `
+                    -Conflicts $conflicts `
+                    -SidecarRead $xmpSidecarRead
+                $xmpConflictCount =
+                    $conflicts.Count - $conflictsBeforeSidecar
+                if ($xmpSidecarRead.Raw) {
+                    $raw['XmpSidecar'] = @($xmpSidecarRead.Raw)
+                }
+                if ([string]$xmpSidecarRead.State -eq 'Invalid') {
+                    $warnings.Add(
+                        'One or more adjacent XMP sidecars are invalid.'
+                    )
+                }
+                elseif (
+                    [string]$xmpSidecarRead.State -eq 'Unavailable'
+                ) {
+                    $warnings.Add(
+                        'Adjacent XMP sidecars could not be read because ExifTool is unavailable.'
+                    )
+                }
+            }
+            catch {
+                $warnings.Add(
+                    "XMP sidecar metadata reader failed: $($_.Exception.Message)"
+                )
+                $xmpSidecarRead = [PSCustomObject]@{
+                    State = 'Invalid'
+                    Sidecars = @()
+                }
+            }
+        }
     }
 
     if ($Field -and $Field.Count -gt 0) {
@@ -961,7 +1014,7 @@ function Read-RenderKitFileMetadata {
     elseif (-not $iptcReadAttempted -or -not $iptcReadSucceeded) {
         'Unavailable'
     }
-    elseif ($conflicts.Count -gt 0) {
+    elseif ($iptcConflictCount -gt 0) {
         'Conflicting'
     }
     elseif ($iptcFieldCount -eq 0) {
@@ -969,6 +1022,37 @@ function Read-RenderKitFileMetadata {
     }
     else {
         'Embedded'
+    }
+
+    $xmpState = if ($NoExternalAdapters) {
+        'Unavailable'
+    }
+    elseif ($xmpSidecarRead -and
+        [string]$xmpSidecarRead.State -eq 'Invalid') {
+        'Invalid'
+    }
+    elseif ($xmpSidecarRead -and
+        [string]$xmpSidecarRead.State -eq 'Unavailable') {
+        'Unavailable'
+    }
+    elseif ($xmpConflictCount -gt 0 -or
+        ($xmpSidecarRead -and
+            [string]$xmpSidecarRead.State -eq 'Conflicting')) {
+        'Conflicting'
+    }
+    elseif ($xmpSidecarRead -and
+        [string]$xmpSidecarRead.State -eq 'Sidecar') {
+        'Sidecar'
+    }
+    elseif ($xmpReadAttempted -and $xmpReadSucceeded -and
+        $embeddedXmpFields.Count -gt 0) {
+        'Embedded'
+    }
+    elseif ($xmpReadAttempted -and $xmpReadSucceeded) {
+        'Absent'
+    }
+    else {
+        'Unavailable'
     }
 
     return [PSCustomObject]@{
@@ -985,6 +1069,13 @@ function Read-RenderKitFileMetadata {
         FieldProvenance = [PSCustomObject]$fieldProvenance
         Conflicts = @($conflicts.ToArray())
         IptcState = $iptcState
+        XmpState = $xmpState
+        XmpSidecars = if ($xmpSidecarRead) {
+            @($xmpSidecarRead.Sidecars)
+        }
+        else {
+            @()
+        }
         Warnings = @($warnings.ToArray())
         Raw = if ($IncludeRaw) { [PSCustomObject]$raw } else { $null }
     }

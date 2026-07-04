@@ -315,6 +315,22 @@ function New-RenderKitFileMetadataRecord {
             } else {
                 $null
             }
+            xmpState = if (
+                $MetadataResult.PSObject.Properties.Name -contains
+                    'XmpState'
+            ) {
+                [string]$MetadataResult.XmpState
+            } else {
+                $null
+            }
+            xmpSidecars = if (
+                $MetadataResult.PSObject.Properties.Name -contains
+                    'XmpSidecars'
+            ) {
+                @($MetadataResult.XmpSidecars)
+            } else {
+                @()
+            }
         }
         history = @($history)
     }

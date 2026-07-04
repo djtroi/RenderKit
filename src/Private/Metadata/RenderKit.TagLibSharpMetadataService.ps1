@@ -169,6 +169,56 @@ function Test-RenderKitTagLibSharpId3Path {
         [System.IO.Path]::GetExtension($Path).ToLowerInvariant()
 }
 
+function Get-RenderKitTagLibFrames {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Tag,
+
+        [Parameter(Mandatory)]
+        [type]$FrameType
+    )
+
+    $method = @(
+        $Tag.GetType().GetMethods() |
+            Where-Object {
+                $_.Name -eq 'GetFrames' -and
+                $_.IsGenericMethodDefinition -and
+                $_.GetGenericArguments().Count -eq 1 -and
+                $_.GetParameters().Count -eq 0
+            } |
+            Select-Object -First 1
+    )
+    if (-not $method) {
+        throw 'The loaded TagLibSharp runtime has no compatible GetFrames method.'
+    }
+    $genericMethod = $method[0].MakeGenericMethod(
+        [type[]]@($FrameType)
+    )
+    return @($genericMethod.Invoke($Tag, @()))
+}
+
+function ConvertTo-RenderKitSha256Hex {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [byte[]]$Bytes
+    )
+
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = $sha256.ComputeHash($Bytes)
+        return -join @(
+            $hash |
+                ForEach-Object { $_.ToString('X2') }
+        )
+    }
+    finally {
+        $sha256.Dispose()
+    }
+}
+
 function Get-RenderKitTagLibSharpMetadataWriteDefinitions {
     [CmdletBinding()]
     param(
@@ -623,9 +673,9 @@ function Set-RenderKitId3Lyrics {
     }
 
     $frames = @(
-        $Tag.GetFrames[
-            TagLib.Id3v2.UnsynchronisedLyricsFrame
-        ]()
+        Get-RenderKitTagLibFrames `
+            -Tag $Tag `
+            -FrameType ([TagLib.Id3v2.UnsynchronisedLyricsFrame])
     )
     $existing = @($frames | Select-Object -First 1)
     $language = ConvertTo-RenderKitId3Language `
@@ -1526,9 +1576,9 @@ function Read-RenderKitId3TagFields {
     }
 
     $lyrics = @(
-        $Tag.GetFrames[
-            TagLib.Id3v2.UnsynchronisedLyricsFrame
-        ]()
+        Get-RenderKitTagLibFrames `
+            -Tag $Tag `
+            -FrameType ([TagLib.Id3v2.UnsynchronisedLyricsFrame])
     )
     if ($lyrics.Count -gt 0) {
         Set-RenderKitMetadataFieldValue `
@@ -1542,9 +1592,9 @@ function Read-RenderKitId3TagFields {
     }
 
     $synchronized = @(
-        $Tag.GetFrames[
-            TagLib.Id3v2.SynchronisedLyricsFrame
-        ]()
+        Get-RenderKitTagLibFrames `
+            -Tag $Tag `
+            -FrameType ([TagLib.Id3v2.SynchronisedLyricsFrame])
     )
     if ($synchronized.Count -gt 0) {
         $lines = @(
@@ -1577,11 +1627,8 @@ function Read-RenderKitId3TagFields {
                     Type = [string]$_.Type
                     Description = [string]$_.Description
                     SizeBytes = [int64]$_.Data.Count
-                    Sha256 = [Convert]::ToHexString(
-                        [Security.Cryptography.SHA256]::HashData(
-                            [byte[]]$_.Data.Data
-                        )
-                    )
+                    Sha256 = ConvertTo-RenderKitSha256Hex `
+                        -Bytes ([byte[]]$_.Data.Data)
                 }
             }
     )
@@ -1608,9 +1655,9 @@ function Read-RenderKitId3TagFields {
     }
 
     $chapters = @(
-        $Tag.GetFrames[
-            TagLib.Id3v2.ChapterFrame
-        ]() |
+        Get-RenderKitTagLibFrames `
+            -Tag $Tag `
+            -FrameType ([TagLib.Id3v2.ChapterFrame]) |
             Sort-Object StartMilliseconds |
             ForEach-Object {
                 $titleFrame = @(

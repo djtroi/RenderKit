@@ -17,8 +17,20 @@ Describe 'RenderKit Dublin Core XMP metadata mapping' {
                 MappedCount = @($map.fields).Count
                 UnmappedCount = @($map.unmappedElements).Count
                 TotalCount = @($map.fields).Count + @($map.unmappedElements).Count
+                MappedProfileCount = @(
+                    Get-RenderKitDublinCoreXmpFieldDefinitions -Map $map
+                ).Count
+                ProfileNames = @(
+                    $map.xmpProfiles |
+                        ForEach-Object { [string]$_.profile }
+                )
+                MediaManagementMappedCount = @(
+                    $map.xmpProfiles |
+                        Where-Object profile -eq 'XMP Media Management' |
+                        ForEach-Object { @($_.fields) }
+                ).Count
                 MissingFields = @(
-                    $map.fields |
+                    Get-RenderKitDublinCoreXmpFieldDefinitions -Map $map |
                         Where-Object { $registryFields -notcontains [string]$_.field } |
                         ForEach-Object { [string]$_.field }
                 )
@@ -30,6 +42,12 @@ Describe 'RenderKit Dublin Core XMP metadata mapping' {
         $result.MappedCount | Should -Be 8
         $result.UnmappedCount | Should -Be 7
         $result.TotalCount | Should -Be 15
+        $result.MappedProfileCount | Should -Be 15
+        $result.ProfileNames | Should -Contain 'XMP Basic'
+        $result.ProfileNames | Should -Contain 'XMP Rights Management'
+        $result.ProfileNames | Should -Contain 'Creative Commons XMP'
+        $result.ProfileNames | Should -Contain 'XMP Media Management'
+        $result.MediaManagementMappedCount | Should -Be 0
         $result.MissingFields | Should -BeNullOrEmpty
     }
 
@@ -39,6 +57,8 @@ Describe 'RenderKit Dublin Core XMP metadata mapping' {
                 'XMP-dc:Contributor' = @('Editor One', 'Editor Two')
                 'XMP-dc:Publisher' = @('Primary Publisher', 'Secondary Publisher')
                 'XMP-dc:Subject' = @('architecture', 'design')
+                'XMP-xmp:Rating' = '4'
+                'XMP-cc:License' = 'https://creativecommons.org/licenses/by/4.0/'
             }
 
             ConvertFrom-RenderKitDublinCoreXmpMetadata -Raw $raw
@@ -48,6 +68,10 @@ Describe 'RenderKit Dublin Core XMP metadata mapping' {
         @($fields.Contributor) | Should -Contain 'Editor Two'
         $fields.Publisher | Should -Be 'Primary Publisher'
         @($fields.Subject).Count | Should -Be 2
+        $fields.Rating | Should -Be 4
+        $fields.Rating | Should -BeOfType ([long])
+        $fields.LicenseUrl |
+            Should -Be 'https://creativecommons.org/licenses/by/4.0/'
     }
 
     It 'keeps semantically ambiguous Dublin Core source unmapped' {
@@ -99,7 +123,11 @@ Describe 'RenderKit Dublin Core XMP metadata mapping' {
                     -Path $Path `
                     -Metadata ([ordered]@{
                         Contributor = @('Editor One', 'Editor Two')
+                        LicenseUrl = 'https://creativecommons.org/licenses/by/4.0/'
                         Publisher = 'RenderKit Press'
+                        Rating = 4
+                        RightsUsageTerms = 'Attribution required'
+                        Software = 'RenderKit'
                         Subject = @('architecture', 'design')
                         Title = 'Dublin Core integration'
                     })
@@ -128,9 +156,14 @@ Describe 'RenderKit Dublin Core XMP metadata mapping' {
                     Select-Object -First 1
             }
 
-        @($write | Where-Object Status -eq 'Written').Count | Should -Be 4
+        @($write | Where-Object Status -eq 'Written').Count | Should -Be 8
         @($read.Fields.Contributor) | Should -Contain 'Editor Two'
+        $read.Fields.LicenseUrl |
+            Should -Be 'https://creativecommons.org/licenses/by/4.0/'
         $read.Fields.Publisher | Should -Be 'RenderKit Press'
+        $read.Fields.Rating | Should -Be 4
+        $read.Fields.RightsUsageTerms | Should -Be 'Attribution required'
+        $read.Fields.Software | Should -Be 'RenderKit'
         @($read.Fields.Subject) | Should -Contain 'design'
         $read.Fields.Title | Should -Be 'Dublin Core integration'
         @($read.Raw.ExifTool.'XMP-dc:Contributor') | Should -Contain 'Editor One'

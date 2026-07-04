@@ -148,7 +148,11 @@ function Export-Metadata {
             format = $Format
             projectRoot = $resolvedProjectRoot
             includeHistory = [bool]$IncludeHistory
-            profiles = @('IPTC')
+            profiles = @(
+                'IPTC',
+                'DublinCoreXmp',
+                'XMP'
+            )
             recordCount = $recordItems.Count
             errorCount = $errors.Count
             records = @($recordItems.ToArray())
@@ -277,6 +281,38 @@ function New-RenderKitMetadataExportRecord {
             $iptcMetadata[$name] = $property.Value
         }
     }
+    $dublinCoreMap = Read-RenderKitDublinCoreXmpMap
+    $dublinCoreMetadata = [ordered]@{}
+    foreach ($definition in @($dublinCoreMap.fields)) {
+        $name = [string]$definition.field
+        $property = @(
+            $Record.metadata.PSObject.Properties |
+                Where-Object { $_.Name -ieq $name } |
+                Select-Object -First 1
+        )
+        if ($property -and
+            -not (Test-RenderKitMetadataValueIsEmpty `
+                -Value $property.Value)) {
+            $dublinCoreMetadata[$name] = $property.Value
+        }
+    }
+    $xmpMetadata = [ordered]@{}
+    foreach ($definition in @(
+        $dublinCoreMap.xmpProfiles |
+            ForEach-Object { @($_.fields) }
+    )) {
+        $name = [string]$definition.field
+        $property = @(
+            $Record.metadata.PSObject.Properties |
+                Where-Object { $_.Name -ieq $name } |
+                Select-Object -First 1
+        )
+        if ($property -and
+            -not (Test-RenderKitMetadataValueIsEmpty `
+                -Value $property.Value)) {
+            $xmpMetadata[$name] = $property.Value
+        }
+    }
 
     [PSCustomObject]@{
         sourcePath = if ([string]::IsNullOrWhiteSpace($absolutePath)) { $null } else { [System.IO.Path]::GetFullPath($absolutePath) }
@@ -284,6 +320,8 @@ function New-RenderKitMetadataExportRecord {
         recordPath = [System.IO.Path]::GetFullPath($RecordPath)
         profiles = [PSCustomObject]@{
             iptc = [PSCustomObject]$iptcMetadata
+            dublinCoreXmp = [PSCustomObject]$dublinCoreMetadata
+            xmp = [PSCustomObject]$xmpMetadata
         }
         record = [PSCustomObject]$output
     }
