@@ -1,5 +1,127 @@
 # Changelog
 
+## 1.1.0 - 2026-07-11
+
+### Added
+
+- Added the public metadata workflow: `Get-Metadata`, `Add-Metadata`,
+  `Rollback-Metadata`, `Import-Metadata`, `Export-Metadata`,
+  `Update-MetadataCache`, metadata templates, canonical registry queries, and
+  field-value validation.
+- Added versioned metadata history and batch rollback, explicit conflict
+  handling, provenance, embedded-write results, and optional XMP sidecar
+  creation for supported Dublin Core/XMP fields.
+- Added versioned backup configuration profiles, profile import/export and
+  migration, adapter registration, durable BackupProject job controls,
+  worker/status commands, report generation, retry/resume behavior, and
+  system-resource scheduling constraints.
+- Added a versioned, module-owned `ClientRegistry` in `Clients.json` with
+  atomic transactions, schema validation, backup behavior, stable IDs,
+  bounded contacts/addresses/tags/notes, archive-first lifecycle, and
+  optimistic revisions.
+- Added `Get-RenderKitClient`, `New-RenderKitClient`, and
+  `Set-RenderKitClient` for global client discovery and lifecycle management.
+- Added paged client summary/detail/create/update engine operations with stable
+  validation, access-context, not-found, conflict, and storage errors. List
+  summaries intentionally omit contact details and other personal data.
+- Added focused registry, public-command, engine-operation, actor-guard, and
+  stale-revision regression coverage.
+- Added the client registry to the standard state health and optional
+  backup-restoration diagnostics.
+- Added a versioned `PublishingSchedule` registry with UTC range queries,
+  explicit time zones, validated status transitions, stable relationship
+  snapshots, optimistic revisions, and `Get-RenderKitPublication`,
+  `New-RenderKitPublication`, and `Set-RenderKitPublication`.
+- Added publishing list/detail/create/update engine operations with stable
+  actor, validation, not-found, conflict, and storage result envelopes.
+- Added versioned BWF, iXML, ID3, and Matroska read profiles with complete
+  registry-field coverage through explicit mappings or documented unmapped
+  decisions.
+- Added typed BEXT/iXML/ID3/Matroska normalization for dates, times, booleans,
+  track/disc pairs, 64-bit iXML timestamps, and structured track lists.
+- Added a versioned Dublin Core/XMP application profile covering all 15 DCMES
+  elements as eight semantic mappings and seven explicit unmapped decisions.
+- Added Dublin Core/XMP integration slices for qualified terms, standard XMP
+  namespaces, sidecars, provenance, Studio editing, and production workflows.
+- Added a versioned IPTC Core 1.5 and Extension 1.9 field map with deterministic
+  XMP/IIM precedence, structured values, controlled vocabularies, and embedded
+  read/write coverage.
+- Added IPTC profile import/export, template and batch support, provenance,
+  conflict/state modeling, catalog synchronization, and reference-image smokes.
+- Bundled MediaInfoLib 26.01 native readers for Windows x64/ARM64, macOS
+  x64/ARM64, and Linux x64, with pinned source and file hashes plus preserved
+  upstream licenses.
+- Added a reproducible MediaInfo asset sync script that rejects archive and
+  extracted-file integrity mismatches.
+- Bundled ExifTool 13.59 for Windows x86/x64 and as the official portable Perl
+  distribution for macOS/Linux, with pinned upstream archive checksums,
+  per-file hashes, and preserved license material.
+- Added a reproducible ExifTool asset sync script and resolver coverage for
+  explicit, bundled, metadata-host, and system-CLI execution.
+- Bundled hash-verified TagLibSharp 2.3.0 assemblies and LGPL license material
+  for native ID3v2.4 reads and writes on Windows PowerShell and PowerShell 7.
+- Added atomic ID3v2.4 writes for scalar and repeated text, URL and TXXX
+  frames, APIC artwork, USLT/SYLT lyrics, and CHAP/CTOC chapters, with native
+  semantic readback and preservation tests for unrelated frames.
+- Bundled hash-verified MKVToolNix 99.0 `mkvpropedit` and `mkvextract`
+  runtimes, complete notices, and corresponding source for Windows x64, with
+  environment/system resolution on other platforms.
+- Added atomic Matroska writes for preserved global SimpleTags, first-of-type
+  audio/video track headers, stereo layout, and structured chapters, plus
+  native tag/chapter readback and provenance.
+
+### Changed
+
+- Ubuntu and macOS quality-gate runners now install their native MKVToolNix
+  packages and execute the complete Matroska write/read integration suite
+  through the existing system-runtime resolver; Windows x64 continues to use
+  the bundled hash-verified runtime.
+- Updated the module manifest and Gallery release notes for version `1.1.0`.
+- Expanded README and documentation coverage for all exported commands,
+  metadata backends, client/publishing state, and backup job operations; removed
+  obsolete command-export guidance and invalid command examples.
+- ID3 adapter capabilities now route supported audio writes through the
+  bundled TagLibSharp backend while retaining ExifTool as the broad fallback
+  reader.
+- Embedded writes now compose compatible Dublin Core/XMP and IPTC profile tags
+  without falling back to language-destructive unqualified XMP writes.
+- Dublin Core repeated values remain lists, while scalar registry fields apply
+  an explicit first-non-empty application-profile constraint.
+- IPTC Core list fields now retain true repeated values during ExifTool writes,
+  and default-language XMP updates preserve other language alternatives.
+- IPTC Extension structures remain object lists; ambiguous scalar projections
+  now emit conflicts instead of silently selecting an arbitrary value.
+- MediaInfo metadata reads now prefer bundled native libraries and retain the
+  existing host/CLI failover when a native library is unsupported or fails at
+  load/read time. Linux ARM64 is explicitly modeled as an external fallback
+  runtime instead of claiming an unavailable generic bundled binary.
+- ExifTool reads and embedded writes now share one bundled-first resolver and
+  fail over at runtime through a configured metadata host and system ExifTool.
+
+### Fixed
+
+- Fixed atomic JSON candidate validation on Ubuntu and macOS by reading hidden
+  dot-prefixed temporary files with explicit hidden-file access.
+- Fixed stale-job recovery on Windows PowerShell 5.1 by using a compatible UTC
+  `DateTimeStyles` combination.
+- Fixed Windows PowerShell 5.1 unwrapping single IPTC structure values and
+  ExifTool's one-record JSON array differently from PowerShell 7, which had
+  dropped creator-contact and XMP-sidecar fields.
+- Fixed ambiguous IPTC Extension structures omitting the canonical field from
+  detailed results; the field is now explicitly `$null` while conflict
+  candidates remain available.
+- Fixed XMP-sidecar follow-up writes omitting whether the sidecar was newly
+  created from their public embedded-write result.
+- Fixed the ID3 preservation regression test losing collection shape when a
+  single private frame was emitted through the PowerShell pipeline.
+- Fixed the isolated engine contract snapshot test by loading and initializing
+  the artifact-version catalog required by the client and publishing schema
+  fields, and added assertions for both fields.
+- Fixed ExifTool field normalization on Windows PowerShell 5.1 by unwrapping
+  the first JSON result object instead of retaining it inside a one-item array.
+- Fixed successful structured ExifTool imports being reported as failures by
+  Windows PowerShell 5.1 when ExifTool writes its status line to stderr.
+  
 ## 1.0.1 - 2026-07-01
 
 ### Patch
@@ -65,7 +187,7 @@
 - Fixed `Remove-Project` success logging after project deletion by clearing stale logging state when the active log target points inside the removed project.
 - Fixed project registry upsert filtering so it replaces only the exact same `id` + `rootPath` entry, instead of dropping entries that share only the same project ID or only the same root path. This preserves duplicate-ID registry entries at different roots so conflict/repair flows can see them
 - Fixed `Add-FolderToTemplate` path handling by filtering out empty path segments after splitting on `/` or `\`, so inputs like `\test1\test2\test3` no longer create a template folder node with an empty `Name`.
-- Fixed access denied error on directory export. Fixed an issue where passing an existing folder (e.g. `C:\install`) caused `ZipFile.Open()` to mistakenly attempt to open the directory as a file. Project roots located directly under root directories or second-level paths are no longer artifically blocker by RenderKit, as long as Windows/ACL write permissions are met.
+- Fixed access denied error on directory export. Fixed an issue where passing an existing folder (e.g. `C:\install`) caused `ZipFile.Open()` to mistakenly attempt to open the directory as a file. Project roots located directly under root directories or second-level paths are no longer artifically blocker by RenderKit, as long as Windows/ACL write permissions are met. 
 - Fixed project logging so `Write-RenderKitLog` no longer calls `Add-Content` directly against a potentially deleted `renderkit.log`; it now routes file writes through `Write-RenderKitLogFileEntry`.
 - Fixed the debug-level comparison typo so debug entries are written when `-Level Debug` is used.
 

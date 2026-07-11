@@ -246,9 +246,17 @@ function Invoke-RenderKitJob {
 
     try {
         & $handler $runningJob | Out-Null
+        $currentJob = Get-RenderKitJobById -JobId $JobId
+        if ($currentJob -and [string]$currentJob.status -eq 'Cancelled') {
+            return $currentJob
+        }
         return Complete-RenderKitJob -JobId $JobId
     }
     catch {
+        $currentJob = Get-RenderKitJobById -JobId $JobId
+        if ($currentJob -and [string]$currentJob.status -eq 'Cancelled') {
+            return $currentJob
+        }
         return Fail-RenderKitJob `
             -JobId $JobId `
             -ErrorMessage $_.Exception.Message
@@ -329,6 +337,59 @@ function Initialize-RenderKitDefaultJobHandlers {
             # Intentionally no-op until lifecycle automation is implemented.
             # Keep the placeholder independent from optional logging helpers so
             # it can run in focused tests and minimal host integrations.
+        }
+
+    Register-RenderKitJobHandler `
+        -JobType 'BackupProject' `
+        -HandlerId 'RenderKit.BackupProject' `
+        -Version '1.0' `
+        -Description 'Plans and executes the resumable Backup-Project worker pipeline.' `
+        -SupportsProgress `
+        -SupportsCancellation `
+        -IsIdempotent `
+        -RequiredCapabilities @('local-files', 'ffmpeg-optional') `
+        -Handler {
+            param($Job)
+
+            try {
+                if ($Job.payload -and $Job.payload.adapters) {
+                    Import-BackupAdapterProvidersFromPlan `
+                        -Plan $Job.payload.adapters |
+                        Out-Null
+                }
+                Send-BackupAdapterNotification `
+                    -Job $Job `
+                    -EventName JobStarted |
+                    Out-Null
+
+                $result = Invoke-BackupProjectJob -Job $Job
+                Set-RenderKitJobResult `
+                    -JobId ([string]$Job.id) `
+                    -Result $result |
+                    Out-Null
+                Send-BackupAdapterNotification `
+                    -Job $Job `
+                    -EventName JobCompleted `
+                    -Data $result |
+                    Out-Null
+            }
+            catch {
+                $currentJob = Get-RenderKitJobById -JobId ([string]$Job.id)
+                $eventName = if ($currentJob -and [string]$currentJob.status -eq 'Cancelled') {
+                    'JobCancelled'
+                }
+                else {
+                    'JobFailed'
+                }
+                Send-BackupAdapterNotification `
+                    -Job $Job `
+                    -EventName $eventName `
+                    -Data ([PSCustomObject]@{
+                        message = $_.Exception.Message
+                    }) |
+                    Out-Null
+                throw
+            }
         }
 }
 

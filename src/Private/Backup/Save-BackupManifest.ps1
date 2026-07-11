@@ -34,7 +34,7 @@ function Save-BackupManifest {
     Write-RenderKitJsonFileAtomic `
         -Value $Manifest `
         -Path $targetPath `
-        -Depth 10 |
+        -Depth 30 |
         Out-Null
 
     Write-RenderKitLog -Level Info -Message "Backup manifest written to '$targetPath'."

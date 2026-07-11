@@ -4,7 +4,9 @@ function Resolve-BackupArchivePath {
         [Parameter(Mandatory)]
         [pscustomobject]$Project,
         [string]$DestinationRoot,
-        [datetime]$Timestamp = (Get-Date)
+        [datetime]$Timestamp = (Get-Date),
+        [ValidateSet('Zip', 'SevenZip', 'TarZstd', 'Folder')]
+        [string]$ArchiveFormat = 'Zip'
     )
 
     Write-RenderKitLog -Level Debug -Message "Resolve-BackupArchivePath started: ProjectName='$($Project.Name)', RootPath='$($Project.RootPath)', DestinationRoot='$DestinationRoot', Timestamp='$Timestamp'."
@@ -29,7 +31,13 @@ function Resolve-BackupArchivePath {
         '_'
     )
 
-    $archiveFileName = "{0}_backup_{1}.zip" -f $safeProjectName, $Timestamp.ToString("yyyyMMdd-HHmmss")
+    $extension = switch ($ArchiveFormat) {
+        'Zip' { '.zip' }
+        'SevenZip' { '.7z' }
+        'TarZstd' { '.tar.zst' }
+        'Folder' { '' }
+    }
+    $archiveFileName = "{0}_backup_{1}{2}" -f $safeProjectName, $Timestamp.ToString("yyyyMMdd-HHmmss"), $extension
     $archivePath = Join-Path -Path $effectiveDestinationRoot -ChildPath $archiveFileName
 
     Write-RenderKitLog -Level Info -Message "Resolved backup archive path '$archivePath'."

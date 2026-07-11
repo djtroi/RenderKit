@@ -40,7 +40,7 @@ The command may write status or result objects to the pipeline. Commands that pe
 ## Notes and safety
 
 > [!IMPORTANT]
-> The implementation is named `Copy-Project`, but the current manifest exports `Clone-Project`. Until this mismatch is resolved, direct invocation may not be available in every installation artifact.
+`Copy-Project` is both the implemented and exported command name.
 
 ## Related documentation
 

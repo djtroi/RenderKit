@@ -1,0 +1,212 @@
+{
+  "schemaVersion": "1.0",
+  "artifactType": "BwfMetadataMap",
+  "profile": "BWF",
+  "standard": "EBU Tech 3285 Broadcast Wave Format",
+  "standardVersion": "2",
+  "sourceUrl": "https://tech.ebu.ch/publications/tech3285",
+  "adapterSettings": {
+    "ExifTool": {
+      "groups": ["RIFF"]
+    },
+    "MediaInfo": {
+      "groups": []
+    }
+  },
+  "writeCapability": {
+    "status": "Available",
+    "adapter": "RenderKitRiff",
+    "reason": "RenderKit rewrites the BEXT chunk atomically while preserving all non-target RIFF/RF64 chunks."
+  },
+  "writeFields": [
+    { "field": "BwfCodingHistory", "target": "CodingHistory", "valueType": "Ascii" },
+    { "field": "BwfDescription", "target": "Description", "valueType": "Ascii" },
+    { "field": "BwfLoudnessRange", "target": "LoudnessRange", "valueType": "Loudness" },
+    { "field": "BwfLoudnessValue", "target": "LoudnessValue", "valueType": "Loudness" },
+    { "field": "BwfMaxMomentaryLoudness", "target": "MaxMomentaryLoudness", "valueType": "Loudness" },
+    { "field": "BwfMaxShortTermLoudness", "target": "MaxShortTermLoudness", "valueType": "Loudness" },
+    { "field": "BwfMaxTruePeakLevel", "target": "MaxTruePeakLevel", "valueType": "Loudness" },
+    { "field": "BwfOriginationDate", "target": "OriginationDate", "valueType": "Date" },
+    { "field": "BwfOriginationTime", "target": "OriginationTime", "valueType": "Time" },
+    { "field": "BwfOriginator", "target": "Originator", "valueType": "Ascii" },
+    { "field": "BwfOriginatorReference", "target": "OriginatorReference", "valueType": "Ascii" },
+    { "field": "BwfTimeReferenceSamples", "target": "TimeReference", "valueType": "UInt64" },
+    { "field": "BwfUmid", "target": "Umid", "valueType": "Umid" },
+    { "field": "BwfVersion", "target": "Version", "valueType": "Version" },
+    { "field": "RecordingDate", "target": "OriginationDate", "valueType": "Date" }
+  ],
+  "fields": [
+    {
+      "field": "AudioBitDepth",
+      "fieldType": "Integer",
+      "converter": "Integer",
+      "read": {
+        "ExifTool": { "paths": ["BitsPerSample"] },
+        "MediaInfo": { "track": "Audio", "paths": ["BitDepth"] }
+      }
+    },
+    {
+      "field": "AudioSampleRate",
+      "fieldType": "Integer",
+      "converter": "Integer",
+      "read": {
+        "ExifTool": { "paths": ["SampleRate"] },
+        "MediaInfo": { "track": "Audio", "paths": ["SamplingRate"] }
+      }
+    },
+    {
+      "field": "BwfCodingHistory",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["CodingHistory"] },
+        "MediaInfo": { "track": "General", "paths": ["Encoded_Library_Settings"] }
+      }
+    },
+    {
+      "field": "BwfDescription",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["Description"] },
+        "MediaInfo": { "track": "General", "paths": ["Description"] }
+      }
+    },
+    {
+      "field": "BwfLoudnessRange",
+      "fieldType": "Float",
+      "converter": "Float",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["LoudnessRange", "extra.LoudnessRange", "extra.Loudness_Range"] }
+      }
+    },
+    {
+      "field": "BwfLoudnessValue",
+      "fieldType": "Float",
+      "converter": "Float",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["LoudnessValue", "extra.LoudnessValue", "extra.Loudness_Value"] }
+      }
+    },
+    {
+      "field": "BwfMaxMomentaryLoudness",
+      "fieldType": "Float",
+      "converter": "Float",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["MaxMomentaryLoudness", "extra.MaxMomentaryLoudness"] }
+      }
+    },
+    {
+      "field": "BwfMaxShortTermLoudness",
+      "fieldType": "Float",
+      "converter": "Float",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["MaxShortTermLoudness", "extra.MaxShortTermLoudness"] }
+      }
+    },
+    {
+      "field": "BwfMaxTruePeakLevel",
+      "fieldType": "Float",
+      "converter": "Float",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["MaxTruePeakLevel", "extra.MaxTruePeakLevel"] }
+      }
+    },
+    {
+      "field": "BwfOriginationDate",
+      "fieldType": "DateTime",
+      "converter": "Date",
+      "read": {
+        "ExifTool": { "paths": ["DateTimeOriginal"] },
+        "MediaInfo": { "track": "General", "paths": ["Encoded_Date"] }
+      }
+    },
+    {
+      "field": "BwfOriginationTime",
+      "fieldType": "String",
+      "converter": "Time",
+      "read": {
+        "ExifTool": { "paths": ["DateTimeOriginal"] },
+        "MediaInfo": { "track": "General", "paths": ["Encoded_Date"] }
+      }
+    },
+    {
+      "field": "BwfOriginator",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["Originator"] },
+        "MediaInfo": { "track": "General", "paths": ["Producer"] }
+      }
+    },
+    {
+      "field": "BwfOriginatorReference",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["OriginatorReference"] },
+        "MediaInfo": { "track": "General", "paths": ["extra.Producer_Reference"] }
+      }
+    },
+    {
+      "field": "BwfTimeReferenceSamples",
+      "fieldType": "Integer",
+      "converter": "Integer",
+      "read": {
+        "ExifTool": { "paths": ["TimeReference"] }
+      }
+    },
+    {
+      "field": "BwfUmid",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["BWF_UMID"] }
+      }
+    },
+    {
+      "field": "BwfVersion",
+      "fieldType": "Integer",
+      "converter": "Integer",
+      "read": {
+        "ExifTool": { "paths": ["BWFVersion"] },
+        "MediaInfo": { "track": "General", "paths": ["extra.bext_Version"] }
+      }
+    },
+    {
+      "field": "RecordingDate",
+      "fieldType": "DateTime",
+      "converter": "Date",
+      "read": {
+        "ExifTool": { "paths": ["DateTimeOriginal"] },
+        "MediaInfo": { "track": "General", "paths": ["Encoded_Date"] }
+      }
+    }
+  ],
+  "unmappedFields": [
+    {
+      "field": "AudioBlockAlign",
+      "reason": "The configured BWF readers do not expose the RIFF block-align value."
+    },
+    {
+      "field": "Isrc",
+      "reason": "BEXT has no ISRC element and no unrelated RIFF tag is promoted to an ISRC."
+    },
+    {
+      "field": "RecorderManufacturer",
+      "reason": "BEXT originator text does not distinguish recorder manufacturer from organization or operator."
+    },
+    {
+      "field": "RecorderModel",
+      "reason": "BEXT has no recorder-model element."
+    },
+    {
+      "field": "Scene",
+      "reason": "Scene belongs to associated production metadata such as iXML, not the BEXT schema."
+    },
+    {
+      "field": "StartTimecode",
+      "reason": "BEXT stores a sample time reference; deriving a timecode requires an explicit frame-rate and timecode basis."
+    }
+  ]
+}

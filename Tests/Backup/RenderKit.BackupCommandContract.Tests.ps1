@@ -36,6 +36,132 @@ Describe 'RenderKit backup command contracts' {
         $command.Parameters.Keys | Should -Not -Contain 'Profile'
     }
 
+    It 'exposes the upgraded backup job planning parameters' {
+        $command = Get-Command -Module RenderKit -Name Backup-Project
+
+        $command.Parameters.Keys | Should -Contain 'Background'
+        $command.Parameters['Background'].Aliases | Should -Contain 'AsJob'
+        $command.Parameters.Keys | Should -Contain 'StartWorker'
+        $command.Parameters.Keys | Should -Contain 'Watch'
+        $command.Parameters.Keys | Should -Contain 'PollIntervalSeconds'
+        $command.Parameters.Keys | Should -Contain 'NoProgressBar'
+        $command.Parameters.Keys | Should -Contain 'ConfigProfile'
+        $command.Parameters.Keys | Should -Contain 'ArchiveFormat'
+        $command.Parameters.Keys | Should -Contain 'CompressionMode'
+        $command.Parameters.Keys | Should -Contain 'CompressionPreset'
+        $command.Parameters.Keys | Should -Contain 'VideoCodec'
+        $command.Parameters.Keys | Should -Contain 'EncoderDevice'
+        $command.Parameters.Keys | Should -Contain 'QualityPreset'
+        $command.Parameters.Keys | Should -Contain 'AudioProfile'
+        $command.Parameters.Keys | Should -Contain 'EncoderAdapter'
+        $command.Parameters.Keys | Should -Contain 'VerifierAdapter'
+        $command.Parameters.Keys | Should -Contain 'NotifierAdapter'
+        $command.Parameters.Keys | Should -Contain 'CreateProxy'
+        $command.Parameters.Keys | Should -Contain 'CreatePreview'
+        $command.Parameters.Keys | Should -Contain 'ChunkDurationSeconds'
+        $command.Parameters.Keys | Should -Contain 'StorageTier'
+        $command.Parameters.Keys | Should -Contain 'StorageTierProfile'
+        $command.Parameters.Keys | Should -Contain 'StorageTierPath'
+        $command.Parameters.Keys | Should -Contain 'ConfigureStorageTiers'
+        $command.Parameters.Keys | Should -Contain 'MaxParallelJobs'
+        $command.Parameters.Keys | Should -Contain 'MaxCpuPercent'
+        $command.Parameters.Keys | Should -Contain 'MaxGpuPercent'
+        $command.Parameters.Keys | Should -Contain 'RequireIdle'
+        $command.Parameters.Keys | Should -Contain 'ReportFormat'
+        $command.Parameters.Keys | Should -Contain 'ReportRoot'
+        $command.Parameters.Keys | Should -Contain 'SimulateFailure'
+        $command.Parameters.Keys | Should -Contain 'MaxChunkRetryAttempts'
+        $command.Parameters.Keys | Should -Contain 'ChunkRetryDelaySeconds'
+        $command.Parameters.Keys | Should -Contain 'SimulatedFailureCount'
+    }
+
+    It 'exposes the built-in backup config profile catalog' {
+        Get-Command -Module RenderKit -Name Get-BackupConfigProfile |
+            Should -Not -BeNullOrEmpty
+
+        $profiles = @(Get-BackupConfigProfile)
+        @($profiles | Where-Object Source -eq 'BuiltIn').Count | Should -Be 6
+        $profiles.Name | Should -Contain 'fastest'
+        $profiles.Name | Should -Contain 'balanced'
+        $profiles.Name | Should -Contain 'smallest'
+        $profiles.Name | Should -Contain 'archive-safe'
+        $profiles.Name | Should -Contain 'proxy-only'
+        $profiles.Name | Should -Contain 'no-transcode'
+        (Get-BackupConfigProfile proxy).Name | Should -Be 'proxy-only'
+        $mutableCopy = Get-BackupConfigProfile fastest
+        $mutableCopy.Settings.VideoCodec = 'AV1'
+        (Get-BackupConfigProfile fastest).Settings.VideoCodec | Should -Be 'H264'
+        { Get-BackupConfigProfile does-not-exist } | Should -Throw '*Available profiles*'
+    }
+
+    It 'exposes the backup config profile creator lifecycle' {
+        foreach ($commandName in @(
+                'New-BackupConfigProfile',
+                'Set-BackupConfigProfile',
+                'Test-BackupConfigProfile',
+                'Export-BackupConfigProfile',
+                'Import-BackupConfigProfile',
+                'Update-BackupConfigProfile',
+                'Remove-BackupConfigProfile'
+            )) {
+            Get-Command -Module RenderKit -Name $commandName |
+                Should -Not -BeNullOrEmpty
+        }
+    }
+
+    It 'exposes backup adapter management commands' {
+        Get-Command -Module RenderKit -Name Get-BackupAdapter |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Register-BackupAdapter |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Remove-BackupAdapter |
+            Should -Not -BeNullOrEmpty
+    }
+
+    It 'exposes backup job control commands' {
+        Get-Command -Module RenderKit -Name Get-BackupJob |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Pause-BackupJob |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Resume-BackupJob |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Stop-BackupJob |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Suspend-BackupProjectJob |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Resume-BackupProjectJob |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Stop-BackupProjectJob |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Start-RenderKitJobWorker |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Get-RenderKitJobStatus |
+            Should -Not -BeNullOrEmpty
+        Get-Command -Module RenderKit -Name Get-RenderKitJobWorkerStatus |
+            Should -Not -BeNullOrEmpty
+
+        (Get-Command -Module RenderKit -Name Get-BackupJob).Parameters.Keys |
+            Should -Contain 'Watch'
+        (Get-Command -Module RenderKit -Name Pause-BackupJob).Parameters.Keys |
+            Should -Contain 'JobId'
+        (Get-Command -Module RenderKit -Name Resume-BackupJob).Parameters.Keys |
+            Should -Contain 'Reason'
+        (Get-Command -Module RenderKit -Name Stop-BackupJob).Parameters.Keys |
+            Should -Contain 'JobId'
+        (Get-Command -Module RenderKit -Name Suspend-BackupProjectJob).Parameters.Keys |
+            Should -Contain 'JobId'
+        (Get-Command -Module RenderKit -Name Resume-BackupProjectJob).Parameters.Keys |
+            Should -Contain 'Reason'
+        (Get-Command -Module RenderKit -Name Stop-BackupProjectJob).Parameters.Keys |
+            Should -Contain 'JobId'
+        (Get-Command -Module RenderKit -Name Start-RenderKitJobWorker).Parameters.Keys |
+            Should -Contain 'Detached'
+        (Get-Command -Module RenderKit -Name Get-RenderKitJobStatus).Parameters.Keys |
+            Should -Contain 'IncludeLogs'
+        (Get-Command -Module RenderKit -Name Get-RenderKitJobWorkerStatus).Parameters.Keys |
+            Should -Contain 'WorkerId'
+    }
+
     It 'uses only parameters supported by Get-CleanupRule' {
         $cleanupCommandParameters = @(
             $module.Invoke({

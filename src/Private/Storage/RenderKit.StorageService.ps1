@@ -30,8 +30,8 @@ function Get-RenderKitUserHome {
     [OutputType([System.String])]
     param()
 
-    if (-not [string]::IsNullOrWhiteSpace([string]$homes)) {
-        return [System.IO.Path]::GetFullPath([string]$homes)
+    if (-not [string]::IsNullOrWhiteSpace([string]$env:HOME)) {
+        return [System.IO.Path]::GetFullPath([string]$env:HOME)
     }
 
     $profilePath = [Environment]::GetFolderPath(
@@ -383,6 +383,25 @@ function Get-RenderKitProjectRegistryPath {
     $root = Get-RenderKitStorageRoot -Kind State -Ensure
     return Join-Path -Path $root -ChildPath 'Projects.json'
 }
+
+function Get-RenderKitClientRegistryPath {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param()
+
+    $root = Get-RenderKitStorageRoot -Kind State -Ensure
+    return Join-Path -Path $root -ChildPath 'Clients.json'
+}
+
+function Get-RenderKitPublishingSchedulePath {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param()
+
+    $root = Get-RenderKitStorageRoot -Kind State -Ensure
+    return Join-Path -Path $root -ChildPath 'PublishingSchedule.json'
+}
+
 function Get-RenderKitDiscoveredProjectsPath {
     [CmdletBinding()]
     [OutputType([System.String])]
@@ -453,6 +472,64 @@ function Get-RenderKitUserMappingsRoot {
     }
 
     return New-RenderKitStorageDirectory -Path $path
+}
+
+function Get-RenderKitBackupConfigProfilesRoot {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param()
+
+    $root = Get-RenderKitStorageRoot -Kind UserData -Ensure
+    return New-RenderKitStorageDirectory `
+        -Path (Join-Path -Path $root -ChildPath 'backup-config-profiles')
+}
+
+function Get-RenderKitMetadataTemplatesRoot {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param()
+
+    $root = Get-RenderKitStorageRoot -Kind UserData -Ensure
+    return New-RenderKitStorageDirectory `
+        -Path (Join-Path -Path $root -ChildPath 'metadata/templates')
+}
+
+function Get-RenderKitMetadataTemplatePath {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name
+    )
+
+    $fileName = [IO.Path]::GetFileNameWithoutExtension($Name)
+    if ([string]::IsNullOrWhiteSpace($fileName) -or
+        $fileName -ne [IO.Path]::GetFileName($fileName) -or
+        $fileName -notmatch '^[A-Za-z0-9][A-Za-z0-9 ._-]{0,127}$') {
+        throw "Metadata template name '$Name' is not a safe file name."
+    }
+
+    return Join-Path `
+        -Path (Get-RenderKitMetadataTemplatesRoot) `
+        -ChildPath "$fileName.json"
+}
+
+function Get-RenderKitBackupConfigProfilePath {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name
+    )
+
+    $fileName = [IO.Path]::GetFileNameWithoutExtension($Name)
+    if ([string]::IsNullOrWhiteSpace($fileName) -or
+        $fileName -notmatch '^[a-z0-9][a-z0-9-]*$') {
+        throw "Backup config profile name '$Name' is not a safe file name."
+    }
+    return Join-Path `
+        -Path (Get-RenderKitBackupConfigProfilesRoot) `
+        -ChildPath "$fileName.rkprofile.json"
 }
 
 function Get-RenderKitUserMappingPath {

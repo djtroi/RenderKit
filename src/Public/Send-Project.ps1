@@ -18,6 +18,7 @@ Prepares template-defined project deliverables for client review or delivery.
         [ValidateSet('NoCompression', 'Fastest', 'Optimal')][string]$CompressionLevel = 'Optimal',
         [ValidateSet('SHA256', 'MD5')][string[]]$HashAlgorithm = @('SHA256'),
         [switch]$IncludeMd5,
+        [bool]$IncludeMetadata = $true,
         [switch]$PassThru
     )
 
@@ -57,7 +58,8 @@ Prepares template-defined project deliverables for client review or delivery.
         -Files $files `
         -PackageMode $PackageMode `
         -DestinationPath $resolvedDestinationPath `
-        -HashAlgorithm $HashAlgorithm
+        -HashAlgorithm $HashAlgorithm `
+        -IncludeMetadata $IncludeMetadata
 
     if ($PSCmdlet.ShouldProcess($resolvedProjectRoot, "Prepare deliverables in '$resolvedDestinationPath'")) {
         switch ($PackageMode) {
@@ -72,6 +74,15 @@ Prepares template-defined project deliverables for client review or delivery.
                 $filesRoot = Join-Path -Path $resolvedDestinationPath -ChildPath 'files'
                 if (-not (Test-Path -LiteralPath $filesRoot -PathType Container)) { New-Item -ItemType Directory -Path $filesRoot -Force | Out-Null }
                 Copy-RenderKitDeliverableFileSet -Files $files -DestinationRoot $filesRoot
+                if ($IncludeMetadata -and $manifest.metadata -and $manifest.metadata.files) {
+                    $metadataRoot = Join-Path -Path $resolvedDestinationPath -ChildPath 'metadata'
+                    if (-not (Test-Path -LiteralPath $metadataRoot -PathType Container)) {
+                        New-Item -ItemType Directory -Path $metadataRoot -Force | Out-Null
+                    }
+                    Copy-RenderKitDeliverableMetadataFileSet `
+                        -MetadataFiles @($manifest.metadata.files) `
+                        -DestinationRoot $metadataRoot
+                }
                 Write-RenderKitDeliverableManifest -Manifest $manifest -Path (Join-Path -Path $resolvedDestinationPath -ChildPath 'manifest.json')
                 Write-RenderKitDeliverableChecksumFile -Manifest $manifest -Path (Join-Path -Path $resolvedDestinationPath -ChildPath 'checksums.sha256')
                 $outputPath = $resolvedDestinationPath
@@ -89,6 +100,8 @@ Prepares template-defined project deliverables for client review or delivery.
             PackageMode       = $PackageMode
             CompressionLevel  = $CompressionLevel
             FileCount         = $files.Count
+            MetadataFileCount = if ($manifest.metadata -and $manifest.metadata.files) { @($manifest.metadata.files).Count } else { 0 }
+            IncludeMetadata   = [bool]$IncludeMetadata
             TemplateName      = $template.Name
             DeliverableRules  = @($rules | ForEach-Object { $_.Id })
             SHA256            = $(if ($item.PSIsContainer) { $null } else { (Get-FileHash -LiteralPath $item.FullName -Algorithm SHA256 -ErrorAction Stop).Hash })

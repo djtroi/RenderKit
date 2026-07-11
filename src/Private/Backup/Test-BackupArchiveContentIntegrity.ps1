@@ -6,6 +6,7 @@ function Test-BackupArchiveContentIntegrity {
         [Parameter(Mandatory)]
         [string]$ArchivePath,
         [hashtable]$SourceIndex,
+        [object]$DeduplicationPlan,
         [ValidateSet("SHA256", "SHA1", "MD5")]
         [string]$Algorithm = "SHA256"
     )
@@ -122,10 +123,25 @@ function Test-BackupArchiveContentIntegrity {
                 Sort-Object
         )
 
-        $missingInArchive = @($sourcePaths | Where-Object { -not $archiveIndex.ContainsKey($_) })
+        $dedupDuplicateMap = Get-BackupDeduplicationDuplicateMap -DeduplicationPlan $DeduplicationPlan
+        $missingInArchive = @(
+            $sourcePaths |
+                Where-Object {
+                    -not $archiveIndex.ContainsKey($_) -and
+                    -not $dedupDuplicateMap.ContainsKey($_)
+                }
+        )
+        $deduplicatedInArchive = @(
+            $sourcePaths |
+                Where-Object {
+                    -not $archiveIndex.ContainsKey($_) -and
+                    $dedupDuplicateMap.ContainsKey($_)
+                }
+        )
         $extraInArchive = @($archivePaths | Where-Object { -not $effectiveSourceIndex.ContainsKey($_) })
 
         $hashMismatches = New-Object System.Collections.Generic.List[object]
+        $deduplicationMismatches = New-Object System.Collections.Generic.List[object]
         foreach ($path in $sourcePaths) {
             if (-not $archiveIndex.ContainsKey($path)) {
                 continue
@@ -142,18 +158,53 @@ function Test-BackupArchiveContentIntegrity {
                         ArchiveLength = [int64]$archiveEntry.Length
                         SourceHash   = [string]$sourceEntry.Hash
                         ArchiveHash  = [string]$archiveEntry.Hash
+                })
+            }
+        }
+
+        foreach ($path in $deduplicatedInArchive) {
+            $sourceEntry = $effectiveSourceIndex[$path]
+            $reference = $dedupDuplicateMap[$path]
+            $canonicalPath = [string]$reference.canonicalRelativePath
+            if ([string]::IsNullOrWhiteSpace($canonicalPath) -or -not $archiveIndex.ContainsKey($canonicalPath)) {
+                $deduplicationMismatches.Add([PSCustomObject]@{
+                        RelativePath = $path
+                        CanonicalRelativePath = $canonicalPath
+                        Reason       = 'CanonicalArchiveEntryMissing'
+                    })
+                continue
+            }
+
+            $archiveEntry = $archiveIndex[$canonicalPath]
+            if ($sourceEntry.Length -ne $archiveEntry.Length -or
+                -not $sourceEntry.Hash.Equals($archiveEntry.Hash, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $deduplicationMismatches.Add([PSCustomObject]@{
+                        RelativePath = $path
+                        CanonicalRelativePath = $canonicalPath
+                        Reason       = 'CanonicalArchiveEntryMismatch'
+                        SourceLength = [int64]$sourceEntry.Length
+                        ArchiveLength = [int64]$archiveEntry.Length
+                        SourceHash   = [string]$sourceEntry.Hash
+                        ArchiveHash  = [string]$archiveEntry.Hash
                     })
             }
         }
 
-        $isMatch = ($missingInArchive.Count -eq 0 -and $extraInArchive.Count -eq 0 -and $hashMismatches.Count -eq 0)
+        $isMatch = (
+            $missingInArchive.Count -eq 0 -and
+            $extraInArchive.Count -eq 0 -and
+            $hashMismatches.Count -eq 0 -and
+            $deduplicationMismatches.Count -eq 0
+        )
         Write-RenderKitLog -Level Debug -Message (
-            "Archive integrity computed: SourceFiles={0}, ArchiveFiles={1}, Missing={2}, Extra={3}, HashMismatches={4}." -f
+            "Archive integrity computed: SourceFiles={0}, ArchiveFiles={1}, Missing={2}, Deduplicated={3}, Extra={4}, HashMismatches={5}, DedupMismatches={6}." -f
             $sourcePaths.Count,
             $archivePaths.Count,
             $missingInArchive.Count,
+            $deduplicatedInArchive.Count,
             $extraInArchive.Count,
-            $hashMismatches.Count
+            $hashMismatches.Count,
+            $deduplicationMismatches.Count
         )
         return [PSCustomObject]@{
             IsMatch                = $isMatch
@@ -161,11 +212,15 @@ function Test-BackupArchiveContentIntegrity {
             SourceFileCount        = $sourcePaths.Count
             ArchiveFileCount       = $archivePaths.Count
             MissingInArchiveCount  = $missingInArchive.Count
+            DeduplicatedInArchiveCount = $deduplicatedInArchive.Count
             ExtraInArchiveCount    = $extraInArchive.Count
             HashMismatchCount      = $hashMismatches.Count
+            DeduplicationMismatchCount = $deduplicationMismatches.Count
             MissingInArchive       = @($missingInArchive)
+            DeduplicatedInArchive  = @($deduplicatedInArchive)
             ExtraInArchive         = @($extraInArchive)
             HashMismatches         = @($hashMismatches.ToArray())
+            DeduplicationMismatches = @($deduplicationMismatches.ToArray())
         }
     }
     finally {
