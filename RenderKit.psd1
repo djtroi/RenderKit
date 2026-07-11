@@ -1,6 +1,6 @@
 @{
     RootModule = 'RenderKit.psm1'
-    ModuleVersion = '1.0.0' # Major.Minor.Patch
+    ModuleVersion = '1.1.0' # Major.Minor.Patch
     Author = 'Norbert Marton'
     Description = 'PowerShell tools for structured video editing project workflows.'
     GUID = '32e3f476-8e44-4511-82c7-952748e6463b'
@@ -94,15 +94,13 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 1.0.0 introduces the RenderKit engine foundations and state model:
-- Cross-platform user storage for configuration, state, cache, and user data, including RENDERKIT_HOME overrides.
-- Atomic JSON persistence with file locking, backup restoration, validation hooks, and transaction-style state updates.
-- Artifact versioning and compatibility metadata for projects, registry data, events, jobs, templates, mappings, devices, and configuration.
-- Internal project registry and lifecycle services for tracking known projects, reconciling moved or missing project folders, validating status transitions, and emitting lifecycle events.
-- Domain-event storage, event-to-job automation subscriptions, durable jobs, trusted worker primitives, handler metadata catalogs, and repair/health checks.
-- Host-facing engine contracts with operation contexts, correlation and causation IDs, stable RenderKitResult envelopes, registered error codes, and a machine-readable contract snapshot for broker/Electron handoff.
-
-This release also updates project commands and import/export flows to keep registry and lifecycle state consistent, moves EventStore and JobStore metadata to schema version 1.1 while retaining readable 1.0 compatibility, and expands documentation and Pester coverage for the new foundations.
+Version 1.1.0 expands RenderKit's media-production engine:
+- Adds versioned metadata templates, field validation, import/export, cache refresh, history, and rollback commands.
+- Adds native-first media inspection and verified writers for XMP/IPTC, RIFF BWF/iXML, ID3v2.4, and Matroska metadata, with explicit fallback routing.
+- Adds versioned client and publishing schedule registries with optimistic concurrency and host-facing engine operations.
+- Adds project discovery/search-index improvements and the expanded backup profile, adapter, job-control, worker, reporting, and recovery workflows.
+- Bundles hash-verified MediaInfo, ExifTool, TagLibSharp, and MKVToolNix runtimes with their required notices and package validation.
+- Refreshes the public documentation and contract tests for the 1.1.0 surface.
 '@
         } # End of PSData hashtable
 

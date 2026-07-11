@@ -1,9 +1,20 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 - 2026-07-11
 
 ### Added
 
+- Added the public metadata workflow: `Get-Metadata`, `Add-Metadata`,
+  `Rollback-Metadata`, `Import-Metadata`, `Export-Metadata`,
+  `Update-MetadataCache`, metadata templates, canonical registry queries, and
+  field-value validation.
+- Added versioned metadata history and batch rollback, explicit conflict
+  handling, provenance, embedded-write results, and optional XMP sidecar
+  creation for supported Dublin Core/XMP fields.
+- Added versioned backup configuration profiles, profile import/export and
+  migration, adapter registration, durable BackupProject job controls,
+  worker/status commands, report generation, retry/resume behavior, and
+  system-resource scheduling constraints.
 - Added a versioned, module-owned `ClientRegistry` in `Clients.json` with
   atomic transactions, schema validation, backup behavior, stable IDs,
   bounded contacts/addresses/tags/notes, archive-first lifecycle, and
@@ -17,6 +28,12 @@
   stale-revision regression coverage.
 - Added the client registry to the standard state health and optional
   backup-restoration diagnostics.
+- Added a versioned `PublishingSchedule` registry with UTC range queries,
+  explicit time zones, validated status transitions, stable relationship
+  snapshots, optimistic revisions, and `Get-RenderKitPublication`,
+  `New-RenderKitPublication`, and `Set-RenderKitPublication`.
+- Added publishing list/detail/create/update engine operations with stable
+  actor, validation, not-found, conflict, and storage result envelopes.
 - Added versioned BWF, iXML, ID3, and Matroska read profiles with complete
   registry-field coverage through explicit mappings or documented unmapped
   decisions.
@@ -55,6 +72,10 @@
 
 ### Changed
 
+- Updated the module manifest and Gallery release notes for version `1.1.0`.
+- Expanded README and documentation coverage for all exported commands,
+  metadata backends, client/publishing state, and backup job operations; removed
+  obsolete command-export guidance and invalid command examples.
 - ID3 adapter capabilities now route supported audio writes through the
   bundled TagLibSharp backend while retaining ExifTool as the broad fallback
   reader.
@@ -75,6 +96,16 @@
 
 ### Fixed
 
+- Fixed ambiguous IPTC Extension structures omitting the canonical field from
+  detailed results; the field is now explicitly `$null` while conflict
+  candidates remain available.
+- Fixed XMP-sidecar follow-up writes omitting whether the sidecar was newly
+  created from their public embedded-write result.
+- Fixed the ID3 preservation regression test losing collection shape when a
+  single private frame was emitted through the PowerShell pipeline.
+- Fixed the isolated engine contract snapshot test by loading and initializing
+  the artifact-version catalog required by the client and publishing schema
+  fields, and added assertions for both fields.
 - Fixed ExifTool field normalization on Windows PowerShell 5.1 by unwrapping
   the first JSON result object instead of retaining it inside a one-item array.
 - Fixed successful structured ExifTool imports being reported as failures by

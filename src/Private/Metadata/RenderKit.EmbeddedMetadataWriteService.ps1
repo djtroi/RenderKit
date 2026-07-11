@@ -434,6 +434,7 @@ function Invoke-RenderKitEmbeddedMetadataWrite {
                     BackendPath = [string]$sidecarWrite.BackendPath
                     FallbackErrors = @()
                     Verified = [bool]$sidecarWrite.Verified
+                    Created = [bool]$sidecarWrite.Created
                     SidecarDescriptor = $sidecarWrite.Sidecar
                 })
             }

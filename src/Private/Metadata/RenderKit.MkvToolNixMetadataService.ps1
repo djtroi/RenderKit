@@ -445,6 +445,8 @@ function Read-RenderKitMkvToolNixXmlDocument {
         (Get-Item -LiteralPath $Path).Length -eq 0) {
         return New-RenderKitMkvToolNixXmlDocument -RootName $RootName
     }
+    # Tags and chapters are extracted from untrusted media. Prohibiting DTDs and
+    # external resolution prevents the XML helper from becoming an I/O channel.
     $settings = [Xml.XmlReaderSettings]::new()
     $settings.DtdProcessing = [Xml.DtdProcessing]::Prohibit
     $settings.XmlResolver = $null
@@ -1763,6 +1765,9 @@ function Invoke-RenderKitMkvToolNixMetadataWrite {
     $preserveBackup = $false
     New-Item -ItemType Directory -Path $workRoot -Force |
         Out-Null
+    # mkvpropedit operates on a sibling copy. Generated XML artifacts and the
+    # edited container are semantically read back before atomic replacement;
+    # the original backup survives until final verification succeeds.
     try {
         [IO.File]::Copy($resolvedPath, $temporaryPath, $false)
         $artifacts = New-RenderKitMkvToolNixWriteArtifacts `

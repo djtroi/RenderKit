@@ -162,7 +162,7 @@ Describe 'RenderKit TagLibSharp ID3 metadata integration' {
         $read.Fields.Chapters[0].Url |
             Should -Be 'https://example.test/intro'
 
-        $privateFrame = InModuleScope `
+        $privateFrame = @(InModuleScope `
             -ModuleName RenderKit `
             -Parameters @{ Path = $path } `
             -ScriptBlock {
@@ -183,7 +183,7 @@ Describe 'RenderKit TagLibSharp ID3 metadata integration' {
                 finally {
                     $file.Dispose()
                 }
-            }
+            })
         $privateFrame.Count | Should -Be 1
         @($privateFrame[0].PrivateData.Data) |
             Should -Be @([byte[]](1, 2, 3, 4))

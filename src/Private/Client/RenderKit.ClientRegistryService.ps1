@@ -223,6 +223,8 @@ function Update-RenderKitClientRecord {
         [hashtable]$Changes
     )
 
+    # Check the caller's revision inside the file transaction. Performing it
+    # before acquiring the transaction lock would allow a read-check-write race.
     Invoke-RenderKitJsonFileTransaction `
         -Path (Get-RenderKitClientRegistryPath) `
         -DefaultValue (New-RenderKitClientRegistry) `

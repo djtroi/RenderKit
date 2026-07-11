@@ -388,10 +388,17 @@ function ConvertFrom-RenderKitIptcMetadataDetailed {
         if (-not [string]::IsNullOrWhiteSpace([string]$definition.selector) -or
             [bool]$definition.requireSingleStructure -or
             [bool]$definition.requireSingleValue) {
+            $conflictCount = $conflicts.Count
             $rawValue = Get-RenderKitIptcSelectedStructureValue `
                 -Value $rawValue `
                 -Definition $definition `
                 -Conflicts $conflicts
+            if ($null -eq $rawValue -and $conflicts.Count -gt $conflictCount) {
+                # Preserve the field's presence while making it explicit that
+                # no scalar projection won; the conflict retains candidates.
+                $fields[[string]$definition.field] = $null
+                continue
+            }
         }
 
         if (-not [string]::IsNullOrWhiteSpace(

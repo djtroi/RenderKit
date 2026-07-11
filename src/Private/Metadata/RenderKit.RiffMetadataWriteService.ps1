@@ -81,6 +81,8 @@ function Get-RenderKitLittleEndianUInt16 {
         [int]$Offset
     )
 
+    # RIFF is always little-endian. Decode explicitly instead of relying on
+    # BitConverter so the result is identical on a big-endian runtime.
     if ($Offset -lt 0 -or $Offset + 2 -gt $Bytes.Length) {
         throw "Cannot read UInt16 at byte offset $Offset."
     }
@@ -757,6 +759,8 @@ function Read-RenderKitIxmlDocument {
         throw "The existing iXML chunk is not valid UTF-8: $($_.Exception.Message)"
     }
 
+    # iXML is media-supplied input. Disable DTD/entity resolution and cap the
+    # document before loading it into the mutable DOM used for field updates.
     $settings = [System.Xml.XmlReaderSettings]::new()
     $settings.DtdProcessing = [System.Xml.DtdProcessing]::Prohibit
     $settings.XmlResolver = $null
@@ -1406,6 +1410,8 @@ function Read-RenderKitDs64Payload {
         throw 'RF64 ds64 chunk table extends beyond the chunk payload.'
     }
 
+    # In RF64, chunks whose 32-bit size is 0xffffffff obtain their real 64-bit
+    # size from this table. Entry order therefore matters for repeated IDs.
     $entries = New-Object System.Collections.Generic.List[object]
     for ($index = 0; $index -lt $tableLength; $index++) {
         $offset = 28 + ($index * 12)
@@ -2363,6 +2369,9 @@ function Invoke-RenderKitRiffMetadataWrite {
     $sourceTimestamp = [System.IO.File]::GetLastWriteTimeUtc($resolvedPath)
     $sourceAttributes = [System.IO.File]::GetAttributes($resolvedPath)
 
+    # The original is never edited in place: rewrite and validate a sibling
+    # candidate, replace atomically when supported, then validate once more.
+    # The backup remains available until post-replacement readback succeeds.
     try {
         $sourceLayout = Read-RenderKitRiffLayout -Path $resolvedPath
         $replacementPayloads = [ordered]@{}

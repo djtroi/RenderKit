@@ -192,6 +192,9 @@ function Read-RenderKitXmpSidecarMetadata {
     $rawRecords = New-Object System.Collections.Generic.List[object]
     $invalid = $false
     $precedence = 0
+    # The resolver returns sidecars in precedence order. Keep the first value
+    # effective, but retain every disagreement so callers can resolve it rather
+    # than silently accepting whichever file happened to be enumerated last.
     foreach ($sidecarPath in @($selection.ExistingPaths)) {
         $precedence++
         try {
@@ -451,6 +454,8 @@ function Invoke-RenderKitXmpSidecarMetadataWrite {
     $targetExisted = Test-Path -LiteralPath $targetPath -PathType Leaf
     $replacementComplete = $false
     $preserveBackup = $false
+    # ExifTool writes only to a sibling candidate. Semantic readback happens
+    # before and after replacement; the backup is removed only after both pass.
     try {
         $arguments = New-Object System.Collections.Generic.List[string]
         if ($targetExisted) {

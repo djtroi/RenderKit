@@ -304,6 +304,8 @@ function Update-RenderKitPublicationRecord {
         [hashtable]$Changes
     )
 
+    # Revision and lifecycle checks run under the same transaction lock as the
+    # write, so concurrent hosts cannot both advance the same stale record.
     Invoke-RenderKitJsonFileTransaction `
         -Path (Get-RenderKitPublishingSchedulePath) `
         -DefaultValue (New-RenderKitPublishingSchedule) `

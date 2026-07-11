@@ -1981,6 +1981,10 @@ function Invoke-RenderKitTagLibSharpMetadataWrite {
     $sourceAttributes = [System.IO.File]::GetAttributes($resolvedPath)
     $replacementComplete = $false
     $preserveBackup = $false
+    # TagLibSharp may rewrite the whole tag region, so mutate a same-directory
+    # candidate and verify its logical frames before touching the source file.
+    # Keeping the backup through final readback makes rollback possible even on
+    # platforms where File.Replace falls back to the guarded move sequence.
     try {
         [System.IO.File]::Copy($resolvedPath, $temporaryPath, $false)
         $tagFile = [TagLib.File]::Create(
