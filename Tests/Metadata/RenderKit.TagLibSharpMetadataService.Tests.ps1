@@ -162,28 +162,58 @@ Describe 'RenderKit TagLibSharp ID3 metadata integration' {
         $read.Fields.Chapters[0].Url |
             Should -Be 'https://example.test/intro'
 
-        $privateFrame = @(InModuleScope `
-            -ModuleName RenderKit `
-            -Parameters @{ Path = $path } `
-            -ScriptBlock {
-                param($Path)
-                $file = [TagLib.File]::Create($Path)
-                try {
-                    @(
-                        $file.GetTag(
-                            [TagLib.TagTypes]::Id3v2,
-                            $false
-                        ).GetFrames[
-                            TagLib.Id3v2.PrivateFrame
-                        ]() |
-                            Where-Object Owner -eq 'renderkit.test' |
-                            Select-Object -First 1
-                    )
-                }
-                finally {
-                    $file.Dispose()
-                }
-            })
+        # $privateFrame = @(InModuleScope `
+        #     -ModuleName RenderKit `
+        #     -Parameters @{ Path = $path } `
+        #     -ScriptBlock {
+        #         param($Path)
+        #         $file = [TagLib.File]::Create($Path)
+        #         try {
+        #             @(
+        #                 $file.GetTag(
+        #                     [TagLib.TagTypes]::Id3v2,
+        #                     $false
+        #                 ).GetFrames[
+        #                     TagLib.Id3v2.PrivateFrame
+        #                 ]() |
+        #                     Where-Object Owner -eq 'renderkit.test' |
+        #                     Select-Object -First 1
+        #             )
+        #         }
+        #         finally {
+        #             $file.Dispose()
+        #         }
+        #     })
+        # Refactor so that Powershell 5.1 understands this sh*t too. 
+        $privateFrame = @(
+        InModuleScope `
+        -ModuleName RenderKit `
+        -Parameters @{ Path = $path } `
+        -ScriptBlock {
+            param($Path)
+
+            $file = [TagLib.File]::Create($Path)
+
+            try {
+                $tag = $file.GetTag(
+                    [TagLib.TagTypes]::Id3v2,
+                    $false
+                )
+
+                @(
+                    $tag.GetFrames() |
+                        Where-Object {
+                            $_ -is [TagLib.Id3v2.PrivateFrame] -and
+                            $_.Owner -eq 'renderkit.test'
+                        } |
+                        Select-Object -First 1
+                )
+            }
+            finally {
+                $file.Dispose()
+            }
+        }
+)
         $privateFrame.Count | Should -Be 1
         @($privateFrame[0].PrivateData.Data) |
             Should -Be @([byte[]](1, 2, 3, 4))

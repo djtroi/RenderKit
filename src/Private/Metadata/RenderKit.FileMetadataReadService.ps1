@@ -652,18 +652,36 @@ function Invoke-RenderKitExifToolMetadataRead {
             'LargeFileSupport=1',
             $Path
         )
-    # ExifTool always returns a JSON array, even for the single requested path.
-    # PowerShell 7 normally enumerates that array while Windows PowerShell 5.1
-    # retains it as one Object[] value. Normalize before any profile iterates
-    # PSObject.Properties so both engines see the actual metadata record.
-    $rawRecords = @(
+
+    # ExifTool always returns a JSON array, even when one file was requested.
+    # Windows PowerShell 5.1 can retain that array as one Object[] pipeline
+    # value, while PowerShell 7 normally enumerates it. Parse first and then
+    # v1.1.0 --> Windows PowerShell 5.1 can keep the JSON array as a single Object[] value.
+    # Flatten the parsed result explicitly so both PS 5.1 and PS 7 return the actual metadata record.
+    $parsedOutput =
         ($result.Output -join "`n") |
             ConvertFrom-Json -ErrorAction Stop
-    )
+
+    $rawRecords =
+        New-Object System.Collections.Generic.List[object]
+
+    if ($parsedOutput -is [System.Array]) {
+        foreach ($record in $parsedOutput) {
+            $rawRecords.Add($record)
+        }
+    }
+    elseif ($null -ne $parsedOutput) {
+        $rawRecords.Add($parsedOutput)
+    }
+
     if ($rawRecords.Count -ne 1) {
         throw "ExifTool returned $($rawRecords.Count) records for '$Path'; expected exactly one."
     }
+
     $raw = $rawRecords[0]
+    if ($raw -is [System.Array]) {
+    throw "ExifTool record normalization failed for '$Path': the selected record is still an array."
+}
 
     return [PSCustomObject]@{
         Raw = $raw
