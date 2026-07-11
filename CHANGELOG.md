@@ -121,6 +121,21 @@
   the first JSON result object instead of retaining it inside a one-item array.
 - Fixed successful structured ExifTool imports being reported as failures by
   Windows PowerShell 5.1 when ExifTool writes its status line to stderr.
+  
+## 1.0.1 - 2026-07-01
+
+### Patch
+
+### Fixed
+
+- Fixed `Import-Media` interactive menu option construction so Boolean parameters no longer receive accidental `System.Object[]` values.
+- Fixed interactive menu rendering in PowerShell 7 and added numbered `Read-Host` fallback input for Visual Studio Code, Windows PowerShell ISE, and hosts without raw key support.
+- Optimized transaction-safe media transfers by calculating the source hash during the copy pass instead of reading every source file a second time, and added separate copy, verification, and end-to-end throughput metrics.
+- Added a PowerShell 5.1-compatible small/large-file scheduler. The default `Maximum` profile prefers up to four byte-bounded parallel workers for small files while keeping large transfers on one stream by default.
+- Split transfer execution into independent copy and staging-verification workers so read-back verification can overlap the next copy, with an adaptive copy-worker limit and an in-flight byte budget covering both pipeline stages.
+- Added explicit `-SourceDisposition Move` for rename-only same-volume imports on Windows, including commit rollback to the original source path and preserved staging diagnostics when rollback fails.
+- Fixed large files monopolizing the complete in-flight budget until read-back verification completed. Pipeline admission now accounts for estimated resident buffers rather than logical file size.
+- Added `-TransferVerificationMode Fast|Full`. The default `Fast` mode uses the native file-copy path with staging-length validation and atomic commit, while `Full` retains independent SHA read-back verification.
 
 ## 1.0.0 - 2026-06-19
 
@@ -236,7 +251,7 @@
 
 ### Patch
 
---- 
+---
 
 ### Added
 
@@ -256,7 +271,7 @@
 
 ### Patch
 
---- 
+---
 
 ### Added
 
@@ -264,11 +279,11 @@
 
 ### Fixed
 
-- Fixes [#6](https://github.com/djtroi/RenderKit/issues/6) 
+- Fixes [#6](https://github.com/djtroi/RenderKit/issues/6)
 - Fixes [#7](https://github.com/djtroi/RenderKit/issues/7) - "return" in `New-RenderKitMapping` was missing
 - Fixes [#8](https://github.com/djtroi/RenderKit/issues/8) - "return" in `New-RenderKitTemplate`was missing
 - Fixes [#25](https://github.com/djtroi/RenderKit/issues/25) - Cross-machine backup locks are no longer treated as permanently active. Stale detection now falls back to lock file age when the originating process cannot be verified on a remote host.
-- Fixes [#26](https://github.com/djtroi/RenderKit/issues/26) - Source project folder is no longer removed before manifest embedding completes. Source removal now runs as the final step after archive creation, integrity check, log injections and manifest embedding prevent data loss if a late-stage operation fails. 
+- Fixes [#26](https://github.com/djtroi/RenderKit/issues/26) - Source project folder is no longer removed before manifest embedding completes. Source removal now runs as the final step after archive creation, integrity check, log injections and manifest embedding prevent data loss if a late-stage operation fails.
 - Fixes #34 - Merge Ticket of [#8](https://github.com/djtroi/RenderKit/issues/8) and [#7](https://github.com/djtroi/RenderKit/issues/7)
 - Fixes #494 - PSScriptAnalyzer Warning
 - Fixes #466 - PSScriptAnalyzer Warning
