@@ -15,6 +15,20 @@
             MinimumWritable = '1.0'
             MaximumWritable = '1.0'
         }
+        ClientRegistry = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        PublishingSchedule = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
             ProjectSearchIndex = @{
             Current = '1.0'
             MinimumReadable = '1.0'
@@ -86,6 +100,90 @@
             MaximumWritable = '1.0'
         }
         DeliveryManifest = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        MetadataFieldRegistry = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        MetadataAdapterRouting = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        FileMetadataRecord = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        MetadataEmbeddedWriteMap = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        IptcMetadataMap = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        DublinCoreXmpMap = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        BwfMetadataMap = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        IxmlMetadataMap = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        Id3MetadataMap = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        MatroskaMetadataMap = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        MetadataTemplate = @{
+            Current = '1.0'
+            MinimumReadable = '1.0'
+            MaximumReadable = '1.0'
+            MinimumWritable = '1.0'
+            MaximumWritable = '1.0'
+        }
+        MetadataBatch = @{
             Current = '1.0'
             MinimumReadable = '1.0'
             MaximumReadable = '1.0'

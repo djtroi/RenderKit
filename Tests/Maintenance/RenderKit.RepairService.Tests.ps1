@@ -9,6 +9,8 @@ Describe 'RenderKit repair service' {
         . (Join-Path $repositoryRoot 'src/Private/Project/RenderKit.ProjectRegistryService.ps1')
         . (Join-Path $repositoryRoot 'src/Private/Event/RenderKit.EventService.ps1')
         . (Join-Path $repositoryRoot 'src/Private/Job/RenderKit.JobService.ps1')
+        . (Join-Path $repositoryRoot 'src/Private/Client/RenderKit.ClientRegistryService.ps1')
+        . (Join-Path $repositoryRoot 'src/Private/Publishing/RenderKit.PublishingScheduleService.ps1')
         . (Join-Path $repositoryRoot 'src/Private/Maintenance/RenderKit.RepairService.ps1')
     }
 
@@ -32,6 +34,10 @@ Describe 'RenderKit repair service' {
         @($result.Components | Where-Object { $_.Name -eq 'EventStore' }).Count |
             Should -Be 1
         @($result.Components | Where-Object { $_.Name -eq 'JobStore' }).Count |
+            Should -Be 1
+        @($result.Components | Where-Object { $_.Name -eq 'ClientRegistry' }).Count |
+            Should -Be 1
+        @($result.Components | Where-Object { $_.Name -eq 'PublishingSchedule' }).Count |
             Should -Be 1
     }
 

@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "1.0",
+  "artifactType": "ThirdPartyMetadataBundle",
+  "name": "MKVToolNix",
+  "componentVersion": "99.0",
+  "projectUrl": "https://mkvtoolnix.download/",
+  "archiveUrl": "https://mkvtoolnix.download/windows/releases/99.0/mkvtoolnix-64-bit-99.0.zip",
+  "archiveSha256": "9929554403E1ED920BAA708A0F77967816F5F1C02DE0B44AE320D6F8C367E876",
+  "sourceUrl": "https://mkvtoolnix.download/sources/mkvtoolnix-99.0.tar.xz",
+  "sourceRelativePath": "source/mkvtoolnix-99.0.tar.xz",
+  "sourceSha256": "BCD99B49B0D18F0D7321FBBE36BBC7D2456DBFE707BA6AC3CE3F9E6BFCACAED6",
+  "license": "GPL-2.0",
+  "licenseRelativePath": "licenses/COPYING.txt",
+  "runtimeIdentifiers": [
+    {
+      "rid": "win-x64",
+      "bundled": true,
+      "propEditRelativePath": "win-x64/mkvpropedit.exe",
+      "propEditSha256": "2215422D7792AB65E623833E43E16BACE8E93AAC2D47E1E815555F8C862D63B2",
+      "extractRelativePath": "win-x64/mkvextract.exe",
+      "extractSha256": "9DB1B45F4B49DDFC1E12DAE416D52646C26A665F8ABBECDAF90632B304B45F0D"
+    },
+    {
+      "rid": "win-x86",
+      "bundled": false
+    },
+    {
+      "rid": "win-arm64",
+      "bundled": false
+    },
+    {
+      "rid": "linux-x64",
+      "bundled": false
+    },
+    {
+      "rid": "linux-arm64",
+      "bundled": false
+    },
+    {
+      "rid": "osx-x64",
+      "bundled": false
+    },
+    {
+      "rid": "osx-arm64",
+      "bundled": false
+    }
+  ],
+  "licenseFiles": [
+    {
+      "relativePath": "licenses/COPYING.txt",
+      "sha256": "8177F97513213526DF2CF6184D8FF986C675AFB514D4E68A404010521B880643"
+    },
+    {
+      "relativePath": "licenses/README.txt",
+      "sha256": "6545A29BA90881F80504ACEB0F15B8F155C047BC3F5197CC661CE809F6E8CC1B"
+    },
+    {
+      "relativePath": "licenses/Boost-1.0.txt",
+      "sha256": "C9BFF75738922193E67FA726FA225535870D2AA1059F91452C411736284AD566"
+    },
+    {
+      "relativePath": "licenses/CC-BY-3.0.txt",
+      "sha256": "E6BC9E9C474700B708F568BAC9E5A8A9BCB2B1DAD53442F5BA449FCB848B8E76"
+    },
+    {
+      "relativePath": "licenses/LGPL-2.1.txt",
+      "sha256": "DC626520DCD53A22F727AF3EE42C770E56C97A64FE3ADB063799D8AB032FE551"
+    },
+    {
+      "relativePath": "licenses/LGPL-3.0.txt",
+      "sha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768"
+    },
+    {
+      "relativePath": "licenses/nlohmann-json-MIT.txt",
+      "sha256": "50BE9457E5C9FAABA5E60D9C73F8EABE9E0737A2D9C3E58357D856661862C18E"
+    },
+    {
+      "relativePath": "licenses/pugixml-MIT.txt",
+      "sha256": "EE495F34AEFF0C578A99F3350A2050D4E5860D27B2004C03C384A594FA2B0A7A"
+    },
+    {
+      "relativePath": "licenses/QtWaitingSpinner-MIT.txt",
+      "sha256": "8068E9FE38AED477C935DF18D6B0D234B8E938E530EA182FB262E970E8824F6C"
+    }
+  ]
+}

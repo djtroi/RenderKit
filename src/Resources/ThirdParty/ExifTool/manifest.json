@@ -1,0 +1,87 @@
+{
+  "schemaVersion": "1.0",
+  "artifactType": "ThirdPartyMetadataBundle",
+  "name": "ExifTool",
+  "componentVersion": "13.59",
+  "projectUrl": "https://exiftool.org/",
+  "licenseUrl": "https://exiftool.org/#license",
+  "upstreamChecksumsUrl": "https://exiftool.org/checksums.txt",
+  "releaseSelection": "ExifTool 13.59 is the upstream security update published on 2026-05-27.",
+  "backendPreference": ["EnvironmentCli", "BundledCli", "Host", "SystemCli"],
+  "fileHashManifest": "files.sha256",
+  "sourceArchives": [
+    {
+      "name": "Image-ExifTool-13.59.tar.gz",
+      "uri": "https://downloads.sourceforge.net/project/exiftool/Image-ExifTool-13.59.tar.gz",
+      "sha256": "668EA3ACECECB7235FBD0F4900E72D5F12C9B07E5C778FD36CB1E9B5828FD65A"
+    },
+    {
+      "name": "exiftool-13.59_32.zip",
+      "uri": "https://downloads.sourceforge.net/project/exiftool/exiftool-13.59_32.zip",
+      "sha256": "FE9A55D28B05C1B0E18877B4881F40D83DB222F90018963473CFF798E8BF05AF"
+    },
+    {
+      "name": "exiftool-13.59_64.zip",
+      "uri": "https://downloads.sourceforge.net/project/exiftool/exiftool-13.59_64.zip",
+      "sha256": "44B512B25AF500724BA579D0A53C8FC5851628B692DD5E5D94AE4A15C2CBA9EC"
+    }
+  ],
+  "runtimeIdentifiers": [
+    {
+      "rid": "win-x86",
+      "bundled": true,
+      "bundleKind": "WindowsExecutable",
+      "commandRelativePath": "win-x86/exiftool.exe",
+      "commandSha256": "5404A3C38F094CA1EA5E73811B9F2BDCFEC9C4A574484DC33229046BE8919DFD",
+      "notes": "The complete upstream exiftool_files directory must remain beside exiftool.exe."
+    },
+    {
+      "rid": "win-x64",
+      "bundled": true,
+      "bundleKind": "WindowsExecutable",
+      "commandRelativePath": "win-x64/exiftool.exe",
+      "commandSha256": "68C079C32FDAE0D6C7130E9A5FB73F8AC9DABDF9AB8DA312DA4F6C549D6D3385",
+      "notes": "The complete upstream exiftool_files directory must remain beside exiftool.exe."
+    },
+    {
+      "rid": "win-arm64",
+      "bundled": false,
+      "bundleKind": null,
+      "commandRelativePath": null,
+      "commandSha256": null,
+      "notes": "No upstream native Windows ARM64 executable is published. Resolution continues to the configured host and system CLI."
+    },
+    {
+      "rid": "osx-x64",
+      "bundled": true,
+      "bundleKind": "PerlScript",
+      "commandRelativePath": "portable/exiftool",
+      "commandSha256": "A6B8018093845AC93011307BAC4AB630D6604B2365FC7F66BB88C88D7DEDB5ED",
+      "interpreter": "perl"
+    },
+    {
+      "rid": "osx-arm64",
+      "bundled": true,
+      "bundleKind": "PerlScript",
+      "commandRelativePath": "portable/exiftool",
+      "commandSha256": "A6B8018093845AC93011307BAC4AB630D6604B2365FC7F66BB88C88D7DEDB5ED",
+      "interpreter": "perl"
+    },
+    {
+      "rid": "linux-x64",
+      "bundled": true,
+      "bundleKind": "PerlScript",
+      "commandRelativePath": "portable/exiftool",
+      "commandSha256": "A6B8018093845AC93011307BAC4AB630D6604B2365FC7F66BB88C88D7DEDB5ED",
+      "interpreter": "perl"
+    },
+    {
+      "rid": "linux-arm64",
+      "bundled": true,
+      "bundleKind": "PerlScript",
+      "commandRelativePath": "portable/exiftool",
+      "commandSha256": "A6B8018093845AC93011307BAC4AB630D6604B2365FC7F66BB88C88D7DEDB5ED",
+      "interpreter": "perl"
+    }
+  ]
+}

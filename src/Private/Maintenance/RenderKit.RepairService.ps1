@@ -141,6 +141,18 @@ function Invoke-RenderKitStateRepair {
         -Reader { Read-RenderKitJobStore } `
         -RestoreFromBackup:$RestoreFromBackup))
 
+    $components.Add((Repair-RenderKitJsonStore `
+        -Name 'ClientRegistry' `
+        -Path (Get-RenderKitClientRegistryPath) `
+        -Reader { Read-RenderKitClientRegistry } `
+        -RestoreFromBackup:$RestoreFromBackup))
+
+    $components.Add((Repair-RenderKitJsonStore `
+        -Name 'PublishingSchedule' `
+        -Path (Get-RenderKitPublishingSchedulePath) `
+        -Reader { Read-RenderKitPublishingSchedule } `
+        -RestoreFromBackup:$RestoreFromBackup))
+
     $failed = @($components.ToArray() | Where-Object { $_.Status -eq 'Failed' })
     return [PSCustomObject]@{
         Status        = if ($failed.Count -eq 0) { 'Healthy' } else { 'Failed' }

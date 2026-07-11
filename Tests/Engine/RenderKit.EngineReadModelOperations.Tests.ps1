@@ -9,6 +9,8 @@ Describe 'RenderKit engine read model operations' {
         . (Join-Path $repositoryRoot 'src/Private/Project/RenderKit.ProjectRegistryService.ps1')
         . (Join-Path $repositoryRoot 'src/Private/Event/RenderKit.EventService.ps1')
         . (Join-Path $repositoryRoot 'src/Private/Job/RenderKit.JobService.ps1')
+        . (Join-Path $repositoryRoot 'src/Private/Client/RenderKit.ClientRegistryService.ps1')
+        . (Join-Path $repositoryRoot 'src/Private/Publishing/RenderKit.PublishingScheduleService.ps1')
         . (Join-Path $repositoryRoot 'src/Private/Maintenance/RenderKit.RepairService.ps1')
         . (Join-Path $repositoryRoot 'src/Private/Engine/RenderKit.EngineContractService.ps1')
     }

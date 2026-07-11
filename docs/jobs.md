@@ -1,6 +1,6 @@
 # Background jobs
 
-RenderKit now has an internal job-store foundation for future asynchronous
+RenderKit has an internal job-store foundation for asynchronous
 workflows such as long-running delivery packaging, cloud upload, notifications,
 maintenance, and event-driven automation.
 

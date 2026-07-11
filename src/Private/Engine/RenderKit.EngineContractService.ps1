@@ -224,6 +224,14 @@ function Get-RenderKitEngineFacadeOperationCatalog {
         [PSCustomObject]@{ Name = 'GetRenderKitEngineState'; MutatesState = $false; RequiresActor = $false; Description = 'Returns storage and artifact health for the active engine state.' }
         [PSCustomObject]@{ Name = 'GetRenderKitProjectList'; MutatesState = $false; RequiresActor = $false; Description = 'Returns GUI-ready project summaries.' }
         [PSCustomObject]@{ Name = 'GetRenderKitProjectDetail'; MutatesState = $false; RequiresActor = $false; Description = 'Returns a GUI-ready project detail view.' }
+        [PSCustomObject]@{ Name = 'GetRenderKitClientList'; MutatesState = $false; RequiresActor = $false; Description = 'Returns paged client summaries without contact details.' }
+        [PSCustomObject]@{ Name = 'GetRenderKitClientDetail'; MutatesState = $false; RequiresActor = $false; Description = 'Returns one client including contacts and addresses.' }
+        [PSCustomObject]@{ Name = 'NewRenderKitClient'; MutatesState = $true; RequiresActor = $true; Description = 'Creates a validated client in the global registry.' }
+        [PSCustomObject]@{ Name = 'SetRenderKitClient'; MutatesState = $true; RequiresActor = $true; Description = 'Updates a client with optimistic revision checks.' }
+        [PSCustomObject]@{ Name = 'GetRenderKitPublicationList'; MutatesState = $false; RequiresActor = $false; Description = 'Returns bounded publication summaries overlapping a UTC range.' }
+        [PSCustomObject]@{ Name = 'GetRenderKitPublicationDetail'; MutatesState = $false; RequiresActor = $false; Description = 'Returns one publication planning record.' }
+        [PSCustomObject]@{ Name = 'NewRenderKitPublication'; MutatesState = $true; RequiresActor = $true; Description = 'Creates a non-recurring publication planning record.' }
+        [PSCustomObject]@{ Name = 'SetRenderKitPublication'; MutatesState = $true; RequiresActor = $true; Description = 'Updates a publication with optimistic revision checks.' }
         [PSCustomObject]@{ Name = 'GetRenderKitJobList'; MutatesState = $false; RequiresActor = $false; Description = 'Returns GUI-ready job summaries.' }
         [PSCustomObject]@{ Name = 'GetRenderKitJobDetail'; MutatesState = $false; RequiresActor = $false; Description = 'Returns a GUI-ready job detail view.' }
         [PSCustomObject]@{ Name = 'GetRenderKitJobHandlerCatalog'; MutatesState = $false; RequiresActor = $false; Description = 'Returns trusted job handler metadata without executable scriptblocks.' }
@@ -740,7 +748,7 @@ function Get-RenderKitEngineEventDetail {
             -Details ([PSCustomObject]@{ eventId = $EventId })
     }
 
-    return New-RenderKitResult -Data $event -OperationContext $context
+    return New-RenderKitResult -Data $events -OperationContext $context
 }
 
 function Invoke-RenderKitEngineEventBridge {
@@ -810,8 +818,16 @@ function Get-RenderKitEngineContractSnapshot {
             transport           = 'Host-defined local IPC or process bridge'
         }
         schemas         = [PSCustomObject]@{
-            eventStore = Get-RenderKitEventStoreSchemaVersion
-            jobStore   = Get-RenderKitJobStoreSchemaVersion
+            eventStore         = Get-RenderKitEventStoreSchemaVersion
+            jobStore           = Get-RenderKitJobStoreSchemaVersion
+            clientRegistry     = (
+                Get-RenderKitArtifactVersionPolicy `
+                    -ArtifactType ClientRegistry
+            ).Current
+            publishingSchedule = (
+                Get-RenderKitArtifactVersionPolicy `
+                    -ArtifactType PublishingSchedule
+            ).Current
         }
         resultEnvelope  = [PSCustomObject]@{
             fields = @('success', 'data', 'warnings', 'error', 'correlationId', 'causationId', 'actor', 'timestampUtc')
@@ -866,8 +882,16 @@ function Get-RenderKitEngineInfo {
         minimumPowerShell = if ($manifest) { [string]$manifest.PowerShellVersion } else { $null }
         compatibleEdition = if ($manifest) { @($manifest.CompatiblePSEditions) } else { @() }
         engineSchema      = [PSCustomObject]@{
-            eventStore = Get-RenderKitEventStoreSchemaVersion
-            jobStore   = Get-RenderKitJobStoreSchemaVersion
+            eventStore     = Get-RenderKitEventStoreSchemaVersion
+            jobStore       = Get-RenderKitJobStoreSchemaVersion
+            clientRegistry = (
+                Get-RenderKitArtifactVersionPolicy `
+                    -ArtifactType ClientRegistry
+            ).Current
+            publishingSchedule = (
+                Get-RenderKitArtifactVersionPolicy `
+                    -ArtifactType PublishingSchedule
+            ).Current
         }
         facadeOperations  = @(Get-RenderKitEngineFacadeOperationCatalog)
     }
@@ -904,6 +928,523 @@ function Get-RenderKitEngineState {
             -Code 'RK_STORAGE_UNAVAILABLE' `
             -Message $_.Exception.Message
     }
+}
+
+function New-RenderKitEngineClientSummary {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Client
+    )
+
+    return [PSCustomObject]@{
+        id           = [string]$Client.id
+        displayName  = [string]$Client.displayName
+        legalName    = [string]$Client.legalName
+        status       = [string]$Client.status
+        tags         = @($Client.tags | ForEach-Object { [string]$_ })
+        revision     = [int]$Client.revision
+        updatedAtUtc = [string]$Client.updatedAtUtc
+    }
+}
+
+function Get-RenderKitEngineClientList {
+    [CmdletBinding()]
+    param(
+        [string]$Search,
+        [string]$Status,
+        [string]$Tag,
+        [ValidateRange(0, [int]::MaxValue)]
+        [int]$Offset = 0,
+        [ValidateRange(1, 200)]
+        [int]$Limit = 100,
+        [object]$OperationContext,
+        [object]$Actor,
+        [string]$CorrelationId,
+        [string]$CausationId,
+        [string]$Source = 'RenderKitBroker'
+    )
+
+    $context = New-RenderKitEngineOperationContext `
+        -OperationName 'GetRenderKitClientList' `
+        -OperationContext $OperationContext `
+        -Actor $Actor `
+        -CorrelationId $CorrelationId `
+        -CausationId $CausationId `
+        -Source $Source
+    try {
+        $parameters = @{}
+        if (-not [string]::IsNullOrWhiteSpace($Search)) {
+            $parameters.Search = $Search
+        }
+        if (-not [string]::IsNullOrWhiteSpace($Status)) {
+            if (@('Active', 'Inactive', 'Archived') -notcontains $Status) {
+                throw [System.ArgumentException]::new(
+                    "Unsupported client status '$Status'.")
+            }
+            $parameters.Status = $Status
+        }
+        if (-not [string]::IsNullOrWhiteSpace($Tag)) {
+            $parameters.Tag = $Tag
+        }
+        $clients = @(Get-RenderKitClientRecordList @parameters)
+        $items = @(
+            $clients |
+                Select-Object -Skip $Offset -First $Limit |
+                ForEach-Object {
+                    New-RenderKitEngineClientSummary -Client $_
+                }
+        )
+        return New-RenderKitResult `
+            -Data ([PSCustomObject]@{
+                items = $items
+                total = $clients.Count
+                offset = $Offset
+                limit = $Limit
+            }) `
+            -OperationContext $context
+    }
+    catch {
+        return New-RenderKitEngineClientFailure `
+            -OperationContext $context `
+            -Exception $_.Exception
+    }
+}
+
+function Get-RenderKitEngineClientDetail {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ClientId,
+        [object]$OperationContext,
+        [object]$Actor,
+        [string]$CorrelationId,
+        [string]$CausationId,
+        [string]$Source = 'RenderKitBroker'
+    )
+
+    $context = New-RenderKitEngineOperationContext `
+        -OperationName 'GetRenderKitClientDetail' `
+        -OperationContext $OperationContext `
+        -Actor $Actor `
+        -CorrelationId $CorrelationId `
+        -CausationId $CausationId `
+        -Source $Source
+    try {
+        $client = Get-RenderKitClientRecord -Id $ClientId
+        if (-not $client) {
+            throw [System.Collections.Generic.KeyNotFoundException]::new(
+                "RenderKit client '$ClientId' was not found.")
+        }
+        return New-RenderKitResult -Data $client -OperationContext $context
+    }
+    catch {
+        return New-RenderKitEngineClientFailure `
+            -OperationContext $context `
+            -Exception $_.Exception
+    }
+}
+
+function New-RenderKitEngineClient {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$DisplayName,
+        [string]$LegalName,
+        [string]$Status = 'Active',
+        [string[]]$Tags = @(),
+        [string]$Notes,
+        [object[]]$Contacts = @(),
+        [object[]]$Addresses = @(),
+        [object]$Consent,
+        [object]$Retention,
+        [object]$OperationContext,
+        [object]$Actor,
+        [string]$CorrelationId,
+        [string]$CausationId,
+        [string]$Source = 'RenderKitBroker'
+    )
+
+    $context = New-RenderKitEngineOperationContext `
+        -OperationName 'NewRenderKitClient' `
+        -OperationContext $OperationContext `
+        -Actor $Actor `
+        -CorrelationId $CorrelationId `
+        -CausationId $CausationId `
+        -Source $Source
+
+    if (-not (Test-RenderKitEngineActorContext -OperationContext $context)) {
+        return New-RenderKitEngineFailureResult `
+            -OperationContext $context `
+            -Code 'RK_ACCESS_CONTEXT_MISSING' `
+            -Message 'Creating a RenderKit client requires an actor context.'
+    }
+
+    try {
+        $client = New-RenderKitClientRecord `
+            -DisplayName $DisplayName `
+            -LegalName $LegalName `
+            -Status $Status `
+            -Tags $Tags `
+            -Notes $Notes `
+            -Contacts $Contacts `
+            -Addresses $Addresses `
+            -Consent $Consent `
+            -Retention $Retention
+        $created = Add-RenderKitClientRecord -Client $client
+        return New-RenderKitResult -Data $created -OperationContext $context
+    }
+    catch {
+        return New-RenderKitEngineClientFailure `
+            -OperationContext $context `
+            -Exception $_.Exception
+    }
+}
+
+function Set-RenderKitEngineClient {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ClientId,
+        [Parameter(Mandatory)]
+        [int]$ExpectedRevision,
+        [Parameter(Mandatory)]
+        [hashtable]$Changes,
+        [object]$OperationContext,
+        [object]$Actor,
+        [string]$CorrelationId,
+        [string]$CausationId,
+        [string]$Source = 'RenderKitBroker'
+    )
+
+    $context = New-RenderKitEngineOperationContext `
+        -OperationName 'SetRenderKitClient' `
+        -OperationContext $OperationContext `
+        -Actor $Actor `
+        -CorrelationId $CorrelationId `
+        -CausationId $CausationId `
+        -Source $Source
+
+    if (-not (Test-RenderKitEngineActorContext -OperationContext $context)) {
+        return New-RenderKitEngineFailureResult `
+            -OperationContext $context `
+            -Code 'RK_ACCESS_CONTEXT_MISSING' `
+            -Message 'Updating a RenderKit client requires an actor context.'
+    }
+
+    try {
+        if ($Changes.Count -eq 0) {
+            throw [System.ArgumentException]::new(
+                'At least one client field must be supplied.')
+        }
+        $updated = Update-RenderKitClientRecord `
+            -Id $ClientId `
+            -ExpectedRevision $ExpectedRevision `
+            -Changes $Changes
+        return New-RenderKitResult -Data $updated -OperationContext $context
+    }
+    catch {
+        return New-RenderKitEngineClientFailure `
+            -OperationContext $context `
+            -Exception $_.Exception
+    }
+}
+
+function New-RenderKitEngineClientFailure {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$OperationContext,
+        [Parameter(Mandatory)]
+        [System.Exception]$Exception
+    )
+
+    $code = if ($Exception -is [System.ArgumentException]) {
+        'RK_VALIDATION_FAILED'
+    }
+    elseif ($Exception -is [System.Collections.Generic.KeyNotFoundException]) {
+        'RK_NOT_FOUND'
+    }
+    elseif ($Exception -is [System.InvalidOperationException]) {
+        'RK_CONFLICT'
+    }
+    else {
+        'RK_STORAGE_UNAVAILABLE'
+    }
+    return New-RenderKitEngineFailureResult `
+        -OperationContext $OperationContext `
+        -Code $code `
+        -Message $Exception.Message
+}
+
+function New-RenderKitEnginePublicationSummary {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Publication
+    )
+
+    return [PSCustomObject]@{
+        id                  = [string]$Publication.id
+        title               = [string]$Publication.title
+        status              = [string]$Publication.status
+        startUtc            = [string]$Publication.startUtc
+        endUtc              = [string]$Publication.endUtc
+        timeZone            = [string]$Publication.timeZone
+        projectId           = [string]$Publication.projectId
+        projectNameSnapshot = [string]$Publication.projectNameSnapshot
+        clientId            = [string]$Publication.clientId
+        clientNameSnapshot  = [string]$Publication.clientNameSnapshot
+        channelProvider     = [string]$Publication.channelProvider
+        channelNameSnapshot = [string]$Publication.channelNameSnapshot
+        ownerId             = [string]$Publication.ownerId
+        ownerNameSnapshot   = [string]$Publication.ownerNameSnapshot
+        revision            = [int]$Publication.revision
+        updatedAtUtc        = [string]$Publication.updatedAtUtc
+    }
+}
+
+function Get-RenderKitEnginePublicationList {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$FromUtc,
+        [Parameter(Mandatory)][string]$ToUtc,
+        [string]$Search,
+        [string]$Status,
+        [string]$ProjectId,
+        [string]$ClientId,
+        [string]$ChannelProvider,
+        [ValidateRange(0, [int]::MaxValue)][int]$Offset = 0,
+        [ValidateRange(1, 500)][int]$Limit = 200,
+        [object]$OperationContext,
+        [object]$Actor,
+        [string]$CorrelationId,
+        [string]$CausationId,
+        [string]$Source = 'RenderKitBroker'
+    )
+
+    $context = New-RenderKitEngineOperationContext `
+        -OperationName 'GetRenderKitPublicationList' `
+        -OperationContext $OperationContext `
+        -Actor $Actor `
+        -CorrelationId $CorrelationId `
+        -CausationId $CausationId `
+        -Source $Source
+    try {
+        $parameters = @{
+            FromUtc = $FromUtc
+            ToUtc = $ToUtc
+        }
+        foreach ($name in @(
+            'Search',
+            'Status',
+            'ProjectId',
+            'ClientId',
+            'ChannelProvider'
+        )) {
+            $value = Get-Variable -Name $name -ValueOnly
+            if (-not [string]::IsNullOrWhiteSpace([string]$value)) {
+                $parameters[$name] = $value
+            }
+        }
+        $records = @(Get-RenderKitPublicationRecordList @parameters)
+        $items = @(
+            $records |
+                Select-Object -Skip $Offset -First $Limit |
+                ForEach-Object {
+                    New-RenderKitEnginePublicationSummary -Publication $_
+                }
+        )
+        return New-RenderKitResult `
+            -Data ([PSCustomObject]@{
+                items = $items
+                total = $records.Count
+                offset = $Offset
+                limit = $Limit
+                fromUtc = ConvertTo-RenderKitPublicationUtcTimestamp `
+                    -Value $FromUtc -Name FromUtc -Required
+                toUtc = ConvertTo-RenderKitPublicationUtcTimestamp `
+                    -Value $ToUtc -Name ToUtc -Required
+            }) `
+            -OperationContext $context
+    }
+    catch {
+        return New-RenderKitEnginePublicationFailure `
+            -OperationContext $context `
+            -Exception $_.Exception
+    }
+}
+
+function Get-RenderKitEnginePublicationDetail {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$PublicationId,
+        [object]$OperationContext,
+        [object]$Actor,
+        [string]$CorrelationId,
+        [string]$CausationId,
+        [string]$Source = 'RenderKitBroker'
+    )
+
+    $context = New-RenderKitEngineOperationContext `
+        -OperationName 'GetRenderKitPublicationDetail' `
+        -OperationContext $OperationContext `
+        -Actor $Actor `
+        -CorrelationId $CorrelationId `
+        -CausationId $CausationId `
+        -Source $Source
+    try {
+        $publication = Get-RenderKitPublicationRecord -Id $PublicationId
+        if (-not $publication) {
+            throw [System.Collections.Generic.KeyNotFoundException]::new(
+                "RenderKit publication '$PublicationId' was not found.")
+        }
+        return New-RenderKitResult `
+            -Data $publication `
+            -OperationContext $context
+    }
+    catch {
+        return New-RenderKitEnginePublicationFailure `
+            -OperationContext $context `
+            -Exception $_.Exception
+    }
+}
+
+function New-RenderKitEnginePublication {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Title,
+        [string]$Description,
+        [ValidateSet('Draft', 'Scheduled')][string]$Status = 'Draft',
+        [Parameter(Mandatory)][string]$StartUtc,
+        [string]$EndUtc,
+        [Parameter(Mandatory)][string]$TimeZone,
+        [string]$ProjectId,
+        [string]$ProjectNameSnapshot,
+        [string]$ClientId,
+        [string]$ClientNameSnapshot,
+        [string]$ChannelProvider,
+        [string]$ChannelId,
+        [string]$ChannelNameSnapshot,
+        [string]$OwnerId,
+        [string]$OwnerNameSnapshot,
+        [object[]]$Media = @(),
+        [object]$OperationContext,
+        [object]$Actor,
+        [string]$CorrelationId,
+        [string]$CausationId,
+        [string]$Source = 'RenderKitBroker'
+    )
+
+    $context = New-RenderKitEngineOperationContext `
+        -OperationName 'NewRenderKitPublication' `
+        -OperationContext $OperationContext `
+        -Actor $Actor `
+        -CorrelationId $CorrelationId `
+        -CausationId $CausationId `
+        -Source $Source
+    if (-not (Test-RenderKitEngineActorContext -OperationContext $context)) {
+        return New-RenderKitEngineFailureResult `
+            -OperationContext $context `
+            -Code 'RK_ACCESS_CONTEXT_MISSING' `
+            -Message 'Creating a RenderKit publication requires an actor context.'
+    }
+    try {
+        $publication = New-RenderKitPublicationRecord `
+            -Title $Title `
+            -Description $Description `
+            -Status $Status `
+            -StartUtc $StartUtc `
+            -EndUtc $EndUtc `
+            -TimeZone $TimeZone `
+            -ProjectId $ProjectId `
+            -ProjectNameSnapshot $ProjectNameSnapshot `
+            -ClientId $ClientId `
+            -ClientNameSnapshot $ClientNameSnapshot `
+            -ChannelProvider $ChannelProvider `
+            -ChannelId $ChannelId `
+            -ChannelNameSnapshot $ChannelNameSnapshot `
+            -OwnerId $OwnerId `
+            -OwnerNameSnapshot $OwnerNameSnapshot `
+            -Media @($Media | Where-Object { $null -ne $_ })
+        $created = Add-RenderKitPublicationRecord `
+            -Publication $publication
+        return New-RenderKitResult -Data $created -OperationContext $context
+    }
+    catch {
+        return New-RenderKitEnginePublicationFailure `
+            -OperationContext $context `
+            -Exception $_.Exception
+    }
+}
+
+function Set-RenderKitEnginePublication {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$PublicationId,
+        [Parameter(Mandatory)][int]$ExpectedRevision,
+        [Parameter(Mandatory)][hashtable]$Changes,
+        [object]$OperationContext,
+        [object]$Actor,
+        [string]$CorrelationId,
+        [string]$CausationId,
+        [string]$Source = 'RenderKitBroker'
+    )
+
+    $context = New-RenderKitEngineOperationContext `
+        -OperationName 'SetRenderKitPublication' `
+        -OperationContext $OperationContext `
+        -Actor $Actor `
+        -CorrelationId $CorrelationId `
+        -CausationId $CausationId `
+        -Source $Source
+    if (-not (Test-RenderKitEngineActorContext -OperationContext $context)) {
+        return New-RenderKitEngineFailureResult `
+            -OperationContext $context `
+            -Code 'RK_ACCESS_CONTEXT_MISSING' `
+            -Message 'Updating a RenderKit publication requires an actor context.'
+    }
+    try {
+        if ($Changes.Count -eq 0) {
+            throw [System.ArgumentException]::new(
+                'At least one publication field must be supplied.')
+        }
+        $updated = Update-RenderKitPublicationRecord `
+            -Id $PublicationId `
+            -ExpectedRevision $ExpectedRevision `
+            -Changes $Changes
+        return New-RenderKitResult -Data $updated -OperationContext $context
+    }
+    catch {
+        return New-RenderKitEnginePublicationFailure `
+            -OperationContext $context `
+            -Exception $_.Exception
+    }
+}
+
+function New-RenderKitEnginePublicationFailure {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$OperationContext,
+        [Parameter(Mandatory)][System.Exception]$Exception
+    )
+
+    $code = if ($Exception -is [System.ArgumentException]) {
+        'RK_VALIDATION_FAILED'
+    }
+    elseif ($Exception -is [System.Collections.Generic.KeyNotFoundException]) {
+        'RK_NOT_FOUND'
+    }
+    elseif ($Exception -is [System.InvalidOperationException]) {
+        'RK_CONFLICT'
+    }
+    else {
+        'RK_STORAGE_UNAVAILABLE'
+    }
+    return New-RenderKitEngineFailureResult `
+        -OperationContext $OperationContext `
+        -Code $code `
+        -Message $Exception.Message
 }
 
 function New-RenderKitEngineProjectSummary {

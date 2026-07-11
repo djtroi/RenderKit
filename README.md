@@ -7,7 +7,7 @@
 
 **RenderKit** is a PowerShell toolkit for repeatable media-production project workflows: create project structures, manage templates and mappings, import camera media, verify transfers, package deliverables, export/import projects, and keep local workflow state auditable.
 
-Current repository version: **1.0.0**. RenderKit supports **Windows PowerShell 5.1** and **PowerShell 7+**.
+Current repository version: **1.1.0**. RenderKit supports **Windows PowerShell 5.1** and **PowerShell 7+**.
 
 ## Table of Contents
 
@@ -19,6 +19,7 @@ Current repository version: **1.0.0**. RenderKit supports **Windows PowerShell 5
 - [Architecture](#architecture)
 - [Documentation](#documentation)
 - [Public Functions](#public-functions)
+- [Third-Party Components](#third-party-components)
 - [Maintainer Release Workflow](#maintainer-release-workflow)
 - [Roadmap](#roadmap)
 
@@ -158,8 +159,36 @@ Send-Project -ProjectRoot "D:\Editing_Projects\ClientA_2026" -DestinationPath "E
 
 ```powershell
 Backup-Project -ProjectName "ClientA_2026"
-Backup-Project -ProjectName "ClientA_2026" -Profile DaVinci -DryRun
+Backup-Project -ProjectName "ClientA_2026" -Preset DaVinci -DryRun
 Backup-Project -ProjectName "ClientA_2026" -DestinationRoot "E:\Backups" -KeepSourceProject
+```
+
+### Read, write, and roll back metadata
+
+```powershell
+Get-Metadata -Path '.\footage\interview.wav' -IncludeMetadata
+Add-Metadata -Path '.\footage\interview.wav' -Field Title -Value 'Interview A'
+$change = Add-Metadata -Path '.\footage\interview.wav' -Field Creator -Value 'Camera Unit'
+Rollback-Metadata -Path '.\footage\interview.wav' -Version ($change.MetadataVersion - 1)
+```
+
+Use `-XmpSidecar` when an XMP sidecar is required and `-NoEmbedded` when only
+the RenderKit metadata store should change. See the [metadata workflow](docs/metadata.md).
+
+### Clients and publishing schedules
+
+```powershell
+$client = New-RenderKitClient -DisplayName 'Example Studio' -Tag 'priority'
+$publication = New-RenderKitPublication `
+  -Title 'Launch trailer' `
+  -StartUtc '2026-08-01T16:00:00+00:00' `
+  -TimeZone 'Europe/Berlin' `
+  -ClientId $client.id `
+  -ClientNameSnapshot $client.displayName
+
+Get-RenderKitPublication `
+  -FromUtc '2026-08-01T00:00:00+00:00' `
+  -ToUtc '2026-09-01T00:00:00+00:00'
 ```
 
 ### Template, mapping, and deliverable management
@@ -181,12 +210,12 @@ Add-RenderKitDeliverableToTemplate -TemplateName "client-delivery" -Id "review" 
 - **Transfer safety** through hash verification and transaction-style media import workflows.
 - **Export and delivery formats** including manifest-only `.rkit`, self-contained `.rkitpkg`, folder deliveries, ZIP deliveries, and manifest outputs.
 - **Cross-platform user storage** for configuration, state, cache, and user data roots, including `RENDERKIT_HOME` overrides.
+- **Media metadata workflows** for native-first inspection, embedded or XMP-sidecar writes, templates, import/export, cached reads, provenance, history, and rollback.
+- **Client and publishing registries** with stable IDs, validation, status lifecycles, and optimistic concurrency.
 - **Atomic JSON persistence** with locking, backup restoration, validation hooks, and transaction-style state updates.
-- **Versioned internal artifacts** for project, registry, discovery, search-index, event, job, template, mapping, device, and configratuion data.
-- **Internal project registry, discovery, and lifecycle services** for known project tracking, indexed project discovery, duplicate-id conflict preparation, moved/missing project reconciliation, status transitions, and lifecycle events. 
-- **Versioned internal artifacts** for project, registry, event, job, template, mapping, device, and configuration data.
-- **Internal project registry and lifecycle services** for known project tracking, moved/missing project reconciliation, status transitions, and lifecycle events.
-- **Domain events, durable jobs, automation, and worker primitives** for future host integrations and asynchronous workflows.
+- **Versioned internal artifacts** for project, registry, discovery, search-index, event, job, template, mapping, device, client, publishing, metadata, and configuration data.
+- **Internal project registry, discovery, and lifecycle services** for indexed discovery, duplicate-ID conflict reporting, moved/missing project reconciliation, status transitions, and lifecycle events.
+- **Domain events, durable jobs, automation, and worker primitives** for host integrations and asynchronous workflows.
 - **Host-facing engine contracts** with stable result envelopes, registered error codes, operation contexts, and contract snapshots.
 
 ## Architecture
@@ -197,7 +226,6 @@ Add-RenderKitDeliverableToTemplate -TemplateName "client-delivery" -Id "review" 
 - [ADR-004: Artifact and Business Versioning](docs/architecture/ADR-004-artifact-versioning.md)
 - [ADR-005: Cross-Platform Storage and Path Handling](docs/architecture/ADR-005-cross-platform-storage.md)
 - [ADR-006: Local Engine Security Baseline](docs/architecture/ADR-006-security-baseline.md)
-- [Architecture implementation plan](docs/architecture/phase-implementation-plan.md)
 
 ## Documentation
 
@@ -205,9 +233,9 @@ Detailed usage documentation is available in [`docs/README.md`](docs/README.md).
 
 - installation and update instructions for PSResourceGet and PowerShellGet;
 - a guided first-run workflow;
-- one consistently structured Markdown reference page per implemented public function;
-- parameter, safety, output, and usage guidance for every documented command;
-- technical documentation for storage, artifact versioning, project registry, project discovery, project lifecycle, events, jobs, workers, automation, repair checks, and engine contracts.
+- a complete [public-function reference](docs/public-functions.md), plus detailed pages for the main workflows;
+- parameter, safety, output, and usage guidance for state-changing command families;
+- technical documentation for metadata, clients, publishing, backup/jobs, storage, versioning, project lifecycle, events, workers, automation, repair checks, and engine contracts.
 
 Key technical documents:
 
@@ -221,41 +249,19 @@ Key technical documents:
 - [Job Workers](docs/job-workers.md)
 - [Engine Contracts](docs/engine-contracts.md)
 - [Repair and Health Checks](docs/repair.md)
+- [Metadata Workflow](docs/metadata.md)
+- [Client Registry](docs/client-registry.md)
+- [Publishing Schedule](docs/publishing.md)
+- [Backup Operations and Jobs](docs/backup-operations.md)
+- [All Public Functions](docs/public-functions.md)
 
 ## Public Functions
 
-### Project lifecycle
-
-- [`Set-ProjectRoot`](docs/Set-ProjectRoot.md)
-- [`New-Project`](docs/New-Project.md)
-- [`Get-Project`](docs/Get-Project.md)
-- [`Copy-Project`](docs/Copy-Project.md)
-- [`Rename-Project`](docs/Rename-Project.md)
-- [`Remove-Project`](docs/Remove-Project.md)
-- [`Import-Project`](docs/Import-Project.md)
-- [`Export-Project`](docs/Export-Project.md)
-- [`Send-Project`](docs/Send-Project.md)
-
-### Template and mapping setup
-
-- [`New-RenderKitTemplate`](docs/New-RenderKitTemplate.md)
-- [`Add-FolderToTemplate`](docs/Add-FolderToTemplate.md)
-- [`Add-RenderKitDeliverableToTemplate`](docs/Add-RenderKitDeliverableToTemplate.md)
-- [`New-RenderKitMapping`](docs/New-RenderKitMapping.md)
-- [`Add-RenderKitTypeToMapping`](docs/Add-RenderKitTypeToMapping.md)
-- [`Add-RenderKitMappingToTemplate`](docs/Add-RenderKitMappingToTemplate.md)
-
-### Import and source detection
-
-- [`Import-Media`](docs/Import-Media.md)
-- [`Get-RenderKitDriveCandidate`](docs/Get-RenderKitDriveCandidate.md)
-- [`Select-RenderKitDriveCandidate`](docs/Select-RenderKitDriveCandidate.md)
-- [`Get-RenderKitDeviceWhitelist`](docs/Get-RenderKitDeviceWhitelist.md)
-- [`Add-RenderKitDeviceWhitelistEntry`](docs/Add-RenderKitDeviceWhitelistEntry.md)
-
-### Backup
-
-- [`Backup-Project`](docs/Backup-Project.md)
+The [complete public-function reference](docs/public-functions.md) lists every
+command exported by the 1.1.0 manifest. Detailed workflow documentation is
+grouped by [projects](docs/project-lifecycle.md), [metadata](docs/metadata.md),
+[clients](docs/client-registry.md), [publishing](docs/publishing.md), and
+[backup/jobs](docs/backup-operations.md).
 
 Check the commands exported by your installed module:
 
@@ -264,6 +270,152 @@ Get-Command -Module RenderKit
 Get-Help <FunctionName> -Full
 Get-Help <FunctionName> -Examples
 ```
+
+## IPTC metadata
+
+RenderKit maps the IPTC Core 1.5 and IPTC Extension 1.9 properties represented
+by its canonical metadata registry through the bundled ExifTool adapter. The
+map is versioned at `src/Resources/Metadata/iptc-field-map.json` and follows
+IPTC Photo Metadata Standard 2025.1.
+
+Reads prefer the current XMP representation and use legacy IIM or EXIF tags as
+explicit fallbacks. Multiple values remain arrays; RenderKit does not guess
+list boundaries from commas or other punctuation. Image writes update the
+compatible XMP and IIM/EXIF representations, and default-language XMP writes
+preserve any other language alternatives.
+
+Extension structures remain object lists. Scalar compatibility fields are only
+projected when a single unambiguous value exists; otherwise the structured
+value and a conflict are retained. Digital Source Type and PLUS release-status
+values use explicit canonical-value-to-URI mappings.
+
+```powershell
+Add-Metadata -Path '.\photo.png' -Field Headline -Value 'Product launch'
+Add-Metadata -Path '.\photo.png' -Field Keywords -Value @('press', 'launch')
+Add-Metadata `
+    -Path '.\photo.png' `
+    -Field DigitalSourceType `
+    -Value TrainedAlgorithmicMedia
+
+Get-Metadata `
+    -Path '.\photo.png' `
+    -Field Headline, Keywords `
+    -IncludeMetadata
+```
+
+Templates and batches use the same map. `Export-Metadata` includes an explicit
+IPTC profile and `Import-Metadata` restores it without flattening repeated or
+structured values.
+
+## Dublin Core / XMP
+
+RenderKit's Dublin Core application profile maps eight DCMES 1.1 elements to
+semantically equivalent registry fields in the XMP `dc` namespace. The
+remaining seven standard elements are recorded as explicitly unmapped instead
+of being guessed from narrower internal, technical, or IPTC fields.
+
+Repeated contributors, creators, and subjects remain arrays. The scalar
+Language and Publisher registry fields use an explicit first-non-empty profile
+constraint when an external XMP packet contains multiple values.
+
+```powershell
+Add-Metadata -Path '.\asset.png' -Field Contributor -Value @('Editor One', 'Editor Two')
+Add-Metadata -Path '.\asset.png' -Field Publisher -Value 'RenderKit Press'
+Add-Metadata -Path '.\asset.png' -Field Subject -Value @('architecture', 'design')
+```
+
+The wider XMP namespace, sidecar, broker/catalog, Studio, and production
+workflow boundaries are tracked in
+[`docs/dublin-core-xmp-integration-slices.md`](docs/dublin-core-xmp-integration-slices.md).
+
+## BWF, iXML, ID3 and Matroska
+
+RenderKit reads these four audio/container profiles through versioned,
+declarative maps. BEXT and iXML values come from RIFF/WAVE, ID3 tags retain
+their version-group precedence, and Matroska segment tags remain distinct from
+audio/video track metadata. Structured track, picture, lyric, and chapter
+values remain objects rather than flattened strings.
+
+BWF and iXML writes use RenderKit's native RIFF/RF64 chunk writer. ID3 writes
+use the bundled, hash-verified TagLibSharp runtime and write ID3v2.4.
+Matroska writes use bundled `mkvpropedit`/`mkvextract` for preserved global
+tags, first-of-type track headers, and canonical chapter trees. Each writer
+works on an atomic same-directory copy and verifies semantic readback before
+replacement. The remaining broker/Studio work is tracked in
+[`docs/audio-container-metadata-integration-slices.md`](docs/audio-container-metadata-integration-slices.md).
+
+## Third-Party Components
+
+RenderKit metadata extraction uses MediaInfo / MediaInfoLib for media file
+inspection. RenderKit distributions that bundle MediaInfo binaries include the
+required MediaArea attribution and BSD-style license notice in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+
+Bundled MediaInfo assets are staged below
+`src/Resources/ThirdParty/MediaInfo/<runtime-id>/` so RenderKit can resolve a
+known binary before falling back. MediaInfoLib 26.01 is bundled natively for
+Windows x64/ARM64, macOS x64/ARM64, and Linux x64. Linux ARM64 deliberately
+uses external native, host, or CLI resolution because no distribution-neutral
+26.01 binary is available. Native load/read failures continue through the
+configured host and CLI candidates instead of disabling metadata extraction.
+
+Resolver overrides:
+
+- `RENDERKIT_MEDIAINFO_LIBRARY`: absolute path to a native MediaInfo library.
+- `RENDERKIT_MEDIAINFO_HOST`: absolute path to an isolated metadata host.
+- `RENDERKIT_MEDIAINFO_PATH`: absolute path to a MediaInfo CLI executable.
+
+Bundled asset provenance and SHA-256 hashes are recorded in
+`src/Resources/ThirdParty/MediaInfo/manifest.json`. Maintainers can reproduce
+the verified binary drop with
+`pwsh ./build/Sync-RenderKitMediaInfoAssets.ps1`.
+
+MediaInfo is developed by MediaArea.net SARL. See
+<https://mediaarea.net/MediaInfo> and
+<https://mediaarea.net/en/MediaInfo/License>.
+
+RenderKit also bundles ExifTool 13.59 for metadata reads and embedded metadata
+writes. Windows x86/x64 use the official self-contained executable packages;
+macOS and Linux use the official portable Perl distribution. ExifTool does
+not expose a native shared-library integration comparable to MediaInfoLib, so
+its supported application/CLI interface is the primary backend.
+
+ExifTool resolver overrides:
+
+- `RENDERKIT_EXIFTOOL_PATH`: ExifTool-compatible executable to prefer.
+- `RENDERKIT_EXIFTOOL_HOST`: metadata host implementing
+  `<host> exiftool run -- <arguments>`.
+- `RENDERKIT_EXIFTOOL_PERL`: Perl interpreter for the bundled portable
+  macOS/Linux program.
+
+The normal order is explicit CLI, bundled ExifTool, configured host, then
+`exiftool` on `PATH`. Windows ARM64 uses host/system fallback because upstream
+does not publish a native ARM64 executable for this release. Provenance and
+hashes are recorded under `src/Resources/ThirdParty/ExifTool/`; maintainers can
+reproduce the verified payload with
+`pwsh ./build/Sync-RenderKitExifToolAssets.ps1`.
+
+ExifTool is developed by Phil Harvey and distributed under the same terms as
+Perl. See <https://exiftool.org/>.
+
+TagLibSharp 2.3.0 provides ID3v2.4 frame reads and writes. MKVToolNix 99.0
+provides Matroska tag, track-header, and chapter reads and writes. Their pinned
+hashes and licenses are recorded below `src/Resources/ThirdParty/`; the
+MKVToolNix corresponding source archive is included with the module. RenderKit
+bundles the complete MKVToolNix runtime for Windows x64. Ubuntu and macOS use
+the same fully tested adapter through a native system installation:
+
+```bash
+# Ubuntu
+sudo apt-get update && sudo apt-get install --yes mkvtoolnix
+
+# macOS with Homebrew
+brew install mkvtoolnix
+```
+
+The resolver requires both `mkvpropedit` and `mkvextract`. Their locations can
+also be supplied with `RENDERKIT_MKVTOOLNIX_ROOT`,
+`RENDERKIT_MKVPROPEDIT_PATH`, and `RENDERKIT_MKVEXTRACT_PATH`.
 
 ## Maintainer Release Workflow
 
@@ -303,4 +455,4 @@ pwsh ./build/Test-RenderKitGalleryInstall.ps1 -Version '<VERSION>'
 
 ## Roadmap
 
-Near-term work is tracked through the architecture implementation plan and changelog. Current foundations include storage, persistence, artifact versioning, registry/lifecycle state, domain events, durable jobs, automation, workers, repair checks, and engine contracts. Future README updates can replace the tutorial placeholders above with GIF walkthroughs and expand host/Electron handoff examples as those integrations mature.
+Near-term work is tracked in the changelog and repository issues. Current foundations include storage, persistence, artifact versioning, registry/lifecycle state, metadata, clients, publishing schedules, domain events, durable jobs, automation, workers, repair checks, and engine contracts. Future README updates can replace the tutorial placeholders above with GIF walkthroughs and expand host/Electron handoff examples as those integrations mature.

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "artifactType": "ThirdPartyMetadataBundle",
+  "name": "TagLibSharp",
+  "componentVersion": "2.3.0",
+  "projectUrl": "https://github.com/mono/taglib-sharp",
+  "packageUrl": "https://api.nuget.org/v3-flatcontainer/taglibsharp/2.3.0/taglibsharp.2.3.0.nupkg",
+  "packageSha256": "3C3F5B55988F69E0BC84DC760FEB8351FEF4D5C09A322D88462E683D334DFBFC",
+  "sourceRevision": "b5ae84f2e84087bf160bb0471420200dd2b5d809",
+  "license": "LGPL-2.1",
+  "licenseRelativePath": "licenses/COPYING",
+  "assemblies": [
+    {
+      "target": "net462",
+      "relativePath": "net462/TagLibSharp.dll",
+      "sha256": "B1833A41AB1E933F7B006E5DB15300B7223BFCCC2C3B6689D49A9171DD27DE1D"
+    },
+    {
+      "target": "netstandard2.0",
+      "relativePath": "netstandard2.0/TagLibSharp.dll",
+      "sha256": "DAD93B152D55CF6A58B2037BCF9DD34B45D87761FE5ED61A232B3D4641D2A5D3"
+    }
+  ]
+}

@@ -1,0 +1,286 @@
+{
+  "schemaVersion": "1.0",
+  "artifactType": "IxmlMetadataMap",
+  "profile": "iXML",
+  "standard": "iXML Production Recording Metadata",
+  "standardVersion": "3.01",
+  "sourceUrl": "https://www.gallery.co.uk/ixml/",
+  "adapterSettings": {
+    "ExifTool": {
+      "rootPaths": ["XML:Bwfxml"],
+      "groups": []
+    }
+  },
+  "writeCapability": {
+    "status": "Available",
+    "adapter": "RenderKitRiff",
+    "reason": "RenderKit rewrites the UTF-8 iXML chunk atomically while preserving unknown XML elements and all non-target RIFF/RF64 chunks."
+  },
+  "writeFields": [
+    { "field": "IxmlBitDepth", "target": "SPEED/AUDIO_BIT_DEPTH", "valueType": "Integer" },
+    { "field": "IxmlCircled", "target": "CIRCLED", "valueType": "Boolean" },
+    { "field": "IxmlFalseStart", "target": "FALSE_START", "valueType": "Boolean" },
+    { "field": "IxmlFamilyUid", "target": "FILE_SET/FAMILY_UID", "valueType": "String" },
+    { "field": "IxmlFileSetCount", "target": "FILE_SET/TOTAL_FILES", "valueType": "Integer" },
+    { "field": "IxmlFileSetIndex", "target": "FILE_SET/FILE_SET_INDEX", "valueType": "Integer" },
+    { "field": "IxmlLocation", "target": "LOCATION/NAME", "valueType": "String" },
+    { "field": "IxmlNoGood", "target": "NO_GOOD", "valueType": "Boolean" },
+    { "field": "IxmlNote", "target": "NOTE", "valueType": "String" },
+    { "field": "IxmlPreRecordSampleCount", "target": "PRE_RECORD_SAMPLECOUNT", "valueType": "Integer" },
+    { "field": "IxmlProject", "target": "PROJECT", "valueType": "String" },
+    { "field": "IxmlSampleRate", "target": "SPEED/FILE_SAMPLE_RATE", "valueType": "Integer" },
+    { "field": "IxmlScene", "target": "SCENE", "valueType": "String" },
+    { "field": "IxmlSpeed", "target": "SPEED", "valueType": "SpeedObject" },
+    { "field": "IxmlTake", "target": "TAKE", "valueType": "String" },
+    { "field": "IxmlTape", "target": "TAPE", "valueType": "String" },
+    { "field": "IxmlTimestampSamplesSinceMidnight", "target": "TIMESTAMP_SAMPLES_SINCE_MIDNIGHT", "valueType": "UInt64Pair" },
+    { "field": "IxmlTrackList", "target": "TRACK_LIST", "valueType": "TrackList" },
+    { "field": "IxmlUserBits", "target": "UBITS", "valueType": "String" },
+    { "field": "IxmlWildTrack", "target": "WILD_TRACK", "valueType": "Boolean" },
+    { "field": "ProductionDate", "target": "PRODUCTION_DATE", "valueType": "Date" },
+    { "field": "RecordingDate", "target": "BEXT/ORIGINATION_DATE", "valueType": "Date" },
+    { "field": "Scene", "target": "SCENE", "valueType": "String" },
+    { "field": "SceneNumber", "target": "SCENE", "valueType": "String" },
+    { "field": "Slate", "target": "SLATE", "valueType": "String" },
+    { "field": "Take", "target": "TAKE", "valueType": "String" },
+    { "field": "TakeNumber", "target": "TAKE", "valueType": "String" }
+  ],
+  "fields": [
+    {
+      "field": "IxmlBitDepth",
+      "fieldType": "Integer",
+      "converter": "Integer",
+      "read": {
+        "ExifTool": { "paths": ["Speed.AudioBitDepth", "AudioBitDepth"] }
+      }
+    },
+    {
+      "field": "IxmlCircled",
+      "fieldType": "Boolean",
+      "converter": "Boolean",
+      "read": {
+        "ExifTool": { "paths": ["Circled"] }
+      }
+    },
+    {
+      "field": "IxmlFalseStart",
+      "fieldType": "Boolean",
+      "converter": "Boolean",
+      "read": {
+        "ExifTool": { "paths": ["FalseStart"] }
+      }
+    },
+    {
+      "field": "IxmlFamilyUid",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["FileSet.FamilyUid"] }
+      }
+    },
+    {
+      "field": "IxmlFileSetCount",
+      "fieldType": "Integer",
+      "converter": "Integer",
+      "read": {
+        "ExifTool": { "paths": ["FileSet.TotalFiles"] }
+      }
+    },
+    {
+      "field": "IxmlFileSetIndex",
+      "fieldType": "Integer",
+      "converter": "Integer",
+      "read": {
+        "ExifTool": { "paths": ["FileSet.FileSetIndex"] }
+      }
+    },
+    {
+      "field": "IxmlLocation",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["Location.Name", "Location"] }
+      }
+    },
+    {
+      "field": "IxmlNoGood",
+      "fieldType": "Boolean",
+      "converter": "Boolean",
+      "read": {
+        "ExifTool": { "paths": ["NoGood"] }
+      }
+    },
+    {
+      "field": "IxmlNote",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["Note"] }
+      }
+    },
+    {
+      "field": "IxmlPreRecordSampleCount",
+      "fieldType": "Integer",
+      "converter": "Integer",
+      "read": {
+        "ExifTool": { "paths": ["PreRecordSamplecount", "PreRecordSampleCount"] }
+      }
+    },
+    {
+      "field": "IxmlProject",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["Project"] }
+      }
+    },
+    {
+      "field": "IxmlSampleRate",
+      "fieldType": "Integer",
+      "converter": "Integer",
+      "read": {
+        "ExifTool": { "paths": ["Speed.FileSampleRate", "FileSampleRate"] }
+      }
+    },
+    {
+      "field": "IxmlScene",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["Scene"] }
+      }
+    },
+    {
+      "field": "IxmlSpeed",
+      "fieldType": "Object",
+      "converter": "Object",
+      "read": {
+        "ExifTool": { "paths": ["Speed"] }
+      }
+    },
+    {
+      "field": "IxmlTake",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["Take"] }
+      }
+    },
+    {
+      "field": "IxmlTape",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["Tape"] }
+      }
+    },
+    {
+      "field": "IxmlTimestampSamplesSinceMidnight",
+      "fieldType": "Integer",
+      "converter": "UInt64Pair",
+      "read": {
+        "ExifTool": {
+          "paths": [
+            "TimestampSamplesSinceMidnight",
+            "TimestampSamplesSinceMidnightHi",
+            "TimestampSamplesSinceMidnightLo"
+          ]
+        }
+      }
+    },
+    {
+      "field": "IxmlTrackList",
+      "fieldType": "List<Object>",
+      "converter": "TrackList",
+      "read": {
+        "ExifTool": { "paths": ["TrackList"] }
+      }
+    },
+    {
+      "field": "IxmlUserBits",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["Ubits", "UserBits"] }
+      }
+    },
+    {
+      "field": "IxmlWildTrack",
+      "fieldType": "Boolean",
+      "converter": "Boolean",
+      "read": {
+        "ExifTool": { "paths": ["WildTrack"] }
+      }
+    },
+    {
+      "field": "ProductionDate",
+      "fieldType": "DateTime",
+      "converter": "Date",
+      "read": {
+        "ExifTool": { "paths": ["ProductionDate"] }
+      }
+    },
+    {
+      "field": "RecordingDate",
+      "fieldType": "DateTime",
+      "converter": "Date",
+      "read": {
+        "ExifTool": { "paths": ["Bext.OriginationDate"] }
+      }
+    },
+    {
+      "field": "Scene",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["Scene"] }
+      }
+    },
+    {
+      "field": "SceneNumber",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["Scene"] }
+      }
+    },
+    {
+      "field": "Slate",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["Slate"] }
+      }
+    },
+    {
+      "field": "Take",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["Take"] }
+      }
+    },
+    {
+      "field": "TakeNumber",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "ExifTool": { "paths": ["Take"] }
+      }
+    }
+  ],
+  "unmappedFields": [
+    {
+      "field": "GoodTake",
+      "reason": "Good-take is not inferred by negating NO_GOOD or FALSE_START; those flags have independent semantics."
+    },
+    {
+      "field": "RecorderManufacturer",
+      "reason": "The iXML machine identifiers do not provide a portable manufacturer field."
+    },
+    {
+      "field": "RecorderModel",
+      "reason": "The iXML machine identifiers do not provide a portable recorder-model field."
+    }
+  ]
+}

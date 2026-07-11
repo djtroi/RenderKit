@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "1.0",
+  "artifactType": "MetadataEmbeddedWriteMap",
+  "fields": [
+    {
+      "field": "Title",
+      "adapter": "ExifTool",
+      "tags": ["XMP-dc:Title", "IPTC:ObjectName"],
+      "mediaKinds": ["Audio", "Video", "Image"]
+    },
+    {
+      "field": "Description",
+      "adapter": "ExifTool",
+      "tags": ["XMP-dc:Description", "IPTC:Caption-Abstract"],
+      "mediaKinds": ["Audio", "Video", "Image"]
+    },
+    {
+      "field": "Keywords",
+      "adapter": "ExifTool",
+      "tags": ["XMP-dc:Subject", "IPTC:Keywords"],
+      "mediaKinds": ["Audio", "Video", "Image"]
+    },
+    {
+      "field": "Rating",
+      "adapter": "ExifTool",
+      "tags": ["XMP:Rating"],
+      "mediaKinds": ["Audio", "Video", "Image"]
+    },
+    {
+      "field": "Author",
+      "adapter": "ExifTool",
+      "tags": ["XMP-dc:Creator", "EXIF:Artist"],
+      "mediaKinds": ["Audio", "Video", "Image"]
+    },
+    {
+      "field": "Creator",
+      "adapter": "ExifTool",
+      "tags": ["XMP-dc:Creator", "IPTC:By-line"],
+      "mediaKinds": ["Audio", "Video", "Image"]
+    },
+    {
+      "field": "CopyrightNotice",
+      "adapter": "ExifTool",
+      "tags": ["XMP-dc:Rights", "IPTC:CopyrightNotice", "EXIF:Copyright"],
+      "mediaKinds": ["Audio", "Video", "Image"]
+    },
+    {
+      "field": "DateCreated",
+      "adapter": "ExifTool",
+      "tags": ["XMP-xmp:CreateDate", "EXIF:DateTimeOriginal"],
+      "mediaKinds": ["Video", "Image"]
+    },
+    {
+      "field": "DateOriginal",
+      "adapter": "ExifTool",
+      "tags": ["EXIF:DateTimeOriginal", "XMP-photoshop:DateCreated"],
+      "mediaKinds": ["Video", "Image"]
+    },
+    {
+      "field": "CreditLine",
+      "adapter": "ExifTool",
+      "tags": ["IPTC:Credit", "XMP-photoshop:Credit"],
+      "mediaKinds": ["Image", "Video"]
+    },
+    {
+      "field": "Headline",
+      "adapter": "ExifTool",
+      "tags": ["IPTC:Headline", "XMP-photoshop:Headline"],
+      "mediaKinds": ["Image", "Video"]
+    }
+  ]
+}

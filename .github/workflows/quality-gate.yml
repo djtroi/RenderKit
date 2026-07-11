@@ -40,6 +40,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@main
 
+      - name: Install MKVToolNix on Ubuntu
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes mkvtoolnix
+          command -v mkvpropedit
+          command -v mkvextract
+
+      - name: Install MKVToolNix on macOS
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          brew install mkvtoolnix
+          command -v mkvpropedit
+          command -v mkvextract
+
       - name: Run Pester
         run: |
           ./build/Invoke-RenderKitTests.ps1 `

@@ -109,11 +109,100 @@ jobs:
         shell: pwsh
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@main
+        with:
+          fetch-depth: 0
+
       - name: Download .nupkg artifact
         uses: actions/download-artifact@main
         with:
           name: RenderKit-${{ needs.build.outputs.version }}-nupkg
           path: ./artifacts
+
+      - name: Extract release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          $version = $env:VERSION
+          $changelogPath = Join-Path $env:GITHUB_WORKSPACE 'CHANGELOG.md'
+          $releaseNotesPath = Join-Path $env:RUNNER_TEMP 'release-notes.md'
+
+          if (-not (Test-Path -LiteralPath $changelogPath -PathType Leaf)) {
+              throw "CHANGELOG.md not found: $changelogPath"
+          }
+
+          $changelog = Get-Content `
+            -LiteralPath $changelogPath `
+            -Raw `
+            -Encoding utf8
+
+          $escapedVersion = [regex]::Escape($version)
+
+          # Supported Headers
+          # ## 1.0.1
+          # ## v1.0.1
+          # ## [1.0.1]
+          # ## [v1.0.1] - 2026-07-11
+          $pattern = (
+              '(?m)^##\s+' +
+              "(?:v?$escapedVersion|\[v?$escapedVersion\])" +
+              '(?=\s|$)[^\r\n]*\r?\n' +
+              '(?<body>[\s\S]*?)' +
+              '(?=^##\s+|\z)'
+          )
+
+          $matches = [regex]::Matches($changelog, $pattern)
+
+          if ($matches.Count -eq 0) {
+              throw @"
+          No changelog entry found for version $version.
+
+          Expected a heading such as:
+          ## $version - YYYY-MM-DD
+          "@
+          }
+
+          if ($matches.Count -gt 1) {
+              throw "Found multiple CHANGELOG.md entries for version $version."
+          }
+
+          $changelogNotes = $matches[0].Groups['body'].Value.Trim()
+
+          if ([string]::IsNullOrWhiteSpace($changelogNotes)) {
+              throw "The CHANGELOG.md entry for version $version is empty."
+          }
+
+          $commit = '${{ github.sha }}'
+          $shortCommit = $commit.Substring(0, 7)
+          $releaseDate = [DateTime]::UtcNow.ToString(
+              'yyyy-MM-dd HH:mm UTC'
+          )
+
+          $releaseNotes = @"
+          ## RenderKit v$version
+
+          - **Commit:** $shortCommit
+          - **Date:** $releaseDate
+          - **Branch:** main
+
+          $changelogNotes
+          "@
+
+          Set-Content `
+            -LiteralPath $releaseNotesPath `
+            -Value $releaseNotes.Trim() `
+            -Encoding utf8
+
+          "RELEASE_NOTES_PATH=$releaseNotesPath" |
+            Out-File `
+              -FilePath $env:GITHUB_ENV `
+              -Encoding utf8 `
+              -Append
+
+          Write-Host "Extracted release notes for version $version:"
+          Write-Host ''
+          Write-Host $releaseNotes
 
       - name: Check if release exists
         id: check
@@ -121,12 +210,20 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $tag = "v${{ needs.build.outputs.version }}"
-          gh release view $tag --repo ${{ github.repository }} 2>&1 | Out-Null
+
+          gh release view `
+            $tag `
+            --repo '${{ github.repository }}' `
+            2>&1 |
+            Out-Null
+
           if ($LASTEXITCODE -eq 0) {
-            "EXISTS=true" >> $env:GITHUB_OUTPUT
-          } else {
-            "EXISTS=false" >> $env:GITHUB_OUTPUT
+              "EXISTS=true" >> $env:GITHUB_OUTPUT
           }
+          else {
+              "EXISTS=false" >> $env:GITHUB_OUTPUT
+          }
+
           exit 0
 
       - name: Create GitHub Release
@@ -134,37 +231,39 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $tag    = "v${{ needs.build.outputs.version }}"
-          $nupkg  = "./artifacts/${{ needs.build.outputs.nupkg_name }}"
-          $commit = "${{ github.sha }}"
-          $short  = $commit.Substring(0, 7)
-          $date   = Get-Date -Format 'yyyy-MM-dd HH:mm'
+          $tag = "v${{ needs.build.outputs.version }}"
+          $nupkg = "./artifacts/${{ needs.build.outputs.nupkg_name }}"
+          $commit = '${{ github.sha }}'
 
-          $notes = @"
-          ## RenderKit $tag
-
-          - **Commit:** ``$short``
-          - **Date:** $date
-          - **Branch:** main
-          "@
-
-          gh release create $tag $nupkg `
-            --repo ${{ github.repository }} `
+          gh release create `
+            $tag `
+            $nupkg `
+            --repo '${{ github.repository }}' `
             --target $commit `
             --title "RenderKit $tag" `
-            --notes $notes
+            --notes-file $env:RELEASE_NOTES_PATH
 
       - name: Update existing release
         if: steps.check.outputs.EXISTS == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $tag   = "v${{ needs.build.outputs.version }}"
+          $tag = "v${{ needs.build.outputs.version }}"
           $nupkg = "./artifacts/${{ needs.build.outputs.nupkg_name }}"
-          $name  = "${{ needs.build.outputs.nupkg_name }}"
 
-          gh release delete-asset $tag $name --yes --repo ${{ github.repository }} 2>$null
-          gh release upload $tag $nupkg --clobber --repo ${{ github.repository }}
+          # Update Description from CHANGELOG.md.
+          gh release edit `
+            $tag `
+            --repo '${{ github.repository }}' `
+            --title "RenderKit $tag" `
+            --notes-file $env:RELEASE_NOTES_PATH
+
+          # Overwrite existing package.
+          gh release upload `
+            $tag `
+            $nupkg `
+            --clobber `
+            --repo '${{ github.repository }}'
 
   github-packages:
     name: Publish to GitHub Packages

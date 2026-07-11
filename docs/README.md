@@ -1,6 +1,9 @@
 # RenderKit Documentation
 
-This documentation covers installation, updates, and the use of every implemented public RenderKit function. Each function has its own Markdown file with the same structure: summary, syntax, prerequisites, parameters, example, output, safety guidance, and related links.
+This documentation covers installation, updates, and every public RenderKit
+function. The [complete command reference](public-functions.md) covers the full
+exported surface; high-impact workflows also have focused guides with examples,
+state semantics, and safety notes.
 
 ## Getting started
 
@@ -21,7 +24,7 @@ Internal project-name resolution is backed by the
 scans are documented in [Project Discovery and Search Index](project-discovery.md).
 [Project Lifecycle](project-lifecycle.md).
 Internal automation signals are documented in [Domain Events](events.md).
-Future asynchronous work is backed by [Background Jobs](jobs.md).
+Asynchronous work is backed by [Background Jobs](jobs.md).
 Event-to-job wiring is documented in [Event-to-Job Automation](automation.md).
 Trusted worker execution is documented in [Job Workers](job-workers.md).
 Host-facing engine contracts are documented in [Engine Contracts](engine-contracts.md).
@@ -40,9 +43,6 @@ Internal health checks are documented in [Repair and Health Checks](repair.md).
 - [`Send-Project`](Send-Project.md) – Package deliverables for handoff or review
 - [`Backup-Project`](Backup-Project.md) – Clean, archive, and verify a project
 
-> [!NOTE]
-> The implementation provides `Copy-Project`, while the current manifest and module loader export `Clone-Project`. This existing mismatch can affect which command name is available in a published module.
-
 ## Templates and mappings
 
 - [`New-RenderKitTemplate`](New-RenderKitTemplate.md)
@@ -59,6 +59,27 @@ Internal health checks are documented in [Repair and Health Checks](repair.md).
 - [`Select-RenderKitDriveCandidate`](Select-RenderKitDriveCandidate.md)
 - [`Get-RenderKitDeviceWhitelist`](Get-RenderKitDeviceWhitelist.md)
 - [`Add-RenderKitDeviceWhitelistEntry`](Add-RenderKitDeviceWhitelistEntry.md)
+
+## Metadata
+
+- [Metadata workflow and commands](metadata.md)
+- [Dublin Core / XMP integration](dublin-core-xmp-integration-slices.md)
+- [BWF, iXML, ID3, and Matroska integration](audio-container-metadata-integration-slices.md)
+
+## Clients and publishing
+
+- [Client registry](client-registry.md)
+- [Publishing schedule](publishing.md)
+
+## Backup and background work
+
+- [Backup operations and job control](backup-operations.md)
+- [Background jobs](jobs.md)
+- [Job workers](job-workers.md)
+
+## Complete command surface
+
+- [All 61 exported functions](public-functions.md)
 
 ## PowerShell help
 

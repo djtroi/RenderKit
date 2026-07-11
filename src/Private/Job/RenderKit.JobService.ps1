@@ -774,8 +774,12 @@ function ConvertTo-RenderKitUtcDateTime {
     }
 
     $parsed = [DateTime]::MinValue
-    $styles = [System.Globalization.DateTimeStyles]::RoundtripKind -bor
-        [System.Globalization.DateTimeStyles]::AssumeUniversal
+    # RoundtripKind cannot be combined with AssumeUniversal on .NET Framework
+    # (Windows PowerShell 5.1). This valid combination preserves explicit
+    # offsets and treats an offset-less persisted timestamp as UTC.
+    $styles = [System.Globalization.DateTimeStyles]::AllowWhiteSpaces -bor
+        [System.Globalization.DateTimeStyles]::AssumeUniversal -bor
+        [System.Globalization.DateTimeStyles]::AdjustToUniversal
     if ([DateTime]::TryParse(
             $text,
             [System.Globalization.CultureInfo]::InvariantCulture,

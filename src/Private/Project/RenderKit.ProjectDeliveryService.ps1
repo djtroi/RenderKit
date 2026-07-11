@@ -191,11 +191,13 @@ function New-RenderKitDeliverableManifest {
         [Parameter(Mandatory)]$Files,
         [Parameter(Mandatory)][string]$PackageMode,
         [Parameter(Mandatory)][string]$DestinationPath,
-        [string[]]$HashAlgorithm = @('SHA256')
+        [string[]]$HashAlgorithm = @('SHA256'),
+        [bool]$IncludeMetadata = $true
     )
 
     $projectInfo = Get-Item -LiteralPath $ProjectRoot -ErrorAction Stop
     $manifestFiles = New-Object System.Collections.Generic.List[object]
+    $manifestMetadataFiles = New-Object System.Collections.Generic.List[object]
     foreach ($file in @($Files)) {
         $hashes = Get-RenderKitProjectFileHashSet -Path $file.SourcePath -Algorithms $HashAlgorithm
         $manifestFiles.Add([PSCustomObject]@{
@@ -210,6 +212,33 @@ function New-RenderKitDeliverableManifest {
             typeName                = $file.TypeName
             hashes                  = $hashes
         })
+
+        if ($IncludeMetadata) {
+            try {
+                $location = Get-RenderKitFileMetadataLocation `
+                    -Path $file.SourcePath `
+                    -ProjectRoot $ProjectRoot
+                if (Test-Path -LiteralPath $location.RecordPath -PathType Leaf) {
+                    $metadataItem = Get-Item -LiteralPath $location.RecordPath -ErrorAction Stop
+                    $metadataPackagePath = ('files/{0}.metadata.json' -f (
+                        ($file.PackageRelativePath -replace '[\\/]+', '__')
+                    ))
+                    $manifestMetadataFiles.Add([PSCustomObject]@{
+                        sourceRelativePath  = $file.ProjectRelativePath
+                        metadataRelativePath = ConvertTo-RenderKitProjectRelativePath `
+                            -BasePath (Join-Path -Path $ProjectRoot -ChildPath '.renderkit/metadata') `
+                            -Path $metadataItem.FullName
+                        packageRelativePath = $metadataPackagePath
+                        sourcePath          = $metadataItem.FullName
+                        sizeBytes           = [int64]$metadataItem.Length
+                        sha256              = (Get-FileHash -LiteralPath $metadataItem.FullName -Algorithm SHA256 -ErrorAction Stop).Hash
+                    })
+                }
+            }
+            catch {
+                Write-RenderKitLog -Level Warning -Message "Could not include metadata for deliverable '$($file.SourcePath)': $($_.Exception.Message)"
+            }
+        }
     }
 
     return [PSCustomObject]@{
@@ -221,6 +250,10 @@ function New-RenderKitDeliverableManifest {
         rules         = @($Rules | ForEach-Object { [PSCustomObject]@{ id = $_.Id; name = $_.Name; sourceFolders = @($_.SourceFolders) } })
         package       = [PSCustomObject]@{ mode = $PackageMode; destinationPath = $DestinationPath; hashAlgorithms = @($HashAlgorithm) }
         files         = $manifestFiles.ToArray()
+        metadata      = [PSCustomObject]@{
+            included = [bool]$IncludeMetadata
+            files    = $manifestMetadataFiles.ToArray()
+        }
     }
 }
 
@@ -235,6 +268,22 @@ function Copy-RenderKitDeliverableFileSet {
         $targetDirectory = Split-Path -Path $target -Parent
         if (-not (Test-Path -LiteralPath $targetDirectory -PathType Container)) { New-Item -ItemType Directory -Path $targetDirectory -Force | Out-Null }
         Copy-Item -LiteralPath $file.SourcePath -Destination $target -Force -ErrorAction Stop
+    }
+}
+
+function Copy-RenderKitDeliverableMetadataFileSet {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$MetadataFiles,
+        [Parameter(Mandatory)][string]$DestinationRoot
+    )
+    foreach ($metadataFile in @($MetadataFiles)) {
+        $target = Join-Path -Path $DestinationRoot -ChildPath $metadataFile.packageRelativePath
+        $targetDirectory = Split-Path -Path $target -Parent
+        if (-not (Test-Path -LiteralPath $targetDirectory -PathType Container)) {
+            New-Item -ItemType Directory -Path $targetDirectory -Force | Out-Null
+        }
+        Copy-Item -LiteralPath $metadataFile.sourcePath -Destination $target -Force -ErrorAction Stop
     }
 }
 
@@ -281,6 +330,13 @@ function Export-RenderKitDeliverableZip {
     New-Item -ItemType Directory -Path $stagingFilesRoot -Force | Out-Null
     try {
         Copy-RenderKitDeliverableFileSet -Files $Files -DestinationRoot $stagingFilesRoot
+        $stagingMetadataRoot = Join-Path -Path $stagingRoot -ChildPath 'metadata'
+        if ($Manifest.metadata -and $Manifest.metadata.files) {
+            New-Item -ItemType Directory -Path $stagingMetadataRoot -Force | Out-Null
+            Copy-RenderKitDeliverableMetadataFileSet `
+                -MetadataFiles @($Manifest.metadata.files) `
+                -DestinationRoot $stagingMetadataRoot
+        }
         $zip = [System.IO.Compression.ZipFile]::Open($DestinationPath, [System.IO.Compression.ZipArchiveMode]::Create)
         try {
             $manifestEntry = $zip.CreateEntry('manifest.json', [System.IO.Compression.CompressionLevel]::Optimal)
@@ -294,6 +350,14 @@ function Export-RenderKitDeliverableZip {
             foreach ($file in @($Files)) {
                 $stagedPath = Join-Path -Path $stagingFilesRoot -ChildPath $file.PackageRelativePath
                 Add-RenderKitFileToZipArchive -Archive $zip -SourcePath $stagedPath -EntryName ('files/{0}' -f $file.PackageRelativePath) -DefaultCompressionLevel $CompressionLevel
+            }
+            foreach ($metadataFile in @($Manifest.metadata.files)) {
+                $stagedPath = Join-Path -Path $stagingMetadataRoot -ChildPath $metadataFile.packageRelativePath
+                Add-RenderKitFileToZipArchive `
+                    -Archive $zip `
+                    -SourcePath $stagedPath `
+                    -EntryName ('metadata/{0}' -f $metadataFile.packageRelativePath) `
+                    -DefaultCompressionLevel Optimal
             }
         }
         finally { $zip.Dispose() }

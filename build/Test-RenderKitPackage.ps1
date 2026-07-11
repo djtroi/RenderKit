@@ -24,10 +24,51 @@ try {
     $archive = [System.IO.Compression.ZipFile]::OpenRead($PackagePath)
     $entryNames = @($archive.Entries | ForEach-Object { $_.FullName })
 
-    foreach ($requiredEntry in 'RenderKit.psd1', 'RenderKit.psm1') {
+    foreach ($requiredEntry in @(
+        'RenderKit.psd1',
+        'RenderKit.psm1',
+        'THIRD_PARTY_NOTICES.md',
+        'src/Resources/Metadata/bwf-field-map.json',
+        'src/Resources/Metadata/dublin-core-xmp-map.json',
+        'src/Resources/Metadata/id3-field-map.json',
+        'src/Resources/Metadata/ixml-field-map.json',
+        'src/Resources/Metadata/iptc-field-map.json',
+        'src/Resources/Metadata/matroska-field-map.json',
+        'src/Resources/ThirdParty/MediaInfo/manifest.json',
+        'src/Resources/ThirdParty/ExifTool/manifest.json',
+        'src/Resources/ThirdParty/ExifTool/files.sha256',
+        'src/Resources/ThirdParty/TagLibSharp/manifest.json',
+        'src/Resources/ThirdParty/TagLibSharp/net462/TagLibSharp.dll',
+        'src/Resources/ThirdParty/TagLibSharp/netstandard2.0/TagLibSharp.dll',
+        'src/Resources/ThirdParty/TagLibSharp/licenses/COPYING',
+        'src/Resources/ThirdParty/MKVToolNix/manifest.json',
+        'src/Resources/ThirdParty/MKVToolNix/win-x64/mkvpropedit.exe',
+        'src/Resources/ThirdParty/MKVToolNix/win-x64/mkvextract.exe',
+        'src/Resources/ThirdParty/MKVToolNix/source/mkvtoolnix-99.0.tar.xz',
+        'src/Resources/ThirdParty/MKVToolNix/licenses/COPYING.txt'
+    )) {
         if ($entryNames -notcontains $requiredEntry) {
             throw "Package '$PackagePath' does not contain required entry '$requiredEntry'."
         }
+    }
+
+    $gitKeepEntries = @($entryNames | Where-Object { $_ -like '*.gitkeep' })
+    if ($gitKeepEntries.Count -gt 0) {
+        throw "Package '$PackagePath' contains placeholder entries: $($gitKeepEntries -join ', ')."
+    }
+
+    $mediaInfoEntries = @(
+        $entryNames |
+            Where-Object {
+                $_ -like 'src/Resources/ThirdParty/MediaInfo/*' -and
+                $_ -notlike '*/licenses/*' -and
+                $_ -notlike '*/README.md' -and
+                $_ -notlike '*/manifest.json'
+            }
+    )
+    if ($mediaInfoEntries.Count -gt 0 -and
+        $entryNames -notcontains 'THIRD_PARTY_NOTICES.md') {
+        throw 'Package contains MediaInfo assets but does not contain THIRD_PARTY_NOTICES.md.'
     }
 
     foreach ($entry in $archive.Entries) {
@@ -50,6 +91,239 @@ try {
     $archive = $null
 
     [System.IO.Compression.ZipFile]::ExtractToDirectory($PackagePath, $extractRoot)
+
+    $mediaInfoRoot = Join-Path `
+        -Path $extractRoot `
+        -ChildPath 'src/Resources/ThirdParty/MediaInfo'
+    $mediaInfoManifest = Get-Content `
+        -LiteralPath (Join-Path $mediaInfoRoot 'manifest.json') `
+        -Raw |
+        ConvertFrom-Json
+    foreach ($runtime in @($mediaInfoManifest.runtimeIdentifiers)) {
+        if (-not [bool]$runtime.bundledNative) {
+            continue
+        }
+
+        $nativePath = Join-Path `
+            -Path $mediaInfoRoot `
+            -ChildPath ([string]$runtime.nativeLibraryRelativePath)
+        if (-not (Test-Path -LiteralPath $nativePath -PathType Leaf)) {
+            throw "Package is missing MediaInfo native asset for '$($runtime.rid)': $nativePath"
+        }
+
+        $nativeHash = (Get-FileHash -LiteralPath $nativePath -Algorithm SHA256).Hash
+        if ($nativeHash -ne [string]$runtime.nativeLibrarySha256) {
+            throw "Package MediaInfo native asset hash mismatch for '$($runtime.rid)'."
+        }
+
+        foreach ($dependencyPath in @(
+            $runtime.nativeDependencyRelativePaths |
+                ForEach-Object { [string]$_ }
+        )) {
+            $dependency = Join-Path $mediaInfoRoot $dependencyPath
+            if (-not (Test-Path -LiteralPath $dependency -PathType Leaf)) {
+                throw "Package is missing MediaInfo dependency for '$($runtime.rid)': $dependency"
+            }
+            $expectedDependencyHash = [string](
+                $runtime.nativeDependencySha256.PSObject.Properties[$dependencyPath].Value
+            )
+            $dependencyHash = (
+                Get-FileHash -LiteralPath $dependency -Algorithm SHA256
+            ).Hash
+            if ($dependencyHash -ne $expectedDependencyHash) {
+                throw "Package MediaInfo dependency hash mismatch for '$($runtime.rid)': $dependencyPath"
+            }
+        }
+
+        $licenseRoot = Join-Path `
+            -Path $mediaInfoRoot `
+            -ChildPath ([string]$runtime.licenseDirectoryRelativePath)
+        $licenseFiles = @(
+            Get-ChildItem `
+                -LiteralPath $licenseRoot `
+                -File `
+                -ErrorAction SilentlyContinue
+        )
+        if ($licenseFiles.Count -eq 0) {
+            throw "Package is missing MediaInfo license files for '$($runtime.rid)'."
+        }
+    }
+
+    $exifToolRoot = Join-Path `
+        -Path $extractRoot `
+        -ChildPath 'src/Resources/ThirdParty/ExifTool'
+    $exifToolManifest = Get-Content `
+        -LiteralPath (Join-Path $exifToolRoot 'manifest.json') `
+        -Raw |
+        ConvertFrom-Json
+    foreach ($runtime in @($exifToolManifest.runtimeIdentifiers)) {
+        if (-not [bool]$runtime.bundled) {
+            continue
+        }
+
+        $commandPath = Join-Path `
+            -Path $exifToolRoot `
+            -ChildPath ([string]$runtime.commandRelativePath)
+        if (-not (Test-Path -LiteralPath $commandPath -PathType Leaf)) {
+            throw "Package is missing ExifTool runtime for '$($runtime.rid)': $commandPath"
+        }
+
+        $commandHash = (Get-FileHash `
+            -LiteralPath $commandPath `
+            -Algorithm SHA256).Hash
+        if ($commandHash -ne [string]$runtime.commandSha256) {
+            throw "Package ExifTool command hash mismatch for '$($runtime.rid)'."
+        }
+    }
+
+    $exifToolHashLines = Get-Content `
+        -LiteralPath (Join-Path $exifToolRoot 'files.sha256')
+    foreach ($line in $exifToolHashLines) {
+        $hashMatch = [regex]::Match($line, '^([a-f0-9]{64})  (.+)$')
+        if (-not $hashMatch.Success) {
+            throw "Package ExifTool hash manifest contains an invalid line: '$line'."
+        }
+
+        $expectedHash = $hashMatch.Groups[1].Value
+        $relativePath = $hashMatch.Groups[2].Value
+        $payloadPath = Join-Path $exifToolRoot $relativePath
+        if (-not (Test-Path -LiteralPath $payloadPath -PathType Leaf)) {
+            throw "Package is missing ExifTool payload: '$relativePath'."
+        }
+
+        $actualHash = (Get-FileHash `
+            -LiteralPath $payloadPath `
+            -Algorithm SHA256).Hash
+        if ($actualHash -ne $expectedHash) {
+            throw "Package ExifTool payload hash mismatch: '$relativePath'."
+        }
+    }
+
+    foreach ($licensePath in @(
+        'licenses/ExifTool-README.txt',
+        'licenses/Perl-Artistic.txt',
+        'licenses/Perl-Copying.txt',
+        'win-x86/exiftool_files/Licenses_Strawberry_Perl.zip',
+        'win-x64/exiftool_files/Licenses_Strawberry_Perl.zip'
+    )) {
+        if (-not (Test-Path `
+                -LiteralPath (Join-Path $exifToolRoot $licensePath) `
+                -PathType Leaf)) {
+            throw "Package is missing ExifTool license material: '$licensePath'."
+        }
+    }
+
+    $tagLibSharpRoot = Join-Path `
+        -Path $extractRoot `
+        -ChildPath 'src/Resources/ThirdParty/TagLibSharp'
+    $tagLibSharpManifest = Get-Content `
+        -LiteralPath (Join-Path $tagLibSharpRoot 'manifest.json') `
+        -Raw |
+        ConvertFrom-Json
+    if ([string]$tagLibSharpManifest.name -ne 'TagLibSharp' -or
+        [string]$tagLibSharpManifest.license -ne 'LGPL-2.1') {
+        throw 'Package TagLibSharp manifest identity or license is invalid.'
+    }
+    foreach ($assembly in @($tagLibSharpManifest.assemblies)) {
+        $assemblyPath = Join-Path `
+            -Path $tagLibSharpRoot `
+            -ChildPath ([string]$assembly.relativePath)
+        if (-not (Test-Path -LiteralPath $assemblyPath -PathType Leaf)) {
+            throw "Package is missing TagLibSharp assembly '$($assembly.target)'."
+        }
+        $assemblyHash = (
+            Get-FileHash `
+                -LiteralPath $assemblyPath `
+                -Algorithm SHA256
+        ).Hash
+        if ($assemblyHash -ne [string]$assembly.sha256) {
+            throw "Package TagLibSharp hash mismatch for '$($assembly.target)'."
+        }
+    }
+    $tagLibSharpLicensePath = Join-Path `
+        -Path $tagLibSharpRoot `
+        -ChildPath ([string]$tagLibSharpManifest.licenseRelativePath)
+    if (-not (Test-Path `
+            -LiteralPath $tagLibSharpLicensePath `
+            -PathType Leaf)) {
+        throw 'Package is missing the TagLibSharp LGPL license.'
+    }
+
+    $mkvToolNixRoot = Join-Path `
+        -Path $extractRoot `
+        -ChildPath 'src/Resources/ThirdParty/MKVToolNix'
+    $mkvToolNixManifest = Get-Content `
+        -LiteralPath (Join-Path $mkvToolNixRoot 'manifest.json') `
+        -Raw |
+        ConvertFrom-Json
+    if ([string]$mkvToolNixManifest.name -ne 'MKVToolNix' -or
+        [string]$mkvToolNixManifest.license -ne 'GPL-2.0') {
+        throw 'Package MKVToolNix manifest identity or license is invalid.'
+    }
+    foreach ($runtime in @(
+        $mkvToolNixManifest.runtimeIdentifiers |
+            Where-Object { [bool]$_.bundled }
+    )) {
+        foreach ($command in @(
+            [PSCustomObject]@{
+                RelativePath = [string]$runtime.propEditRelativePath
+                ExpectedHash = [string]$runtime.propEditSha256
+                Name = 'mkvpropedit'
+            },
+            [PSCustomObject]@{
+                RelativePath = [string]$runtime.extractRelativePath
+                ExpectedHash = [string]$runtime.extractSha256
+                Name = 'mkvextract'
+            }
+        )) {
+            $commandPath = Join-Path `
+                -Path $mkvToolNixRoot `
+                -ChildPath $command.RelativePath
+            if (-not (Test-Path `
+                    -LiteralPath $commandPath `
+                    -PathType Leaf)) {
+                throw "Package is missing MKVToolNix $($command.Name) for '$($runtime.rid)'."
+            }
+            $commandHash = (
+                Get-FileHash `
+                    -LiteralPath $commandPath `
+                    -Algorithm SHA256
+            ).Hash
+            if ($commandHash -ne $command.ExpectedHash) {
+                throw "Package MKVToolNix $($command.Name) hash mismatch for '$($runtime.rid)'."
+            }
+        }
+    }
+    $mkvToolNixSourcePath = Join-Path `
+        -Path $mkvToolNixRoot `
+        -ChildPath ([string]$mkvToolNixManifest.sourceRelativePath)
+    if (-not (Test-Path `
+            -LiteralPath $mkvToolNixSourcePath `
+            -PathType Leaf) -or
+        (Get-FileHash `
+            -LiteralPath $mkvToolNixSourcePath `
+            -Algorithm SHA256).Hash -ne
+                [string]$mkvToolNixManifest.sourceSha256) {
+        throw 'Package MKVToolNix corresponding source is missing or invalid.'
+    }
+    foreach ($license in @($mkvToolNixManifest.licenseFiles)) {
+        $licensePath = Join-Path `
+            -Path $mkvToolNixRoot `
+            -ChildPath ([string]$license.relativePath)
+        if (-not (Test-Path `
+                -LiteralPath $licensePath `
+                -PathType Leaf)) {
+            throw "Package is missing MKVToolNix license '$($license.relativePath)'."
+        }
+        $licenseHash = (
+            Get-FileHash `
+                -LiteralPath $licensePath `
+                -Algorithm SHA256
+        ).Hash
+        if ($licenseHash -ne [string]$license.sha256) {
+            throw "Package MKVToolNix license hash mismatch for '$($license.relativePath)'."
+        }
+    }
 
     $manifestPath = Join-Path -Path $extractRoot -ChildPath 'RenderKit.psd1'
     $manifest = Test-ModuleManifest -Path $manifestPath -ErrorAction Stop

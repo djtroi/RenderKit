@@ -30,6 +30,20 @@ Describe 'RenderKit JSON persistence service' {
         $bytes[0] | Should -Be 0x7B
     }
 
+    It 'validates atomic JSON through a hidden sibling path' {
+        $hiddenPath = Join-Path $script:testRoot '.metadata.json'
+
+        Write-RenderKitJsonFileAtomic `
+            -Value ([PSCustomObject]@{ Version = 1 }) `
+            -Path $hiddenPath |
+            Out-Null
+
+        (Read-RenderKitJsonFile -Path $hiddenPath).Version | Should -Be 1
+        @(Get-ChildItem -LiteralPath $script:testRoot -Force |
+            Where-Object Name -like '.metadata.json.tmp.*') |
+            Should -HaveCount 0
+    }
+
     It 'retries a transient read during an atomic file replacement' {
         Set-Content `
             -LiteralPath $script:jsonPath `
