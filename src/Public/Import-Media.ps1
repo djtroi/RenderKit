@@ -135,7 +135,10 @@ https://github.com/djtroi/RenderKit
         [string]$UnassignedFolderName = "TO SORT",
         [switch]$Transfer,
         [ValidateSet("SHA256", "SHA1", "MD5")]
-        [string]$TransferHashAlgorithm = "SHA256"
+        [string]$TransferHashAlgorithm = "SHA256",
+        [bool]$IncludeMetadata = $true,
+        [ValidateRange(1, 64)]
+        [int]$MetadataThrottleLimit = 4
     )
 
     $isWizardMode = ($PSBoundParameters.Count -eq 0)
@@ -509,8 +512,36 @@ https://github.com/djtroi/RenderKit
         Write-RenderKitLog -Level Warning -Message "Phase 5 skipped: no project root context was available."
     }
 
+    $metadataExtraction = $null
+    if ($IncludeMetadata -and
+        $confirmed -and
+        -not [bool]$WhatIfPreference -and
+        -not [string]::IsNullOrWhiteSpace($effectiveProjectRoot) -and
+        $transferResult -and
+        [int]$transferResult.ImportedFileCount -gt 0) {
+        try {
+            Write-RenderKitLog -Level Info -Message "Phase 6 metadata extraction started for '$effectiveProjectRoot'."
+            $metadataExtraction = Update-RenderKitProjectMetadataCache `
+                -ProjectRoot $effectiveProjectRoot `
+                -ThrottleLimit $MetadataThrottleLimit
+            Write-RenderKitLog -Level Info -Message "Phase 6 metadata extraction completed: $($metadataExtraction.Succeeded) succeeded, $($metadataExtraction.Failed) failed."
+        }
+        catch {
+            Write-RenderKitLog -Level Warning -Message "Phase 6 metadata extraction failed: $($_.Exception.Message)"
+            $metadataExtraction = [PSCustomObject]@{
+                ProjectRoot = $effectiveProjectRoot
+                Status = 'Failed'
+                Error = $_.Exception.Message
+            }
+        }
+    }
+    elseif ($IncludeMetadata -and $Transfer) {
+        Write-RenderKitLog -Level Debug -Message "Phase 6 metadata extraction skipped: no successful real transfer was detected."
+    }
+
     return [PSCustomObject]@{
         SourcePath         = $resolvedSourcePath
+        ProjectRoot        = $effectiveProjectRoot
         ImportStartedAt    = $importStartedAt
         ImportEndedAt      = $importEndedAt
         ScanFileCount      = $catalog.Count
@@ -536,6 +567,8 @@ https://github.com/djtroi/RenderKit
         TransferAverageSpeedMBps = if ($transferResult) { $transferResult.AverageSpeedMBps } else { 0 }
         FinalReport        = $finalReport
         RevisionLogPath    = $revisionLogPath
+        IncludeMetadata    = [bool]$IncludeMetadata
+        MetadataExtraction = $metadataExtraction
         Files              = $selectedFiles
         ClassifiedFiles    = $classifiedFiles
     }

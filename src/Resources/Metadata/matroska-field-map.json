@@ -1,0 +1,282 @@
+{
+  "schemaVersion": "1.0",
+  "artifactType": "MatroskaMetadataMap",
+  "profile": "Matroska",
+  "standard": "Matroska Tags and Track Metadata",
+  "standardVersion": "1",
+  "sourceUrl": "https://www.matroska.org/technical/tagging.html",
+  "adapterSettings": {
+    "MediaInfo": {
+      "groups": []
+    },
+    "MkvToolNix": {
+      "groups": []
+    }
+  },
+  "writeCapability": {
+    "status": "Available",
+    "adapter": "MkvToolNix",
+    "reason": "The pinned mkvpropedit and mkvextract adapter preserves global tags, targets first-of-type track headers explicitly, and replaces canonical chapter lists atomically."
+  },
+  "writeFields": [
+    { "field": "Album", "target": "GlobalTag:ALBUM", "valueType": "String" },
+    { "field": "AudioChapters", "target": "Chapters", "valueType": "ChapterList" },
+    { "field": "AudioDefaultStream", "target": "Track:a1:flag-default", "valueType": "Boolean" },
+    { "field": "AudioDiscNumber", "target": "GlobalTag:DISCNUMBER", "valueType": "UInt32" },
+    { "field": "AudioDiscTotal", "target": "GlobalTag:DISCTOTAL", "valueType": "UInt32" },
+    { "field": "AudioForcedStream", "target": "Track:a1:flag-forced", "valueType": "Boolean" },
+    { "field": "AudioLanguage", "target": "Track:a1:language", "valueType": "Language" },
+    { "field": "AudioTitle", "target": "Track:a1:name", "valueType": "String" },
+    { "field": "AudioTrackNumber", "target": "GlobalTag:TRACKNUMBER", "valueType": "UInt32" },
+    { "field": "AudioTrackTotal", "target": "GlobalTag:TRACKTOTAL", "valueType": "UInt32" },
+    { "field": "Chapters", "target": "Chapters", "valueType": "ChapterList" },
+    { "field": "Composer", "target": "GlobalTag:COMPOSER", "valueType": "String" },
+    { "field": "Conductor", "target": "GlobalTag:CONDUCTOR", "valueType": "String" },
+    { "field": "Director", "target": "GlobalTag:DIRECTOR", "valueType": "String" },
+    { "field": "Genre", "target": "GlobalTag:GENRE", "valueType": "String" },
+    { "field": "Label", "target": "GlobalTag:LABEL", "valueType": "String" },
+    { "field": "Producer", "target": "GlobalTag:PRODUCER", "valueType": "String" },
+    { "field": "Publisher", "target": "GlobalTag:PUBLISHER", "valueType": "String" },
+    { "field": "ReelName", "target": "GlobalTag:REEL_NAME", "valueType": "String" },
+    { "field": "ReleaseDate", "target": "GlobalTag:DATE_RELEASED", "valueType": "DateText" },
+    { "field": "StereoMode", "target": "Track:v1:stereo-mode", "valueType": "StereoMode" },
+    { "field": "Subtitle", "target": "GlobalTag:SUBTITLE", "valueType": "String" },
+    { "field": "Synopsis", "target": "GlobalTag:SYNOPSIS", "valueType": "String" },
+    { "field": "VideoDefaultStream", "target": "Track:v1:flag-default", "valueType": "Boolean" },
+    { "field": "VideoForcedStream", "target": "Track:v1:flag-forced", "valueType": "Boolean" },
+    { "field": "VideoLanguage", "target": "Track:v1:language", "valueType": "Language" },
+    { "field": "VideoTrackTitle", "target": "Track:v1:name", "valueType": "String" }
+  ],
+  "fields": [
+    {
+      "field": "Album",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["extra.ALBUM", "Album"] }
+      }
+    },
+    {
+      "field": "AudioDefaultStream",
+      "fieldType": "Boolean",
+      "converter": "Boolean",
+      "read": {
+        "MediaInfo": { "track": "Audio", "paths": ["Default"] }
+      }
+    },
+    {
+      "field": "AudioDiscNumber",
+      "fieldType": "Integer",
+      "converter": "FractionNumerator",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["extra.DISCNUMBER", "extra.DISC"] }
+      }
+    },
+    {
+      "field": "AudioDiscTotal",
+      "fieldType": "Integer",
+      "converter": "Integer",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["extra.DISCTOTAL", "extra.TOTALDISCS"] }
+      }
+    },
+    {
+      "field": "AudioForcedStream",
+      "fieldType": "Boolean",
+      "converter": "Boolean",
+      "read": {
+        "MediaInfo": { "track": "Audio", "paths": ["Forced"] }
+      }
+    },
+    {
+      "field": "AudioLanguage",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "MediaInfo": { "track": "Audio", "paths": ["Language_String4", "Language"] }
+      }
+    },
+    {
+      "field": "AudioTitle",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "MediaInfo": { "track": "Audio", "paths": ["Title"] }
+      }
+    },
+    {
+      "field": "AudioTrackNumber",
+      "fieldType": "Integer",
+      "converter": "FractionNumerator",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["extra.TRACKNUMBER", "extra.TRACK"] }
+      }
+    },
+    {
+      "field": "AudioTrackTotal",
+      "fieldType": "Integer",
+      "converter": "Integer",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["extra.TRACKTOTAL", "extra.TOTALTRACKS"] }
+      }
+    },
+    {
+      "field": "AudioChapters",
+      "fieldType": "List<Object>",
+      "converter": "ListObject",
+      "read": {
+        "MkvToolNix": { "paths": ["Chapters"] }
+      }
+    },
+    {
+      "field": "ChapterCount",
+      "fieldType": "Integer",
+      "converter": "Integer",
+      "read": {
+        "MkvToolNix": { "paths": ["ChapterCount"] }
+      }
+    },
+    {
+      "field": "Chapters",
+      "fieldType": "List<Object>",
+      "converter": "ListObject",
+      "read": {
+        "MkvToolNix": { "paths": ["Chapters"] }
+      }
+    },
+    {
+      "field": "Composer",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["extra.COMPOSER", "Composer"] }
+      }
+    },
+    {
+      "field": "Conductor",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["extra.CONDUCTOR", "Conductor"] }
+      }
+    },
+    {
+      "field": "Director",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["Director", "extra.DIRECTOR"] }
+      }
+    },
+    {
+      "field": "Genre",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["Genre", "extra.GENRE"] }
+      }
+    },
+    {
+      "field": "Label",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["extra.LABEL"] }
+      }
+    },
+    {
+      "field": "Producer",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["Producer", "extra.PRODUCER"] }
+      }
+    },
+    {
+      "field": "Publisher",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["Publisher", "extra.PUBLISHER"] }
+      }
+    },
+    {
+      "field": "ReelName",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["extra.REEL_NAME", "extra.REEL"] }
+      }
+    },
+    {
+      "field": "ReleaseDate",
+      "fieldType": "DateTime",
+      "converter": "Date",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["extra.DATE_RELEASED", "extra.RELEASEDATE"] }
+      }
+    },
+    {
+      "field": "StereoMode",
+      "fieldType": "Enum",
+      "converter": "StereoMode",
+      "read": {
+        "MediaInfo": { "track": "Video", "paths": ["MultiView_Layout", "StereoMode"] }
+      }
+    },
+    {
+      "field": "Subtitle",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["extra.SUBTITLE"] }
+      }
+    },
+    {
+      "field": "Synopsis",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "MediaInfo": { "track": "General", "paths": ["extra.SYNOPSIS", "Synopsis"] }
+      }
+    },
+    {
+      "field": "VideoDefaultStream",
+      "fieldType": "Boolean",
+      "converter": "Boolean",
+      "read": {
+        "MediaInfo": { "track": "Video", "paths": ["Default"] }
+      }
+    },
+    {
+      "field": "VideoForcedStream",
+      "fieldType": "Boolean",
+      "converter": "Boolean",
+      "read": {
+        "MediaInfo": { "track": "Video", "paths": ["Forced"] }
+      }
+    },
+    {
+      "field": "VideoLanguage",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "MediaInfo": { "track": "Video", "paths": ["Language_String4", "Language"] }
+      }
+    },
+    {
+      "field": "VideoTrackTitle",
+      "fieldType": "String",
+      "converter": "String",
+      "read": {
+        "MediaInfo": { "track": "Video", "paths": ["Title"] }
+      }
+    }
+  ],
+  "unmappedFields": [
+    {
+      "field": "SubtitleStreamSummary",
+      "reason": "A summary is a structured projection over all text tracks and is implemented in the broker/catalog slice."
+    }
+  ]
+}

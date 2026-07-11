@@ -2,8 +2,10 @@ Describe 'RenderKit engine contract snapshot' {
     BeforeAll {
         $repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
         $script:RenderKitModuleRoot = $repositoryRoot
+        $script:RenderKitArtifactVersionCatalog = $null
         . (Join-Path $repositoryRoot 'src/Private/Event/RenderKit.EventService.ps1')
         . (Join-Path $repositoryRoot 'src/Private/Job/RenderKit.JobService.ps1')
+        . (Join-Path $repositoryRoot 'src/Private/Versioning/RenderKit.ArtifactVersionService.ps1')
         . (Join-Path $repositoryRoot 'src/Private/Engine/RenderKit.EngineContractService.ps1')
     }
     It 'returns a machine-readable host handoff contract' {
@@ -19,6 +21,8 @@ Describe 'RenderKit engine contract snapshot' {
         $result.data.boundary.authenticationOwner | Should -Be 'Host'
         $result.data.schemas.eventStore | Should -Be '1.1'
         $result.data.schemas.jobStore | Should -Be '1.1'
+        $result.data.schemas.clientRegistry | Should -Be '1.0'
+        $result.data.schemas.publishingSchedule | Should -Be '1.0'
         $result.data.resultEnvelope.fields | Should -Contain 'correlationId'
         $result.data.actorContext.actorTypes | Should -Contain 'Worker'
         @($result.data.operations | Where-Object { $_.Name -eq 'GetRenderKitEngineContractSnapshot' }).Count |

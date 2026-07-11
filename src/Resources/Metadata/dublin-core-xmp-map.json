@@ -1,0 +1,304 @@
+{
+  "schemaVersion": "1.0",
+  "artifactType": "DublinCoreXmpMap",
+  "standard": "Dublin Core Metadata Element Set",
+  "standardVersion": "1.1",
+  "termsRecommendation": "2020-01-20",
+  "namespaceUri": "http://purl.org/dc/elements/1.1/",
+  "xmpNamespace": "XMP-dc",
+  "sourceUrl": "https://www.dublincore.org/specifications/dublin-core/dcmi-terms/",
+  "fields": [
+    {
+      "field": "Contributor",
+      "dcElement": "contributor",
+      "fieldType": "List<String>",
+      "registryCardinality": "Multiple",
+      "xmpCardinality": "Multiple",
+      "readStrategy": "All",
+      "readTags": ["XMP-dc:Contributor"],
+      "writeTags": ["XMP-dc:Contributor"]
+    },
+    {
+      "field": "CopyrightNotice",
+      "dcElement": "rights",
+      "fieldType": "String",
+      "registryCardinality": "Single",
+      "xmpCardinality": "Single",
+      "readStrategy": "FirstNonEmpty",
+      "readTags": ["XMP-dc:Rights"],
+      "writeTags": ["XMP-dc:Rights-x-default"]
+    },
+    {
+      "field": "Creator",
+      "dcElement": "creator",
+      "fieldType": "List<String>",
+      "registryCardinality": "Multiple",
+      "xmpCardinality": "Multiple",
+      "readStrategy": "All",
+      "readTags": ["XMP-dc:Creator"],
+      "writeTags": ["XMP-dc:Creator"]
+    },
+    {
+      "field": "Description",
+      "dcElement": "description",
+      "fieldType": "String",
+      "registryCardinality": "Single",
+      "xmpCardinality": "LanguageAlternative",
+      "readStrategy": "FirstNonEmpty",
+      "readTags": ["XMP-dc:Description"],
+      "writeTags": ["XMP-dc:Description-x-default"]
+    },
+    {
+      "field": "Language",
+      "dcElement": "language",
+      "fieldType": "String",
+      "registryCardinality": "Single",
+      "xmpCardinality": "Multiple",
+      "readStrategy": "FirstNonEmpty",
+      "readTags": ["XMP-dc:Language"],
+      "writeTags": ["XMP-dc:Language"]
+    },
+    {
+      "field": "Publisher",
+      "dcElement": "publisher",
+      "fieldType": "String",
+      "registryCardinality": "Single",
+      "xmpCardinality": "Multiple",
+      "readStrategy": "FirstNonEmpty",
+      "readTags": ["XMP-dc:Publisher"],
+      "writeTags": ["XMP-dc:Publisher"]
+    },
+    {
+      "field": "Subject",
+      "dcElement": "subject",
+      "fieldType": "List<String>",
+      "registryCardinality": "Multiple",
+      "xmpCardinality": "Multiple",
+      "readStrategy": "All",
+      "readTags": ["XMP-dc:Subject"],
+      "writeTags": ["XMP-dc:Subject"]
+    },
+    {
+      "field": "Title",
+      "dcElement": "title",
+      "fieldType": "String",
+      "registryCardinality": "Single",
+      "xmpCardinality": "LanguageAlternative",
+      "readStrategy": "FirstNonEmpty",
+      "readTags": ["XMP-dc:Title"],
+      "writeTags": ["XMP-dc:Title-x-default"]
+    }
+  ],
+  "qualifiedTerms": [
+    {
+      "term": "created",
+      "namespaceUri": "http://purl.org/dc/terms/",
+      "field": "DateCreated",
+      "status": "NotMapped",
+      "reason": "ExifTool has no built-in XMP-dcterms namespace; mapping to broad dc:date would lose the created lifecycle role. XMP Basic CreateDate is mapped separately."
+    },
+    {
+      "term": "issued",
+      "namespaceUri": "http://purl.org/dc/terms/",
+      "field": "ReleaseDate",
+      "status": "NotMapped",
+      "reason": "ExifTool has no built-in XMP-dcterms namespace; mapping a release date to broad dc:date would lose the issued lifecycle role."
+    },
+    {
+      "term": "license",
+      "namespaceUri": "http://purl.org/dc/terms/",
+      "field": "LicenseUrl",
+      "status": "AlternateStandardNamespace",
+      "reason": "LicenseUrl is carried by the interoperable Creative Commons XMP cc:license property instead of inventing an ExifTool dcterms namespace."
+    },
+    {
+      "term": "modified",
+      "namespaceUri": "http://purl.org/dc/terms/",
+      "field": "ModifyDateEmbedded",
+      "status": "NotMapped",
+      "reason": "ExifTool has no built-in XMP-dcterms namespace; XMP Basic ModifyDate preserves the same role without a custom private namespace configuration."
+    }
+  ],
+  "xmpProfiles": [
+    {
+      "profile": "XMP Basic",
+      "namespace": "XMP-xmp",
+      "namespaceUri": "http://ns.adobe.com/xap/1.0/",
+      "fields": [
+        {
+          "field": "CreateDateEmbedded",
+          "property": "CreateDate",
+          "fieldType": "DateTime",
+          "readStrategy": "FirstNonEmpty",
+          "readTags": ["XMP-xmp:CreateDate"],
+          "writeTags": ["XMP-xmp:CreateDate"]
+        },
+        {
+          "field": "ModifyDateEmbedded",
+          "property": "ModifyDate",
+          "fieldType": "DateTime",
+          "readStrategy": "FirstNonEmpty",
+          "readTags": ["XMP-xmp:ModifyDate"],
+          "writeTags": ["XMP-xmp:ModifyDate"]
+        },
+        {
+          "field": "Rating",
+          "property": "Rating",
+          "fieldType": "Integer",
+          "readStrategy": "FirstNonEmpty",
+          "readTags": ["XMP-xmp:Rating"],
+          "writeTags": ["XMP-xmp:Rating"]
+        },
+        {
+          "field": "Software",
+          "property": "CreatorTool",
+          "fieldType": "String",
+          "readStrategy": "FirstNonEmpty",
+          "readTags": ["XMP-xmp:CreatorTool"],
+          "writeTags": ["XMP-xmp:CreatorTool"]
+        }
+      ],
+      "unmappedProperties": [
+        {
+          "property": "Advisory",
+          "reason": "No canonical RenderKit field represents the deprecated XMP advisory bag."
+        },
+        {
+          "property": "BaseURL",
+          "reason": "No canonical RenderKit field represents an XMP relative-URL base."
+        },
+        {
+          "property": "Identifier",
+          "reason": "RenderKit identifiers have narrower ownership semantics and must not be projected into the generic XMP identifier bag."
+        },
+        {
+          "property": "MetadataDate",
+          "reason": "RenderKit has no distinct canonical timestamp for the last metadata edit."
+        },
+        {
+          "property": "Nickname",
+          "reason": "No canonical RenderKit field has XMP nickname semantics."
+        },
+        {
+          "property": "Thumbnails",
+          "reason": "Preview generation is a media-cache concern, not canonical descriptive metadata."
+        }
+      ]
+    },
+    {
+      "profile": "XMP Rights Management",
+      "namespace": "XMP-xmpRights",
+      "namespaceUri": "http://ns.adobe.com/xap/1.0/rights/",
+      "fields": [
+        {
+          "field": "RightsUsageTerms",
+          "property": "UsageTerms",
+          "fieldType": "String",
+          "readStrategy": "FirstNonEmpty",
+          "readTags": ["XMP-xmpRights:UsageTerms"],
+          "writeTags": ["XMP-xmpRights:UsageTerms-x-default"]
+        },
+        {
+          "field": "WebStatementOfRights",
+          "property": "WebStatement",
+          "fieldType": "URI",
+          "readStrategy": "FirstNonEmpty",
+          "readTags": ["XMP-xmpRights:WebStatement"],
+          "writeTags": ["XMP-xmpRights:WebStatement"]
+        }
+      ],
+      "unmappedProperties": [
+        {
+          "property": "Certificate",
+          "reason": "No canonical RenderKit field stores an XMP rights certificate URL."
+        },
+        {
+          "property": "Marked",
+          "reason": "Copyright presence is not equivalent to RenderKit's richer RightsStatus enum."
+        },
+        {
+          "property": "Owner",
+          "reason": "The XMP owner bag cannot be losslessly projected into the scalar IPTC-extension RightsOwner field."
+        }
+      ]
+    },
+    {
+      "profile": "Creative Commons XMP",
+      "namespace": "XMP-cc",
+      "namespaceUri": "http://creativecommons.org/ns#",
+      "fields": [
+        {
+          "field": "LicenseUrl",
+          "property": "License",
+          "fieldType": "URI",
+          "readStrategy": "FirstNonEmpty",
+          "readTags": ["XMP-cc:License"],
+          "writeTags": ["XMP-cc:License"]
+        }
+      ],
+      "unmappedProperties": []
+    },
+    {
+      "profile": "XMP Media Management",
+      "namespace": "XMP-xmpMM",
+      "namespaceUri": "http://ns.adobe.com/xap/1.0/mm/",
+      "fields": [],
+      "unmappedProperties": [
+        {
+          "property": "DocumentID",
+          "reason": "RenderKit has no canonical public XMP document identifier field."
+        },
+        {
+          "property": "InstanceID",
+          "reason": "RenderKit has no canonical public XMP instance identifier field."
+        },
+        {
+          "property": "OriginalDocumentID",
+          "reason": "RenderKit original-media identifiers are not XMP document identifiers."
+        },
+        {
+          "property": "History",
+          "reason": "The registry History field is scalar and cannot preserve the ordered ResourceEvent structure."
+        },
+        {
+          "property": "DerivedFrom",
+          "reason": "No canonical RenderKit field preserves the structured ResourceRef value."
+        },
+        {
+          "property": "Ingredients",
+          "reason": "No canonical RenderKit field preserves the ordered component ResourceRef bag."
+        }
+      ]
+    }
+  ],
+  "unmappedElements": [
+    {
+      "dcElement": "coverage",
+      "reason": "No canonical RenderKit field has the same broad spatial, temporal, or jurisdictional semantics."
+    },
+    {
+      "dcElement": "date",
+      "reason": "DCMES date is any lifecycle date and must not be guessed as creation or release time."
+    },
+    {
+      "dcElement": "format",
+      "reason": "RenderKit technical format fields describe observed file facts rather than a descriptive Dublin Core value."
+    },
+    {
+      "dcElement": "identifier",
+      "reason": "RenderKit internal and external identifiers have narrower ownership and identity semantics."
+    },
+    {
+      "dcElement": "relation",
+      "reason": "No generic related-resource field exists in the canonical registry."
+    },
+    {
+      "dcElement": "source",
+      "reason": "DCMES source means a related resource from which the asset is derived; the existing IPTC Source field describes the content supply chain."
+    },
+    {
+      "dcElement": "type",
+      "reason": "RenderKit media kind and technical content fields are not a generic DCMI resource type."
+    }
+  ]
+}

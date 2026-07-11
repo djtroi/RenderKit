@@ -120,13 +120,20 @@ function Read-RenderKitJsonFile {
         }
         else {
             try {
-                $item = Get-Item -LiteralPath $resolvedPath -ErrorAction Stop
+                # Atomic candidates intentionally start with a dot. On Unix,
+                # PowerShell treats those paths as hidden and requires -Force
+                # even when the literal file name is already known.
+                $item = Get-Item `
+                    -LiteralPath $resolvedPath `
+                    -Force `
+                    -ErrorAction Stop
                 if ($item.Length -gt $MaximumBytes) {
                     throw "JSON file '$resolvedPath' exceeds the $MaximumBytes byte limit."
                 }
                 $value = Get-Content `
                     -LiteralPath $resolvedPath `
                     -Raw `
+                    -Force `
                     -ErrorAction Stop |
                     ConvertFrom-Json -ErrorAction Stop
                 $lastReadError = $null
