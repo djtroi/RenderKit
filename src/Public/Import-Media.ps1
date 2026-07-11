@@ -165,7 +165,7 @@ https://github.com/djtroi/RenderKit
         [string]$TransferHashAlgorithm = "SHA256",
         [bool]$IncludeMetadata = $true,
         [ValidateRange(1, 64)]
-        [int]$MetadataThrottleLimit = 4
+        [int]$MetadataThrottleLimit = 4,
         [ValidateSet("Fast", "Full")]
         [string]$TransferVerificationMode = "Fast",
         [ValidateSet("Maximum", "Balanced", "Conservative")]
