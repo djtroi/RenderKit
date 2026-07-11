@@ -759,7 +759,7 @@ function Read-RenderKitFileMetadata {
         [switch]$NoExternalAdapters
     )
 
-    $file = Get-Item -LiteralPath $Path -ErrorAction Stop
+    $file = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
     if ($file.PSIsContainer) {
         throw "Metadata can only be read from files. '$Path' is a directory."
     }
