@@ -72,6 +72,10 @@
 
 ### Changed
 
+- Ubuntu and macOS quality-gate runners now install their native MKVToolNix
+  packages and execute the complete Matroska write/read integration suite
+  through the existing system-runtime resolver; Windows x64 continues to use
+  the bundled hash-verified runtime.
 - Updated the module manifest and Gallery release notes for version `1.1.0`.
 - Expanded README and documentation coverage for all exported commands,
   metadata backends, client/publishing state, and backup job operations; removed
@@ -96,6 +100,13 @@
 
 ### Fixed
 
+- Fixed atomic JSON candidate validation on Ubuntu and macOS by reading hidden
+  dot-prefixed temporary files with explicit hidden-file access.
+- Fixed stale-job recovery on Windows PowerShell 5.1 by using a compatible UTC
+  `DateTimeStyles` combination.
+- Fixed Windows PowerShell 5.1 unwrapping single IPTC structure values and
+  ExifTool's one-record JSON array differently from PowerShell 7, which had
+  dropped creator-contact and XMP-sidecar fields.
 - Fixed ambiguous IPTC Extension structures omitting the canonical field from
   detailed results; the field is now explicitly `$null` while conflict
   candidates remain available.

@@ -89,3 +89,8 @@ or CLI candidates. ExifTool uses the supported executable interface and has
 explicit bundled, configured-host, and system-CLI fallbacks. Relevant
 overrides are documented in the repository [README](../README.md#third-party-components).
 
+MKVToolNix is bundled for Windows x64. On Ubuntu install `mkvtoolnix` through
+APT; on macOS install the Homebrew `mkvtoolnix` formula. RenderKit resolves the
+resulting `mkvpropedit` and `mkvextract` pair from `PATH`, while the
+`RENDERKIT_MKVTOOLNIX_ROOT`, `RENDERKIT_MKVPROPEDIT_PATH`, and
+`RENDERKIT_MKVEXTRACT_PATH` overrides support managed installations.

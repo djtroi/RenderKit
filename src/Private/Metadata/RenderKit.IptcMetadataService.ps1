@@ -281,14 +281,16 @@ function Get-RenderKitIptcSelectedStructureValue {
         [System.Collections.Generic.List[object]]$Conflicts
     )
 
-    $values = if ($Value -is [System.Collections.IEnumerable] -and
-        -not ($Value -is [string]) -and
-        -not ($Value -is [System.Collections.IDictionary])) {
-        @($Value)
-    }
-    else {
-        @($Value)
-    }
+    # Windows PowerShell 5.1 unwraps a single PSCustomObject emitted by an
+    # if-expression. Wrap the complete expression so Count is always stable.
+    $values = @(if ($Value -is [System.Collections.IEnumerable] -and
+            -not ($Value -is [string]) -and
+            -not ($Value -is [System.Collections.IDictionary])) {
+            @($Value)
+        }
+        else {
+            @($Value)
+        })
 
     if ([bool]$Definition.requireSingleStructure -and $values.Count -ne 1) {
         $Conflicts.Add([PSCustomObject]@{

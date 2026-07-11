@@ -8,6 +8,12 @@ Describe 'RenderKit MKVToolNix Matroska metadata integration' {
             Join-Path $script:RepositoryRoot 'RenderKit.psd1'
         ) -Force
 
+        $script:MkvToolNixRuntime = InModuleScope `
+            -ModuleName RenderKit `
+            -ScriptBlock {
+                Resolve-RenderKitMkvToolNixRuntime
+            }
+
         function New-TestMatroska {
             param(
                 [Parameter(Mandatory)]
@@ -27,16 +33,30 @@ GkXfo6NChoEBQveBAULygQRC84EIQoKIbWF0cm9za2FCh4EEQoWBAhhTgGcBAAAAAAAFchFNm3TAv4RP
     }
 
     It 'resolves a complete hash-verified runtime and corresponding source' {
-        $runtime = InModuleScope -ModuleName RenderKit -ScriptBlock {
-            Resolve-RenderKitMkvToolNixRuntime
+        $runtime = $script:MkvToolNixRuntime
+        if (-not [bool]$runtime.Available) {
+            Set-ItResult `
+                -Skipped `
+                -Because 'Install mkvpropedit and mkvextract to run the external-runtime integration smoke.'
+            return
         }
         $runtime.Available | Should -BeTrue
-        $runtime.Source | Should -Be 'Bundled'
-        $runtime.Version | Should -Be '99.0'
         Test-Path -LiteralPath $runtime.PropEditPath -PathType Leaf |
             Should -BeTrue
         Test-Path -LiteralPath $runtime.ExtractPath -PathType Leaf |
             Should -BeTrue
+
+        if ($runtime.RuntimeIdentifier -eq 'win-x64') {
+            $runtime.Source | Should -Be 'Bundled'
+            $runtime.Version | Should -Be '99.0'
+        }
+        else {
+            @(
+                'EnvironmentRoot',
+                'Environment',
+                'System'
+            ) | Should -Contain $runtime.Source
+        }
 
         $manifest = Get-Content `
             -LiteralPath (
@@ -58,6 +78,10 @@ GkXfo6NChoEBQveBAULygQRC84EIQoKIbWF0cm9za2FCh4EEQoWBAhhTgGcBAAAAAAAFchFNm3TAv4RP
     }
 
     It 'writes global tags, first track headers and canonical chapters atomically' {
+        if (-not [bool]$script:MkvToolNixRuntime.Available) {
+            Set-ItResult -Skipped -Because 'MKVToolNix runtime is unavailable.'
+            return
+        }
         $path = Join-Path $TestDrive 'structured.mkv'
         New-TestMatroska -Path $path
         $metadata = [ordered]@{
@@ -174,6 +198,10 @@ GkXfo6NChoEBQveBAULygQRC84EIQoKIbWF0cm9za2FCh4EEQoWBAhhTgGcBAAAAAAAFchFNm3TAv4RP
     }
 
     It 'routes public writes and supplemental reads through MKVToolNix' {
+        if (-not [bool]$script:MkvToolNixRuntime.Available) {
+            Set-ItResult -Skipped -Because 'MKVToolNix runtime is unavailable.'
+            return
+        }
         $path = Join-Path $TestDrive 'public.mkv'
         New-TestMatroska -Path $path
 
@@ -194,6 +222,10 @@ GkXfo6NChoEBQveBAULygQRC84EIQoKIbWF0cm9za2FCh4EEQoWBAhhTgGcBAAAAAAAFchFNm3TAv4RP
     }
 
     It 'rejects an ambiguous stereo layout without changing source bytes' {
+        if (-not [bool]$script:MkvToolNixRuntime.Available) {
+            Set-ItResult -Skipped -Because 'MKVToolNix runtime is unavailable.'
+            return
+        }
         $path = Join-Path $TestDrive 'ambiguous.mkv'
         New-TestMatroska -Path $path
         $before = [IO.File]::ReadAllBytes($path)

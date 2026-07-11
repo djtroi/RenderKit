@@ -401,7 +401,21 @@ Perl. See <https://exiftool.org/>.
 TagLibSharp 2.3.0 provides ID3v2.4 frame reads and writes. MKVToolNix 99.0
 provides Matroska tag, track-header, and chapter reads and writes. Their pinned
 hashes and licenses are recorded below `src/Resources/ThirdParty/`; the
-MKVToolNix corresponding source archive is included with the module.
+MKVToolNix corresponding source archive is included with the module. RenderKit
+bundles the complete MKVToolNix runtime for Windows x64. Ubuntu and macOS use
+the same fully tested adapter through a native system installation:
+
+```bash
+# Ubuntu
+sudo apt-get update && sudo apt-get install --yes mkvtoolnix
+
+# macOS with Homebrew
+brew install mkvtoolnix
+```
+
+The resolver requires both `mkvpropedit` and `mkvextract`. Their locations can
+also be supplied with `RENDERKIT_MKVTOOLNIX_ROOT`,
+`RENDERKIT_MKVPROPEDIT_PATH`, and `RENDERKIT_MKVEXTRACT_PATH`.
 
 ## Maintainer Release Workflow
 
