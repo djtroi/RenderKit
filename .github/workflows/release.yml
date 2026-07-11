@@ -200,7 +200,7 @@ jobs:
               -Encoding utf8 `
               -Append
 
-          Write-Host "Extracted release notes for version $version:"
+          Write-Host "Extracted release notes for version ${version}:"
           Write-Host ''
           Write-Host $releaseNotes
 
