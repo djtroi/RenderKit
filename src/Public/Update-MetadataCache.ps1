@@ -11,7 +11,8 @@ function Update-MetadataCache {
         [switch]$IncludeUnsupported
     )
 
-    return Update-RenderKitProjectMetadataCache `
+    return Update-RenderKitProjectMetad
+    ataCache `
         -ProjectRoot $ProjectRoot `
         -ThrottleLimit $ThrottleLimit `
         -IncludeUnsupported:$IncludeUnsupported

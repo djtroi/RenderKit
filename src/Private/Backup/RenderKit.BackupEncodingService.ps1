@@ -961,9 +961,9 @@ function Get-BackupCommandProcessId {
     }
 
     $text = Get-Content -LiteralPath ([string]$Command.progress.pidPath) -Raw -ErrorAction SilentlyContinue
-    $pid = 0
-    if ([int]::TryParse(([string]$text).Trim(), [ref]$pid) -and $pid -gt 0) {
-        return $pid
+    $processId = 0
+    if ([int]::TryParse(([string]$text).Trim(), [ref]$processId) -and $processId -gt 0) {
+        return $processId
     }
 
     return $null
@@ -981,26 +981,26 @@ function Invoke-BackupProcessControl {
 
     $affected = New-Object System.Collections.Generic.List[int]
     foreach ($command in @($Commands)) {
-        $pid = Get-BackupCommandProcessId -Command $command
-        if ($null -eq $pid) {
+        $processId = Get-BackupCommandProcessId -Command $command
+        if ($null -eq $processId) {
             continue
         }
 
-        $process = Get-Process -Id $pid -ErrorAction SilentlyContinue
+        $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
         if (-not $process) {
             continue
         }
 
         if ($Action -eq 'Stop') {
-            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
-            $affected.Add([int]$pid)
+            Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+            $affected.Add([int]$processId)
             continue
         }
 
         $commandName = if ($Action -eq 'Pause') { 'Suspend-Process' } else { 'Resume-Process' }
         if (Get-Command -Name $commandName -ErrorAction SilentlyContinue) {
-            & $commandName -Id $pid -ErrorAction SilentlyContinue
-            $affected.Add([int]$pid)
+            & $commandName -Id $processId -ErrorAction SilentlyContinue
+            $affected.Add([int]$processId)
         }
     }
 

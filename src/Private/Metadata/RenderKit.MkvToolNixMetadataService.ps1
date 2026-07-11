@@ -115,7 +115,7 @@ function New-RenderKitMkvToolNixCandidate {
 
         [string]$Version,
 
-        [string]$Error
+        [string]$exception
     )
 
     return [PSCustomObject]@{
@@ -128,9 +128,9 @@ function New-RenderKitMkvToolNixCandidate {
             -not [string]::IsNullOrWhiteSpace($ExtractPath) -and
             (Test-Path -LiteralPath $PropEditPath -PathType Leaf) -and
             (Test-Path -LiteralPath $ExtractPath -PathType Leaf) -and
-            [string]::IsNullOrWhiteSpace($Error)
+            [string]::IsNullOrWhiteSpace($exception)
         )
-        Error = $Error
+        exception = $exception
     }
 }
 
@@ -216,7 +216,7 @@ function Resolve-RenderKitMkvToolNixRuntime {
         $extractPath = Join-Path `
             -Path $root `
             -ChildPath ([string]$runtime.extractRelativePath)
-        $error = $null
+        $exception = $null
         foreach ($check in @(
             [PSCustomObject]@{
                 Path = $propPath
@@ -230,7 +230,7 @@ function Resolve-RenderKitMkvToolNixRuntime {
             }
         )) {
             if (-not (Test-Path -LiteralPath $check.Path -PathType Leaf)) {
-                $error = "Bundled $($check.Name) is missing."
+                $exception = "Bundled $($check.Name) is missing."
                 break
             }
             $hash = (
@@ -239,7 +239,7 @@ function Resolve-RenderKitMkvToolNixRuntime {
                     -Algorithm SHA256
             ).Hash
             if ($hash -ne $check.Expected) {
-                $error = "Bundled $($check.Name) failed its SHA-256 check."
+                $exception = "Bundled $($check.Name) failed its SHA-256 check."
                 break
             }
         }
@@ -248,7 +248,7 @@ function Resolve-RenderKitMkvToolNixRuntime {
             -PropEditPath $propPath `
             -ExtractPath $extractPath `
             -Version ([string]$manifest.componentVersion) `
-            -Error $error))
+            -exception $exception))
     }
 
     $systemProp = Resolve-RenderKitMkvToolNixApplication `
@@ -295,7 +295,7 @@ function Resolve-RenderKitMkvToolNixRuntime {
         }
         RuntimeIdentifier = $runtimeIdentifier
         Candidates = @($candidates.ToArray())
-        Error = if ($selected) {
+        exception = if ($selected) {
             $null
         }
         else {
@@ -1224,7 +1224,7 @@ function Read-RenderKitMkvToolNixEmbeddedMetadata {
     }
     $runtime = Resolve-RenderKitMkvToolNixRuntime
     if (-not [bool]$runtime.Available) {
-        throw [string]$runtime.Error
+        throw [string]$runtime.exception
     }
     $temporaryRoot = Join-Path `
         -Path ([IO.Path]::GetTempPath()) `
@@ -1731,7 +1731,7 @@ function Invoke-RenderKitMkvToolNixMetadataWrite {
     }
     $runtime = Resolve-RenderKitMkvToolNixRuntime
     if (-not [bool]$runtime.Available) {
-        throw [string]$runtime.Error
+        throw [string]$runtime.exception
     }
 
     $lockHandle = Enter-RenderKitFileLock `
