@@ -1,3 +1,17 @@
+function Assert-RenderKitResourceName {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Name)
+
+    $candidate = $Name.Trim()
+    $normalized = [IO.Path]::GetFileNameWithoutExtension($candidate)
+    if ([string]::IsNullOrWhiteSpace($normalized) -or
+        $candidate -ne [IO.Path]::GetFileName($candidate) -or
+        $normalized -notmatch '^[A-Za-z0-9][A-Za-z0-9 ._-]{0,127}$') {
+        throw "Resource name '$Name' is not a safe file name."
+    }
+    return $normalized
+}
+
 function Get-RenderKitResourceDescriptor {
     [CmdletBinding()]
     param(
@@ -5,6 +19,7 @@ function Get-RenderKitResourceDescriptor {
         [Parameter(Mandatory)][string]$Name,
         [Parameter(Mandatory)][ValidateSet('System', 'User')][string]$Source
     )
+    $Name = Assert-RenderKitResourceName -Name $Name
     $path = if ($Kind -eq 'Template') {
         if ($Source -eq 'User') { Get-RenderKitUserTemplatePath -TemplateName $Name }
         else { Join-Path (Get-RenderKitSystemTemplatesRoot) "$([IO.Path]::GetFileNameWithoutExtension($Name)).json" }
@@ -49,7 +64,7 @@ function Import-RenderKitResourceDocument {
     )
     $sourcePath = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).ProviderPath
     $validation = Test-RenderKitResourceDocument -Kind $Kind -Path $sourcePath -RequireWritable
-    $name = $validation.Name
+    $name = Assert-RenderKitResourceName -Name $validation.Name
     $destinationPath = if ($Kind -eq 'Template') {
         Get-RenderKitUserTemplatePath -TemplateName $name
     } else { Get-RenderKitUserMappingPath -MappingId $name }
@@ -100,11 +115,18 @@ function Export-RenderKitResourceDocument {
     if (-not [string]::IsNullOrWhiteSpace($parent) -and -not (Test-Path -LiteralPath $parent -PathType Container)) {
         New-Item -ItemType Directory -Path $parent -Force | Out-Null
     }
+    $written = $false
     if ($PSCmdlet.ShouldProcess($destinationPath, "Export $Kind '$Name'")) {
         Write-RenderKitJsonFileAtomic -Value $validation.Document -Path $destinationPath -Depth 20 | Out-Null
+        $written = $true
     }
-    $file = Get-Item -LiteralPath $destinationPath -ErrorAction Stop
-    [PSCustomObject]@{ Name = $validation.Name; Path = $file.FullName; SizeBytes = [int64]$file.Length }
+    $file = Get-Item -LiteralPath $destinationPath -ErrorAction SilentlyContinue
+    [PSCustomObject]@{
+        Name = $validation.Name
+        Path = if ($file) { $file.FullName } else { $destinationPath }
+        SizeBytes = if ($file) { [int64]$file.Length } else { $null }
+        Written = $written
+    }
 }
 
 function Test-RenderKitStoredResource {

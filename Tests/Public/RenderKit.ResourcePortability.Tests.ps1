@@ -76,4 +76,26 @@ Describe 'RenderKit template and mapping portability' {
         $result.IsValid | Should -BeFalse
         $result.Message | Should -Match 'not found'
     }
+
+    It 'rejects resource names that could escape user storage' {
+        $source = Join-Path $TestDrive 'unsafe.json'
+        @{ Version = '1.1'; Id = '../outside'; Types = @() } |
+            ConvertTo-Json | Set-Content -LiteralPath $source
+
+        { Import-RenderKitMapping -Path $source -Confirm:$false } |
+            Should -Throw '*safe file name*'
+    }
+
+    It 'supports export WhatIf without creating a file' {
+        $source = Join-Path $TestDrive 'whatif.json'
+        @{ Version = '1.1'; Name = 'whatif'; Folders = @() } |
+            ConvertTo-Json | Set-Content -LiteralPath $source
+        Import-RenderKitTemplate -Path $source -Confirm:$false | Out-Null
+        $destination = Join-Path $TestDrive 'not-written.json'
+
+        $result = Export-RenderKitTemplate -Name whatif -Source User `
+            -Path $destination -WhatIf
+        $result.Written | Should -BeFalse
+        Test-Path -LiteralPath $destination | Should -BeFalse
+    }
 }

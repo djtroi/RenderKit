@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0 - Unreleased
+
+### Added
+
+- Added public template and mapping import, export, and whole-document
+  validation commands with atomic persistence and explicit `Error`,
+  `Overwrite`, and `Rename` conflict handling.
+- Added structured resource mutation, export, and validation results suitable
+  for PowerShell automation, CI workflows, and hosts other than RenderKit
+  Studio.
+
 ## 1.1.0 - 2026-07-11
 
 ### Added
