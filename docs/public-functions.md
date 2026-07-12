@@ -1,8 +1,36 @@
 # Public function reference
 
-This page lists all 61 functions exported by the RenderKit 1.1.0 manifest.
+This page lists all 104 functions exported by the RenderKit 1.1.0 manifest.
 Use `Get-Command <name> -Syntax` for the exact installed syntax and
 `Get-Help <name> -Full` for parameter metadata.
+
+## Host integration API
+
+These headless commands expose durable engine and resource contracts to any
+automation host. They contain no Studio operation names, DTOs, edition logic,
+or UI defaults.
+
+`Confirm-RenderKitMapping`, `Confirm-Template`, `Get-RenderKitConfig`,
+`Get-RenderKitEngineClientDetail`, `Get-RenderKitEngineClientList`,
+`Get-RenderKitEngineEventDetail`, `Get-RenderKitEngineEventList`,
+`Get-RenderKitEngineInfo`, `Get-RenderKitEngineJobDetail`,
+`Get-RenderKitEngineJobHandlerCatalog`, `Get-RenderKitEngineJobList`,
+`Get-RenderKitEngineProjectDetail`, `Get-RenderKitEnginePublicationDetail`,
+`Get-RenderKitEnginePublicationList`, `Get-RenderKitEngineState`,
+`Get-RenderKitStorageRoot`, `Get-RenderKitSystemMappingPath`,
+`Get-RenderKitSystemMappingsRoot`, `Get-RenderKitSystemTemplatesRoot`,
+`Get-RenderKitTemplate`, `Get-RenderKitUserMappingPath`,
+`Get-RenderKitUserMappingsRoot`, `Get-RenderKitUserTemplatePath`,
+`Invoke-RenderKitEngineEventBridge`, `Invoke-RenderKitWorkerTick`,
+`New-RenderKitEngineClient`, `New-RenderKitEngineJob`,
+`New-RenderKitEnginePublication`, `New-RenderKitError`,
+`New-RenderKitOperationContext`, `New-RenderKitResult`,
+`Read-RenderKitDiscoveredProjectStore`, `Read-RenderKitEventStore`,
+`Read-RenderKitJobStore`, `Read-RenderKitJsonFile`,
+`Read-RenderKitTemplateFile`, `Request-RenderKitEngineJobCancellation`,
+`Resolve-ProjectPath`, `Retry-RenderKitEngineJob`,
+`Set-RenderKitEngineClient`, `Set-RenderKitEnginePublication`,
+`Write-RenderKitMappingFile`, and `Write-RenderKitTemplateFile`.
 
 ## Projects and delivery
 
