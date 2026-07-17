@@ -870,19 +870,20 @@ function Show-RenderKitImportPreviewTable {
         $PreviewCount = 1
     }
 
-    $rows = @()
-    for ($i = 0; $i -lt $Files.Count; $i++) {
+    $rows = New-Object System.Collections.Generic.List[object]
+    $previewLimit = [Math]::Min($Files.Count, $PreviewCount)
+    for ($i = 0; $i -lt $previewLimit; $i++) {
         $file = $Files[$i]
-        $rows += [PSCustomObject]@{
+        $rows.Add([PSCustomObject]@{
             Index     = $i
             Name      = $file.Name
             Folder    = if ($file.RelativeDirectory -eq ".") { "<root>" } else { $file.RelativeDirectory }
             LastWrite = $file.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
             Size      = ConvertTo-RenderKitHumanSize -Bytes ([int64]$file.Length)
-        }
+        })
     }
 
-    $rows | Select-Object -First $PreviewCount | Format-Table -AutoSize | Out-Host
+    $rows | Format-Table -AutoSize | Out-Host
 
     if ($Files.Count -gt $PreviewCount) {
         Write-RenderKitLog -Level Info -Message "Showing first $PreviewCount of $($Files.Count) file(s)."
@@ -1249,12 +1250,9 @@ function Read-RenderKitImportMappingFile {
     $candidatePaths = New-Object System.Collections.Generic.List[string]
     $candidatePaths.Add((Get-RenderKitUserMappingPath -MappingId $normalizedMappingId))
 
-    $fileName = Resolve-RenderKitMappingFileName -MappingId $normalizedMappingId
-    if (-not [string]::IsNullOrWhiteSpace($fileName)) {
-        $systemMappingPath = Get-RenderKitSystemMappingPath -MappingId $normalizedMappingId
-        if (-not $candidatePaths.Contains($systemMappingPath)) {
-            $candidatePaths.Add($systemMappingPath)
-        }
+    $systemMappingPath = Get-RenderKitSystemMappingPath -MappingId $normalizedMappingId
+    if (-not $candidatePaths.Contains($systemMappingPath)) {
+        $candidatePaths.Add($systemMappingPath)
     }
 
     foreach ($path in $candidatePaths) {
@@ -1535,19 +1533,20 @@ function Show-RenderKitImportClassificationPreview {
         $PreviewCount = 1
     }
 
-    $rows = @()
-    for ($i = 0; $i -lt $Files.Count; $i++) {
+    $rows = New-Object System.Collections.Generic.List[object]
+    $previewLimit = [Math]::Min($Files.Count, $PreviewCount)
+    for ($i = 0; $i -lt $previewLimit; $i++) {
         $file = $Files[$i]
-        $rows += [PSCustomObject]@{
+        $rows.Add([PSCustomObject]@{
             Index          = $i
             Name           = $file.Name
             Extension      = if ([string]::IsNullOrWhiteSpace($file.NormalizedExtension)) { "<none>" } else { $file.NormalizedExtension }
             Classification = $file.Classification
             Destination    = if ([string]::IsNullOrWhiteSpace($file.DestinationRelativePath)) { "-" } else { $file.DestinationRelativePath }
-        }
+        })
     }
 
-    $rows | Select-Object -First $PreviewCount | Format-Table -AutoSize | Out-Host
+    $rows | Format-Table -AutoSize | Out-Host
     if ($Files.Count -gt $PreviewCount) {
         Write-RenderKitLog -Level Info -Message "Showing first $PreviewCount of $($Files.Count) file(s)."
     }
@@ -2094,11 +2093,12 @@ function Update-RenderKitImportTransferProgress {
     $statusSegments.Add(("{0:N2} MB/s" -f $speedMBps))
     $status = [string]::Join(" | ", $statusSegments.ToArray())
 
+    $overallPercent = 55 + [int][Math]::Floor($percent * 0.35)
     Write-Progress `
         -Activity "Phase 4 - Transaction-Safe Transfer" `
         -Status $status `
         -CurrentOperation $CurrentOperation `
-        -PercentComplete $percent
+        -PercentComplete $overallPercent
 }
 
 function Get-RenderKitImportTransferSchedulerConfiguration {
