@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Fixed normal backups with `-KeepSourceProject` incorrectly assigning the
+  terminal `Archived` lifecycle status; legacy backup-generated archive
+  transitions are now interpreted as their preceding status.
+
 ### Fixed
 
 - Reject media transfers into terminal `Archived` or `Cancelled` projects

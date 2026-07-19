@@ -24,19 +24,39 @@ function Get-RenderKitProjectStatus {
         [object]$Metadata
     )
 
-    if ($Metadata.lifecycle -is [System.Collections.IDictionary] -and
+    $status = if ($Metadata.lifecycle -is [System.Collections.IDictionary] -and
         $Metadata.lifecycle.Contains('status') -and
         -not [string]::IsNullOrWhiteSpace([string]$Metadata.lifecycle['status'])) {
-        return [string]$Metadata.lifecycle['status']
+        [string]$Metadata.lifecycle['status']
     }
-
-    if ($Metadata.lifecycle -and
+    elseif ($Metadata.lifecycle -and
         $Metadata.lifecycle.PSObject.Properties.Name -contains 'status' -and
         -not [string]::IsNullOrWhiteSpace([string]$Metadata.lifecycle.status)) {
-        return [string]$Metadata.lifecycle.status
+        [string]$Metadata.lifecycle.status
+    }
+    else {
+        (Get-RenderKitProjectStatusPolicy).UnknownStatus
     }
 
-    return (Get-RenderKitProjectStatusPolicy).UnknownStatus
+    if ($status -ne 'Archived' -or -not $Metadata.lifecycle) {
+        return $status
+    }
+
+    $history = @($Metadata.lifecycle.history)
+    if ($history.Count -eq 0) {
+        return $status
+    }
+    $lastTransition = $history[$history.Count - 1]
+    if ([string]$lastTransition.toStatus -eq 'Archived' -and
+        [string]$lastTransition.source -eq 'Backup-Project' -and
+        [string]$lastTransition.reason -eq 'Backup completed') {
+        $previousStatus = [string]$lastTransition.fromStatus
+        if ((Get-RenderKitProjectStatusPolicy).Statuses -contains $previousStatus) {
+            return $previousStatus
+        }
+    }
+
+    return $status
 }
 
 function Test-RenderKitProjectStatusTransition {
@@ -115,6 +135,27 @@ function Set-RenderKitProjectMetadataStatus {
 
     $Metadata = Ensure-RenderKitProjectLifecycle -Metadata $Metadata
     $fromStatus = Get-RenderKitProjectStatus -Metadata $Metadata
+    $storedStatus = [string]$Metadata.lifecycle.status
+    if ($storedStatus -eq 'Archived' -and $fromStatus -ne 'Archived') {
+        $correctedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+        $Metadata.lifecycle | Add-Member -NotePropertyName status `
+            -NotePropertyValue $fromStatus `
+            -Force
+        $Metadata.lifecycle | Add-Member -NotePropertyName statusUpdatedAtUtc `
+            -NotePropertyValue $correctedAtUtc `
+            -Force
+        $Metadata.lifecycle | Add-Member -NotePropertyName statusReason `
+            -NotePropertyValue 'Corrected legacy backup lifecycle assignment' `
+            -Force
+        $Metadata.lifecycle.history = @($Metadata.lifecycle.history) + @(
+            [PSCustomObject]@{
+                fromStatus = 'Archived'
+                toStatus = $fromStatus
+                changedAtUtc = $correctedAtUtc
+                reason = 'Corrected legacy backup lifecycle assignment'
+                source = 'LifecycleMigration'
+            })
+    }
     $transition = Test-RenderKitProjectStatusTransition `
         -FromStatus $fromStatus `
         -ToStatus $Status

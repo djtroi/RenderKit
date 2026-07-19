@@ -1032,12 +1032,6 @@ https://github.com/djtroi/RenderKit
             Write-Information "Source project folder removed: '$projectRoot'." -InformationAction Continue
         }
         elseif (-not $DryRun -and $KeepSourceProject) {
-            Set-RenderKitProjectStatus `
-                -ProjectRoot $projectRoot `
-                -Status 'Archived' `
-                -Reason 'Backup completed' `
-                -Source 'Backup-Project' |
-                Out-Null
             Write-RenderKitLog -Level Info -Message "Keeping source project folder: '$projectRoot'."
         }
 

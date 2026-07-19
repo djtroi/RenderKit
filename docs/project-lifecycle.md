@@ -12,7 +12,7 @@ The initial internal statuses are:
 - `Draft` for newly created projects;
 - `Active` for imported or copied projects and projects that received media;
 - `Delivered` for future delivery workflows;
-- `Archived` for completed backups that keep the source project; and
+- `Archived` for projects completed through an explicit archive workflow; and
 - `Cancelled` for terminal cancelled work.
 
 ## Transition rules
@@ -33,7 +33,7 @@ The engine updates lifecycle status internally:
 - `Import-Media` marks confirmed target projects `Active`;
 - `Import-Project` imports projects as `Active`;
 - `Copy-Project` creates the copy as `Active`;
-- `Backup-Project -KeepSourceProject` marks the source project `Archived`; and
+- `Backup-Project` preserves the current lifecycle status; and
 - `Rename-Project`, `Remove-Project`, and `Export-Project` do not directly
   change lifecycle status.
 
