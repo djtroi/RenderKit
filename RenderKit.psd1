@@ -36,6 +36,8 @@
         'Import-BackupConfigProfile'
         'Import-Metadata'
         'Import-Media'
+        'Import-RenderKitMapping'
+        'Import-RenderKitTemplate'
         'New-BackupConfigProfile'
         'New-MetadataTemplate'
         'New-Project'
@@ -64,9 +66,13 @@
         'Export-BackupConfigProfile'
         'Export-Metadata'
         'Export-Project'
+        'Export-RenderKitMapping'
+        'Export-RenderKitTemplate'
         'Copy-Project'
         'Send-Project'
         'Test-BackupConfigProfile'
+        'Test-RenderKitMapping'
+        'Test-RenderKitTemplate'
         'Test-RenderKitMetadataFieldValue'
         'Update-BackupConfigProfile'
         'Update-MetadataCache'
@@ -94,13 +100,11 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 1.1.0 expands RenderKit's media-production engine:
-- Adds versioned metadata templates, field validation, import/export, cache refresh, history, and rollback commands.
-- Adds native-first media inspection and verified writers for XMP/IPTC, RIFF BWF/iXML, ID3v2.4, and Matroska metadata, with explicit fallback routing.
-- Adds versioned client and publishing schedule registries with optimistic concurrency and host-facing engine operations.
-- Adds project discovery/search-index improvements and the expanded backup profile, adapter, job-control, worker, reporting, and recovery workflows.
-- Bundles hash-verified MediaInfo, ExifTool, TagLibSharp, and MKVToolNix runtimes with their required notices and package validation.
-- Refreshes the public documentation and contract tests for the 1.1.0 surface.
+Version 1.2.0 adds portable template and mapping workflows:
+- Imports complete template and mapping documents with explicit conflict handling.
+- Exports system or user resources for automation and interchange.
+- Validates stored resources through stable public commands and structured results.
+- Preserves atomic persistence and Windows PowerShell 5.1 compatibility.
 '@
         } # End of PSData hashtable
 
