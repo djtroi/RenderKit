@@ -1081,6 +1081,32 @@ function Read-RenderKitImportProjectMetadata {
     }
 }
 
+function Assert-RenderKitImportProjectAcceptsTransfer {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param(
+        [string]$ProjectRoot
+    )
+
+    $resolvedProjectRoot = Resolve-RenderKitImportProjectRoot `
+        -ProjectRoot $ProjectRoot
+    $metadata = Read-RenderKitImportProjectMetadata `
+        -ProjectRoot $resolvedProjectRoot
+    $status = Get-RenderKitProjectStatus -Metadata $metadata
+    $transition = Test-RenderKitProjectStatusTransition `
+        -FromStatus $status `
+        -ToStatus 'Active'
+    if (-not $transition.Allowed) {
+        $message = "Media cannot be transferred into project '$resolvedProjectRoot' because its lifecycle status is '$status'. Archived and Cancelled projects are terminal; copy the project to create a working project before importing media."
+        Write-RenderKitLog -Level Warning -Message $message
+        $exception = [System.InvalidOperationException]::new($message)
+        $exception.Data['RenderKitErrorCode'] = 'RK_PROJECT_TERMINAL'
+        throw $exception
+    }
+
+    return $resolvedProjectRoot
+}
+
 function Get-RenderKitImportTemplateFoldersRecursively {
     [CmdletBinding()]
     param(

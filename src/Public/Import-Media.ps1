@@ -230,6 +230,11 @@ https://github.com/djtroi/RenderKit
         throw "-FromDate must be earlier than or equal to -ToDate."
     }
 
+    if ($Transfer -and -not [bool]$WhatIfPreference) {
+        $ProjectRoot = Assert-RenderKitImportProjectAcceptsTransfer `
+            -ProjectRoot $ProjectRoot
+    }
+
     $importStartedAt = Get-Date
     Write-Progress `
         -Activity "Import media" `
@@ -570,6 +575,7 @@ https://github.com/djtroi/RenderKit
     Show-RenderKitImportFinalReport -Report $finalReport
 
     $revisionLogPath = $null
+    $projectStatusUpdateError = $null
     $effectiveProjectRoot = $null
     if ($transferResult -and -not [string]::IsNullOrWhiteSpace([string]$transferResult.ProjectRoot)) {
         $effectiveProjectRoot = [string]$transferResult.ProjectRoot
@@ -590,12 +596,20 @@ https://github.com/djtroi/RenderKit
         Write-RenderKitLog -Level Info -Message "Phase 5 skipped in WhatIf mode (simulation)."
     }
     elseif ($confirmed -and -not [string]::IsNullOrWhiteSpace($effectiveProjectRoot)) {
-        Set-RenderKitProjectStatus `
-            -ProjectRoot $effectiveProjectRoot `
-            -Status 'Active' `
-            -Reason 'Media import confirmed' `
-            -Source 'Import-Media' |
-            Out-Null
+        if ($transferResult -and [int]$transferResult.ImportedFileCount -gt 0) {
+            try {
+                Set-RenderKitProjectStatus `
+                    -ProjectRoot $effectiveProjectRoot `
+                    -Status 'Active' `
+                    -Reason 'Media transfer completed' `
+                    -Source 'Import-Media' |
+                    Out-Null
+            }
+            catch {
+                $projectStatusUpdateError = $_.Exception.Message
+                Write-RenderKitLog -Level Warning -Message "Transferred media was committed, but the project status could not be updated: $projectStatusUpdateError"
+            }
+        }
         try {
             $revisionLogPath = Write-RenderKitImportRevisionLog `
                 -ProjectRoot $effectiveProjectRoot `
@@ -712,6 +726,7 @@ https://github.com/djtroi/RenderKit
         RevisionLogPath    = $revisionLogPath
         IncludeMetadata    = [bool]$IncludeMetadata
         MetadataExtraction = $metadataExtraction
+        ProjectStatusUpdateError = $projectStatusUpdateError
         Files              = $selectedFiles
         ClassifiedFiles    = $classifiedFiles
     }

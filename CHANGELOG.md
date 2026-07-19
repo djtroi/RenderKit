@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- Reject media transfers into terminal `Archived` or `Cancelled` projects
+  before scanning or copying begins, and avoid reporting already committed
+  files as failed when a concurrent lifecycle update cannot be persisted.
+
 - Made the fast import copy path cancellable between buffered writes, removed
   partial staging files on interruption, and reported in-flight staging bytes
   so Studio can display live transfer progress for large files.
