@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Made the fast import copy path cancellable between buffered writes, removed
+  partial staging files on interruption, and reported in-flight staging bytes
+  so Studio can display live transfer progress for large files.
+
 ## 1.1.0 - 2026-07-11
 
 ### Added
