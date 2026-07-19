@@ -86,11 +86,12 @@ jobs:
         uses: actions/checkout@main
 
       - name: Run PSScriptAnalyzer
-        uses: microsoft/psscriptanalyzer-action@v1.1
-        with:
-          path: ./
-          recurse: true
-          output: results.sarif
+        shell: pwsh
+        run: |
+          ./build/Invoke-RenderKitScriptAnalyzer.ps1 `
+            -RepositoryRoot '${{ github.workspace }}' `
+            -OutputPath '${{ github.workspace }}/results.sarif' `
+            -InstallModules
 
       - name: Upload SARIF results file
         if: ${{ always() && hashFiles('results.sarif') != '' }}
