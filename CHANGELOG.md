@@ -1,12 +1,17 @@
 # Changelog
 
-## Unreleased
+## 1.2.0 - 2026-07-19
 
-- Fixed normal backups with `-KeepSourceProject` incorrectly assigning the
-  terminal `Archived` lifecycle status; legacy backup-generated archive
-  transitions are now interpreted as their preceding status.
+### Added
 
-### Fixed
+- Added public template and mapping import, export, and whole-document
+  validation commands with atomic persistence and explicit `Error`,
+  `Overwrite`, and `Rename` conflict handling.
+- Added structured resource mutation, export, and validation results suitable
+  for PowerShell automation, CI workflows, and hosts other than RenderKit
+  Studio.
+  
+  ### Fixed
 
 - Reject media transfers into terminal `Archived` or `Cancelled` projects
   before scanning or copying begins, and avoid reporting already committed
@@ -15,6 +20,9 @@
 - Made the fast import copy path cancellable between buffered writes, removed
   partial staging files on interruption, and reported in-flight staging bytes
   so Studio can display live transfer progress for large files.
+- Fixed normal backups with `-KeepSourceProject` incorrectly assigning the
+  terminal `Archived` lifecycle status; legacy backup-generated archive
+  transitions are now interpreted as their preceding status.
 
 ## 1.1.0 - 2026-07-11
 
