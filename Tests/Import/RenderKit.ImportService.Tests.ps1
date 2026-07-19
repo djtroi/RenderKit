@@ -3,7 +3,11 @@ BeforeAll {
     . (Join-Path $repositoryRoot 'src/Private/Storage/RenderKit.StorageService.ps1')
     . (Join-Path $repositoryRoot 'src/Private/Project/RenderKit.ProjectLifecycleService.ps1')
     . (Join-Path $repositoryRoot 'src/Private/Import/RenderKit.ImportService.ps1')
-    function Write-RenderKitLog { param([string]$Level, [string]$Message) }
+    function Write-RenderKitLog {
+        param([string]$Level, [string]$Message)
+        $null = $Level
+        $null = $Message
+    }
 }
 
 Describe 'RenderKit import service' {

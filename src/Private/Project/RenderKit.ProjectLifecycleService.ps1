@@ -19,6 +19,7 @@ function Get-RenderKitProjectStatusPolicy {
 
 function Get-RenderKitProjectStatus {
     [CmdletBinding()]
+    [OutputType([System.String])]
     param(
         [Parameter(Mandatory)]
         [object]$Metadata

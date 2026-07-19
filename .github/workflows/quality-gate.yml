@@ -86,14 +86,14 @@ jobs:
         uses: actions/checkout@main
 
       - name: Run PSScriptAnalyzer
-        uses: microsoft/psscriptanalyzer-action@main
+        uses: microsoft/psscriptanalyzer-action@v1.1
         with:
           path: ./
           recurse: true
           output: results.sarif
 
       - name: Upload SARIF results file
-        if: always()
+        if: ${{ always() && hashFiles('results.sarif') != '' }}
         uses: github/codeql-action/upload-sarif@main
         with:
           sarif_file: results.sarif
