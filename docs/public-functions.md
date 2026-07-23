@@ -1,6 +1,6 @@
 # Public function reference
 
-This page lists all 61 functions exported by the RenderKit 1.1.0 manifest.
+This page lists all 67 functions exported by the RenderKit 1.1.2 manifest.
 Use `Get-Command <name> -Syntax` for the exact installed syntax and
 `Get-Help <name> -Full` for parameter metadata.
 
@@ -23,9 +23,15 @@ Use `Get-Command <name> -Syntax` for the exact installed syntax and
 | Function | Purpose |
 | --- | --- |
 | `New-RenderKitTemplate` | Create a project template. |
+| `Import-RenderKitTemplate` | Import a complete template with explicit conflict handling. |
+| `Export-RenderKitTemplate` | Export a system or user template document. |
+| `Test-RenderKitTemplate` | Validate a stored template and its artifact version. |
 | `Add-FolderToTemplate` | Add a folder node to a template. |
 | `Add-RenderKitDeliverableToTemplate` | Add or update a deliverable rule. |
 | `New-RenderKitMapping` | Create a media mapping. |
+| `Import-RenderKitMapping` | Import a complete mapping with explicit conflict handling. |
+| `Export-RenderKitMapping` | Export a system or user mapping document. |
+| `Test-RenderKitMapping` | Validate a stored mapping and its artifact version. |
 | `Add-RenderKitTypeToMapping` | Add a logical media type and extensions to a mapping. |
 | `Add-RenderKitMappingToTemplate` | Attach a mapping to a template. |
 | `Import-Media` | Scan, filter, classify, and transfer source media. |

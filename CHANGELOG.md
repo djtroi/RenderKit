@@ -1,10 +1,40 @@
 # Changelog
-## 1.1.1 - 2026.07.23
+## 1.1.2 - 2026-07-23
+
+### Added
+
+- Added public template and mapping import, export, and whole-document
+  validation commands with atomic persistence and explicit `Error`,
+  `Overwrite`, and `Rename` conflict handling.
+- Added structured resource mutation, export, and validation results suitable
+  for PowerShell automation, CI workflows, and external hosts.
 
 ### Fixed
-- Fixed a regression where `Import-Media` could fail with `Resolve-RenderKitMappingFileName` not being recognized after loading the module.
-- Restored the internal mapping filename resolver to maintain compatibility across the import pipeline.
-- Fixed mapping template resolution so mapping identifiers are consistently normalized to their corresponding `.json` files before loading.
+
+- Reject media transfers into terminal `Archived` or `Cancelled` projects
+  before scanning or copying begins, and avoid reporting already committed
+  files as failed when a concurrent lifecycle update cannot be persisted.
+- Made the fast import copy path cancellable between buffered writes, removed
+  partial staging files on interruption, and reported in-flight staging bytes
+  so callers can display live transfer progress for large files.
+- Streamed measured scan, selection, classification, transfer, finalization,
+  and metadata-extraction progress through PowerShell hosts.
+- Corrected media classification and preview scaling calculations.
+- Fixed normal backups with `-KeepSourceProject` incorrectly assigning the
+  terminal `Archived` lifecycle status; legacy backup-generated archive
+  transitions are now interpreted as their preceding status.
+
+## 1.1.1 - 2026-07-23
+
+### Fixed
+
+- Fixed a regression where `Import-Media` could fail with
+  `Resolve-RenderKitMappingFileName` not being recognized after loading the
+  module.
+- Restored the internal mapping filename resolver to maintain compatibility
+  across the import pipeline.
+- Fixed mapping template resolution so mapping identifiers are consistently
+  normalized to their corresponding `.json` files before loading.
 
 ## 1.1.0 - 2026-07-11
 
@@ -48,7 +78,8 @@
 - Added a versioned Dublin Core/XMP application profile covering all 15 DCMES
   elements as eight semantic mappings and seven explicit unmapped decisions.
 - Added Dublin Core/XMP integration slices for qualified terms, standard XMP
-  namespaces, sidecars, provenance, Studio editing, and production workflows.
+  namespaces, sidecars, provenance, interactive editing, and production
+  workflows.
 - Added a versioned IPTC Core 1.5 and Extension 1.9 field map with deterministic
   XMP/IIM precedence, structured values, controlled vocabularies, and embedded
   read/write coverage.

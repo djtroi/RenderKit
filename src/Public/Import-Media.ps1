@@ -230,7 +230,16 @@ https://github.com/djtroi/RenderKit
         throw "-FromDate must be earlier than or equal to -ToDate."
     }
 
+    if ($Transfer -and -not [bool]$WhatIfPreference) {
+        $ProjectRoot = Assert-RenderKitImportProjectAcceptsTransfer `
+            -ProjectRoot $ProjectRoot
+    }
+
     $importStartedAt = Get-Date
+    Write-Progress `
+        -Activity "Import media" `
+        -Status "Resolving import source" `
+        -PercentComplete 2
 
     $resolvedSourcePath = Resolve-RenderKitImportSourcePath `
         -SourcePath $SourcePath `
@@ -257,7 +266,15 @@ https://github.com/djtroi/RenderKit
 
     Write-Information "Phase 2: scanning source '$resolvedSourcePath'..." -InformationAction Continue
     Write-RenderKitLog -Level Info -Message "Phase 2: scanning source '$resolvedSourcePath'..."
+    Write-Progress `
+        -Activity "Import media" `
+        -Status "Scanning source files" `
+        -PercentComplete 5
     $catalog = @(Get-RenderKitImportFileCatalog -SourcePath $resolvedSourcePath)
+    Write-Progress `
+        -Activity "Import media" `
+        -Status "Filtering $($catalog.Count) scanned file(s)" `
+        -PercentComplete 20
 
     $criteria = New-RenderKitImportCriterion `
         -FolderFilter $FolderFilter `
@@ -301,6 +318,10 @@ https://github.com/djtroi/RenderKit
             -Files $matchedFiles `
             -AutoSelectAll:$AutoSelectAll
     )
+    Write-Progress `
+        -Activity "Import media" `
+        -Status "Selected $($selectedFiles.Count) of $($matchedFiles.Count) matched file(s)" `
+        -PercentComplete 35
 
     if ($selectedFiles.Count -eq 0) {
         Write-RenderKitLog -Level Info -Message "No files selected for import."
@@ -373,6 +394,10 @@ https://github.com/djtroi/RenderKit
     $classificationResult = $null
     if ($shouldClassify -and $confirmed -and $selectedFiles.Count -gt 0) {
         Write-Information "Phase 3: classifying selected files..." -InformationAction Continue
+        Write-Progress `
+            -Activity "Import media" `
+            -Status "Classifying $($selectedFiles.Count) selected file(s)" `
+            -PercentComplete 40
 
         $effectiveUnassignedHandling = $UnassignedHandling
 
@@ -387,6 +412,10 @@ https://github.com/djtroi/RenderKit
             -Files $classificationResult.Files `
             -PreviewCount $PreviewCount `
             -Title "Phase 3 classification"
+        Write-Progress `
+            -Activity "Import media" `
+            -Status "Classification completed" `
+            -PercentComplete 55
     }
     elseif ($shouldClassify -and $selectedFiles.Count -eq 0) {
         Write-RenderKitLog -Level Info -Message "Phase 3 skipped because no files were selected."
@@ -454,6 +483,10 @@ https://github.com/djtroi/RenderKit
 
         if ($simulateTransfer -or $executeTransfer) {
             Write-Information "Phase 4: transaction-safe transfer..." -InformationAction Continue
+            Write-Progress `
+                -Activity "Import media" `
+                -Status "Transferring $($classificationResult.Files.Count) classified file(s)" `
+                -PercentComplete 56
             $transferResult = Invoke-RenderKitImportTransactionSafeTransfer `
                 -ClassifiedFiles $classificationResult.Files `
                 -ProjectRoot $classificationResult.ProjectRoot `
@@ -524,6 +557,10 @@ https://github.com/djtroi/RenderKit
     }
 
     $importEndedAt = Get-Date
+    Write-Progress `
+        -Activity "Import media" `
+        -Status "Finalizing import report" `
+        -PercentComplete 92
     $finalReport = New-RenderKitImportFinalReport `
         -ImportStartedAt $importStartedAt `
         -ImportEndedAt $importEndedAt `
@@ -538,6 +575,7 @@ https://github.com/djtroi/RenderKit
     Show-RenderKitImportFinalReport -Report $finalReport
 
     $revisionLogPath = $null
+    $projectStatusUpdateError = $null
     $effectiveProjectRoot = $null
     if ($transferResult -and -not [string]::IsNullOrWhiteSpace([string]$transferResult.ProjectRoot)) {
         $effectiveProjectRoot = [string]$transferResult.ProjectRoot
@@ -558,12 +596,20 @@ https://github.com/djtroi/RenderKit
         Write-RenderKitLog -Level Info -Message "Phase 5 skipped in WhatIf mode (simulation)."
     }
     elseif ($confirmed -and -not [string]::IsNullOrWhiteSpace($effectiveProjectRoot)) {
-        Set-RenderKitProjectStatus `
-            -ProjectRoot $effectiveProjectRoot `
-            -Status 'Active' `
-            -Reason 'Media import confirmed' `
-            -Source 'Import-Media' |
-            Out-Null
+        if ($transferResult -and [int]$transferResult.ImportedFileCount -gt 0) {
+            try {
+                Set-RenderKitProjectStatus `
+                    -ProjectRoot $effectiveProjectRoot `
+                    -Status 'Active' `
+                    -Reason 'Media transfer completed' `
+                    -Source 'Import-Media' |
+                    Out-Null
+            }
+            catch {
+                $projectStatusUpdateError = $_.Exception.Message
+                Write-RenderKitLog -Level Warning -Message "Transferred media was committed, but the project status could not be updated: $projectStatusUpdateError"
+            }
+        }
         try {
             $revisionLogPath = Write-RenderKitImportRevisionLog `
                 -ProjectRoot $effectiveProjectRoot `
@@ -596,6 +642,10 @@ https://github.com/djtroi/RenderKit
         [int]$transferResult.ImportedFileCount -gt 0) {
         try {
             Write-RenderKitLog -Level Info -Message "Phase 6 metadata extraction started for '$effectiveProjectRoot'."
+            Write-Progress `
+                -Activity "Import media" `
+                -Status "Extracting imported media metadata" `
+                -PercentComplete 95
             $metadataExtraction = Update-RenderKitProjectMetadataCache `
                 -ProjectRoot $effectiveProjectRoot `
                 -ThrottleLimit $MetadataThrottleLimit
@@ -613,6 +663,8 @@ https://github.com/djtroi/RenderKit
     elseif ($IncludeMetadata -and $Transfer) {
         Write-RenderKitLog -Level Debug -Message "Phase 6 metadata extraction skipped: no successful real transfer was detected."
     }
+
+    Write-Progress -Activity "Import media" -Completed
 
     return [PSCustomObject]@{
         SourcePath         = $resolvedSourcePath
@@ -674,6 +726,7 @@ https://github.com/djtroi/RenderKit
         RevisionLogPath    = $revisionLogPath
         IncludeMetadata    = [bool]$IncludeMetadata
         MetadataExtraction = $metadataExtraction
+        ProjectStatusUpdateError = $projectStatusUpdateError
         Files              = $selectedFiles
         ClassifiedFiles    = $classifiedFiles
     }
