@@ -6,8 +6,8 @@ Lists projects from the RenderKit discovered project overview.
 
 .DESCRIPTION
 Reads the persisted RenderKit discovered project overview and returns one object
-per known discovered project. The default command is intentionally cheap: it
-only reads the JSON overview and does not scan the file system.
+per known discovered project. The default command reads each known project's
+metadata for its authoritative lifecycle status, but does not scan for projects.
 
 Use -Refresh to trigger the internal project discovery service before reading
 the overview. Discovery uses the internal search index and remains an internal
@@ -68,6 +68,16 @@ Remove-Project
 
 
   $projectSummaries = foreach ($project in ($projects | Sort-Object -Property name, rootPath)) {
+        $lifecycleStatus = (Get-RenderKitProjectStatusPolicy).UnknownStatus
+        if (Test-Path -LiteralPath ([string]$project.metadataPath) -PathType Leaf) {
+            try {
+                $metadata = Read-RenderKitJsonFile -Path ([string]$project.metadataPath)
+                $lifecycleStatus = Get-RenderKitProjectStatus -Metadata $metadata
+            }
+            catch {
+                $lifecycleStatus = (Get-RenderKitProjectStatusPolicy).UnknownStatus
+            }
+        }
         [PSCustomObject]@{
             Name                          = [string]$project.name
             Id                            = [string]$project.id
@@ -80,6 +90,7 @@ Remove-Project
             ValidationStatus              = [string]$project.validationStatus
             ConflictStatus                = [string]$project.conflictStatus
             UpdatedAtUtc                  = [string]$project.updatedAtUtc
+            LifecycleStatus               = [string]$lifecycleStatus
         }
     }
 

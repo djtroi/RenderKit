@@ -1969,6 +1969,11 @@ Describe 'RenderKit BackupProject job planning' {
             Should -BeTrue
         $resumeState.progressSnapshot.stage.name | Should -Be 'BackupComplete'
         $resumeState.progressSnapshot.overall.percent | Should -Be 100
+        $completedMetadata = Get-Content `
+            -LiteralPath (Join-Path $metadataRoot 'project.json') `
+            -Raw |
+            ConvertFrom-Json
+        $completedMetadata.lifecycle.status | Should -Be 'Draft'
     }
 
     It 'creates a v2 backup manifest with pipeline metadata' {

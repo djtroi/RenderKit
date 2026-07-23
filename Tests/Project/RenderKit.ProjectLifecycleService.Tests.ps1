@@ -88,6 +88,30 @@ Describe 'RenderKit project lifecycle service' {
             Should -Throw
     }
 
+    It 'restores the effective status of projects archived by legacy backups' {
+        $metadata = [PSCustomObject]@{
+            tool = 'RenderKit'
+            project = @{ id = 'legacy-backup'; name = 'ClientLegacy' }
+            lifecycle = [PSCustomObject]@{
+                status = 'Archived'
+                history = @([PSCustomObject]@{
+                    fromStatus = 'Active'
+                    toStatus = 'Archived'
+                    reason = 'Backup completed'
+                    source = 'Backup-Project'
+                })
+            }
+        }
+
+        Get-RenderKitProjectStatus -Metadata $metadata | Should -Be 'Active'
+        $corrected = Set-RenderKitProjectMetadataStatus `
+                -Metadata $metadata `
+                -Status 'Active'
+        $corrected.lifecycle.status | Should -Be 'Active'
+        @($corrected.lifecycle.history).Count | Should -Be 2
+        $corrected.lifecycle.history[-1].source | Should -Be 'LifecycleMigration'
+    }
+
     It 'allows delivered projects to move down to active' {
         $result = Test-RenderKitProjectStatusTransition `
             -FromStatus 'Delivered' `

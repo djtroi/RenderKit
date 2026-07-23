@@ -440,7 +440,7 @@ Describe 'RenderKit copy verify pipeline and same-volume move slices 3 and 4' {
         $admissionBytes | Should -BeLessThan $workItem.Bytes
     }
 
-    It 'uses native fast copy without hashing or destination read-back by default' {
+    It 'uses cancellable buffered fast copy without hashing or destination read-back by default' {
         $sourceRoot = Join-Path $TestDrive 'fast-source'
         $projectRoot = Join-Path $TestDrive 'fast-project'
         $destinationDirectory = Join-Path $projectRoot 'MEDIA'
@@ -478,7 +478,7 @@ Describe 'RenderKit copy verify pipeline and same-volume move slices 3 and 4' {
         $result.ImportedFileCount | Should -Be 1
         $result.CopiedBytes | Should -Be 256KB
         $result.VerifiedBytes | Should -Be 0
-        $transaction.CopyEngine | Should -Be 'NativeFileCopy'
+        $transaction.CopyEngine | Should -Be 'BufferedFileCopy'
         $transaction.VerificationMode | Should -Be 'Fast'
         $transaction.HashAlgorithm | Should -BeNullOrEmpty
         $transaction.StagingHash | Should -BeNullOrEmpty
