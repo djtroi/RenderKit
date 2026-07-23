@@ -7,8 +7,7 @@
   validation commands with atomic persistence and explicit `Error`,
   `Overwrite`, and `Rename` conflict handling.
 - Added structured resource mutation, export, and validation results suitable
-  for PowerShell automation, CI workflows, and hosts other than RenderKit
-  Studio.
+  for PowerShell automation, CI workflows, and external hosts.
 
 ### Fixed
 
@@ -17,10 +16,10 @@
   files as failed when a concurrent lifecycle update cannot be persisted.
 - Made the fast import copy path cancellable between buffered writes, removed
   partial staging files on interruption, and reported in-flight staging bytes
-  so Studio can display live transfer progress for large files.
+  so callers can display live transfer progress for large files.
 - Streamed measured scan, selection, classification, transfer, finalization,
   and metadata-extraction progress through PowerShell hosts.
-- Corrected media classification and preview scaling used by RenderKit Studio.
+- Corrected media classification and preview scaling calculations.
 - Fixed normal backups with `-KeepSourceProject` incorrectly assigning the
   terminal `Archived` lifecycle status; legacy backup-generated archive
   transitions are now interpreted as their preceding status.
@@ -79,7 +78,8 @@
 - Added a versioned Dublin Core/XMP application profile covering all 15 DCMES
   elements as eight semantic mappings and seven explicit unmapped decisions.
 - Added Dublin Core/XMP integration slices for qualified terms, standard XMP
-  namespaces, sidecars, provenance, Studio editing, and production workflows.
+  namespaces, sidecars, provenance, interactive editing, and production
+  workflows.
 - Added a versioned IPTC Core 1.5 and Extension 1.9 field map with deterministic
   XMP/IIM precedence, structured values, controlled vocabularies, and embedded
   read/write coverage.
