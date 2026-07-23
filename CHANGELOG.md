@@ -1,4 +1,10 @@
 # Changelog
+## 1.1.1 - 2026.07.23
+
+### Fixed
+- Fixed a regression where `Import-Media` could fail with `Resolve-RenderKitMappingFileName` not being recognized after loading the module.
+- Restored the internal mapping filename resolver to maintain compatibility across the import pipeline.
+- Fixed mapping template resolution so mapping identifiers are consistently normalized to their corresponding `.json` files before loading.
 
 ## 1.1.0 - 2026-07-11
 
