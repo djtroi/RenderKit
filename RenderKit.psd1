@@ -1,6 +1,6 @@
 @{
     RootModule = 'RenderKit.psm1'
-    ModuleVersion = '1.1.0' # Major.Minor.Patch
+    ModuleVersion = '1.1.1' # Major.Minor.Patch
     Author = 'Norbert Marton'
     Description = 'PowerShell tools for structured video editing project workflows.'
     GUID = '32e3f476-8e44-4511-82c7-952748e6463b'
@@ -94,13 +94,9 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 1.1.0 expands RenderKit's media-production engine:
-- Adds versioned metadata templates, field validation, import/export, cache refresh, history, and rollback commands.
-- Adds native-first media inspection and verified writers for XMP/IPTC, RIFF BWF/iXML, ID3v2.4, and Matroska metadata, with explicit fallback routing.
-- Adds versioned client and publishing schedule registries with optimistic concurrency and host-facing engine operations.
-- Adds project discovery/search-index improvements and the expanded backup profile, adapter, job-control, worker, reporting, and recovery workflows.
-- Bundles hash-verified MediaInfo, ExifTool, TagLibSharp, and MKVToolNix runtimes with their required notices and package validation.
-- Refreshes the public documentation and contract tests for the 1.1.0 surface.
+Version 1.1.1 fixes RenderKit Studio media-import compatibility:
+- Restores the internal mapping filename resolver used while classifying imported media against bundled system mappings.
+- Prevents `Import-Media` from failing with an unrecognized `Resolve-RenderKitMappingFileName` command in packaged Studio broker runs.
 '@
         } # End of PSData hashtable
 
