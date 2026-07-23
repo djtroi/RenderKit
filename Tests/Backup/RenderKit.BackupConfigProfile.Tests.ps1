@@ -205,7 +205,7 @@ Describe 'RenderKit backup config profile creator' {
         $upgrade = Update-BackupConfigProfile -Name legacy-profile
         $upgrade.PreviousSchemaVersion | Should -Be '1.0'
         $upgrade.SchemaVersion | Should -Be '1.1'
-        $upgrade.ModuleVersion | Should -Be '1.1.0'
+        $upgrade.ModuleVersion | Should -Be '1.1.1'
 
         $stored = Get-Content -LiteralPath $legacyPath -Raw | ConvertFrom-Json
         $stored.kind | Should -Be 'RenderKit.BackupConfigProfile'
