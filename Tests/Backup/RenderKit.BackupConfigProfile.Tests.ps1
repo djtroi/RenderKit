@@ -76,7 +76,7 @@ Describe 'RenderKit backup config profile creator' {
             -Description 'Updated profile' `
             -BumpVersion Minor
 
-        $updated.ProfileVersion | Should -Be '1.1.1'
+        $updated.ProfileVersion | Should -Be '1.1.0'
         $updated.Description | Should -Be 'Updated profile'
         $updated.Settings.VideoCodec | Should -Be 'H265'
         $updated.Settings.MaxParallelJobs | Should -Be 5
