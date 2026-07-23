@@ -1,6 +1,6 @@
 # Public function reference
 
-This page lists all 67 functions exported by the RenderKit 1.2.0 manifest.
+This page lists all 67 functions exported by the RenderKit 1.1.2 manifest.
 Use `Get-Command <name> -Syntax` for the exact installed syntax and
 `Get-Help <name> -Full` for parameter metadata.
 

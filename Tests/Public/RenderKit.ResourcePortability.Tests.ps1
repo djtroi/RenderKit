@@ -1,7 +1,7 @@
 BeforeAll {
     $repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     $script:RenderKitModuleRoot = $repositoryRoot
-    $script:RenderKitModuleVersion = '1.2.0'
+    $script:RenderKitModuleVersion = '1.1.2'
     function Register-RenderKitFunction { param([string]$Name) }
     function Write-RenderKitLog { param([string]$Level, [string]$Message) }
 

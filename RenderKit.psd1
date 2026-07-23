@@ -1,6 +1,6 @@
 @{
     RootModule = 'RenderKit.psm1'
-    ModuleVersion = '1.2.0' # Major.Minor.Patch
+    ModuleVersion = '1.1.2' # Major.Minor.Patch
     Author = 'Norbert Marton'
     Description = 'PowerShell tools for structured video editing project workflows.'
     GUID = '32e3f476-8e44-4511-82c7-952748e6463b'
@@ -100,10 +100,12 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 1.2.0 adds portable template and mapping workflows:
+Version 1.1.2 improves RenderKit Studio media-import integration and resource portability:
 - Imports complete template and mapping documents with explicit conflict handling.
 - Exports system or user resources for automation and interchange.
 - Validates stored resources through stable public commands and structured results.
+- Streams measured import phase and transfer progress through PowerShell hosts.
+- Rejects transfers into terminal projects and preserves lifecycle state during normal backups.
 - Preserves atomic persistence and Windows PowerShell 5.1 compatibility.
 '@
         } # End of PSData hashtable

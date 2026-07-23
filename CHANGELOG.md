@@ -1,6 +1,5 @@
 # Changelog
-
-## 1.2.0 - 2026-07-19
+## 1.1.2 - 2026-07-23
 
 ### Added
 
@@ -10,19 +9,33 @@
 - Added structured resource mutation, export, and validation results suitable
   for PowerShell automation, CI workflows, and hosts other than RenderKit
   Studio.
-  
-  ### Fixed
+
+### Fixed
 
 - Reject media transfers into terminal `Archived` or `Cancelled` projects
   before scanning or copying begins, and avoid reporting already committed
   files as failed when a concurrent lifecycle update cannot be persisted.
-
 - Made the fast import copy path cancellable between buffered writes, removed
   partial staging files on interruption, and reported in-flight staging bytes
   so Studio can display live transfer progress for large files.
+- Streamed measured scan, selection, classification, transfer, finalization,
+  and metadata-extraction progress through PowerShell hosts.
+- Corrected media classification and preview scaling used by RenderKit Studio.
 - Fixed normal backups with `-KeepSourceProject` incorrectly assigning the
   terminal `Archived` lifecycle status; legacy backup-generated archive
   transitions are now interpreted as their preceding status.
+
+## 1.1.1 - 2026-07-23
+
+### Fixed
+
+- Fixed a regression where `Import-Media` could fail with
+  `Resolve-RenderKitMappingFileName` not being recognized after loading the
+  module.
+- Restored the internal mapping filename resolver to maintain compatibility
+  across the import pipeline.
+- Fixed mapping template resolution so mapping identifiers are consistently
+  normalized to their corresponding `.json` files before loading.
 
 ## 1.1.0 - 2026-07-11
 
