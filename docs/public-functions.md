@@ -91,6 +91,7 @@ See the [metadata workflow](metadata.md) for state and adapter semantics.
 | `Test-BackupConfigProfile` | Validate stored, imported, or draft profile data. |
 | `Export-BackupConfigProfile` | Export a user profile. |
 | `Import-BackupConfigProfile` | Import a profile with explicit conflict behavior. |
+| `Get-BackupWorkerCapability` | Inspect the hardware and encoder capabilities reported by backup workers. |
 | `Get-BackupAdapter` | Query registered backup adapters. |
 | `Register-BackupAdapter` | Register a trusted adapter implementation. |
 | `Remove-BackupAdapter` | Remove registered adapters. |
