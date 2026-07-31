@@ -95,6 +95,7 @@ function New-RenderKitWorkerState {
         [string[]]$RecoveredJobIds = @(),
         [object]$LastTick,
         [object]$LastError,
+        [object]$Capabilities,
         [string]$StartedAtUtc
     )
 
@@ -123,6 +124,7 @@ function New-RenderKitWorkerState {
         recoveredJobIds = @($RecoveredJobIds)
         lastTick        = $LastTick
         lastError       = $LastError
+        capabilities    = $Capabilities
         logPath         = $LogPath
     }
 }
@@ -278,6 +280,9 @@ function Register-RenderKitWorkerCrashIfNeeded {
         -ProcessedCount ([int]$previous.processedCount) `
         -IdleTickCount ([int]$previous.idleTickCount) `
         -RecoveredJobIds @($previous.recoveredJobIds) `
+        -Capabilities $(if (
+            $previous.PSObject.Properties.Name -contains 'capabilities'
+        ) { $previous.capabilities } else { $null }) `
         -LastError ([PSCustomObject]@{
             message       = 'Previous worker process is no longer alive.'
             previousPid   = $previous.processId
@@ -418,6 +423,9 @@ function Get-RenderKitWorkerStatusSnapshot {
         recoveredJobIds = @($State.recoveredJobIds)
         lastTick       = $State.lastTick
         lastError      = $State.lastError
+        capabilities   = if (
+            $State.PSObject.Properties.Name -contains 'capabilities'
+        ) { $State.capabilities } else { $null }
         statePath      = Get-RenderKitWorkerStatePath -WorkerId ([string]$State.workerId)
         logPath        = $logPath
         logs           = if ($IncludeLogs) { @(Read-RenderKitWorkerLogTail -LogPath $logPath -Tail $Tail) } else { @() }
@@ -450,11 +458,22 @@ function Invoke-RenderKitLocalWorkerLoop {
         -JobType $JobType `
         -QueueName $QueueName `
         -LogPath $LogPath
+    $capabilityCommand = Get-Command `
+        -Name Get-BackupWorkerCapabilitySnapshot `
+        -CommandType Function `
+        -ErrorAction SilentlyContinue
+    $workerCapabilities = if ($capabilityCommand) {
+        Get-BackupWorkerCapabilitySnapshot -WorkerId $normalizedWorkerId
+    }
+    else {
+        $null
+    }
     $state = New-RenderKitWorkerState `
         -WorkerId $normalizedWorkerId `
         -JobType $JobType `
         -QueueName $QueueName `
         -LogPath $LogPath `
+        -Capabilities $workerCapabilities `
         -Status Running
     Save-RenderKitWorkerState -State $state | Out-Null
     Write-RenderKitWorkerLogEntry `
@@ -511,6 +530,7 @@ function Invoke-RenderKitLocalWorkerLoop {
                 -IdleTickCount $idleTickCount `
                 -RecoveredJobIds @($recoveredJobIds.ToArray()) `
                 -LastTick $tick `
+                -Capabilities $workerCapabilities `
                 -StartedAtUtc ([string]$state.startedAtUtc)
             Save-RenderKitWorkerState -State $state | Out-Null
 

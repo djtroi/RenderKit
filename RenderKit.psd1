@@ -21,6 +21,7 @@
         'Backup-Project'
         'Get-BackupAdapter'
         'Get-BackupConfigProfile'
+        'Get-BackupWorkerCapability'
         'Get-BackupJob'
         'Get-Metadata'
         'Get-MetadataTemplate'

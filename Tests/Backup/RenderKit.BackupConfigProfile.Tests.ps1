@@ -259,6 +259,105 @@ Describe 'RenderKit backup config profile creator' {
         @(Get-BackupConfigProfile -Source User).Count | Should -Be 0
     }
 
+    It 'keeps structurally valid profiles while reporting worker incompatibility' {
+        $workers = @(
+            [PSCustomObject]@{
+                workerId = 'worker-h264'
+                machine = 'encode-01'
+                online = $true
+                devices = @(
+                    [PSCustomObject]@{
+                        id = 'CPU'
+                        codecs = @('H264', 'H265')
+                    }
+                    [PSCustomObject]@{
+                        id = 'Nvidia'
+                        codecs = @('H264')
+                    }
+                )
+            }
+        )
+
+        $result = Test-BackupConfigProfile `
+            -Name smallest `
+            -CheckHardware `
+            -WorkerCapability $workers
+
+        $result.IsValid | Should -BeTrue
+        $result.ExecutionCompatibility.Status | Should -Be 'Unavailable'
+        $result.ExecutionCompatibility.IsExecutable | Should -BeFalse
+        $result.ExecutionCompatibility.ResolvedCodec | Should -Be 'AV1'
+        $result.ExecutionCompatibility.Workers[0].Reason |
+            Should -Be 'NoCompatibleEncoder'
+    }
+
+    It 'evaluates heterogeneous workers independently' {
+        $workers = @(
+            [PSCustomObject]@{
+                workerId = 'worker-h264'
+                machine = 'encode-01'
+                online = $true
+                devices = @(
+                    [PSCustomObject]@{
+                        id = 'CPU'
+                        codecs = @('H264')
+                    }
+                    [PSCustomObject]@{
+                        id = 'Nvidia'
+                        codecs = @('H264')
+                    }
+                )
+            }
+            [PSCustomObject]@{
+                workerId = 'worker-av1'
+                machine = 'encode-02'
+                online = $true
+                devices = @(
+                    [PSCustomObject]@{
+                        id = 'CPU'
+                        codecs = @('H264', 'H265', 'AV1')
+                    }
+                    [PSCustomObject]@{
+                        id = 'IntelQuickSync'
+                        codecs = @('H264', 'H265', 'AV1')
+                    }
+                )
+            }
+        )
+
+        $result = Test-BackupConfigProfile `
+            -Name smallest `
+            -CheckHardware `
+            -WorkerCapability $workers
+
+        $result.ExecutionCompatibility.Status | Should -Be 'Degraded'
+        $result.ExecutionCompatibility.IsExecutable | Should -BeTrue
+        $result.ExecutionCompatibility.CompatibleWorkerIds |
+            Should -Contain 'worker-av1'
+        $result.ExecutionCompatibility.CompatibleWorkerIds |
+            Should -Not -Contain 'worker-h264'
+        $result.ExecutionCompatibility.Workers.Count | Should -Be 2
+    }
+
+    It 'does not require an encoder for archive-only profiles' {
+        $worker = [PSCustomObject]@{
+            workerId = 'archive-worker'
+            machine = 'archive-01'
+            online = $true
+            devices = @()
+        }
+
+        $result = Test-BackupConfigProfile `
+            -Name no-transcode `
+            -CheckHardware `
+            -WorkerCapability @($worker)
+
+        $result.ExecutionCompatibility.Status | Should -Be 'Available'
+        $result.ExecutionCompatibility.IsExecutable | Should -BeTrue
+        $result.ExecutionCompatibility.Workers[0].Reason |
+            Should -Be 'NoEncodingRequired'
+    }
+
     It 'rebases an existing user profile while applying explicit settings' {
         New-BackupConfigProfile `
             -Name rebase-me `
