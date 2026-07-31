@@ -20,6 +20,7 @@ BeforeAll {
 
 Describe 'Export-Project' {
     BeforeEach {
+        $script:RenderKitFileFormatCatalog = $null
         $script:RenderKitArtifactVersionCatalog = $null
         $script:RenderKitArtifactMigrations = @{}
         $script:RenderKitModuleVersion = '0.0.0'
@@ -47,5 +48,84 @@ Describe 'Export-Project' {
         $expectedPath = Join-Path $destinationRoot 'ProjectA.rkit'
         $result.Path | Should -Be ([System.IO.Path]::GetFullPath($expectedPath))
         Test-Path -LiteralPath $expectedPath -PathType Leaf | Should -BeTrue
+    }
+
+    It 'appends the canonical manifest extension to an arbitrary file extension' {
+        $projectRoot = Join-Path $TestDrive 'ProjectB'
+        $requestedPath = Join-Path $TestDrive 'exporttest.txt'
+        New-Item -ItemType Directory -Path $projectRoot -Force | Out-Null
+        Set-Content `
+            -LiteralPath (Join-Path $projectRoot 'asset.txt') `
+            -Value 'test asset'
+
+        $result = Export-Project `
+            -ProjectRoot $projectRoot `
+            -DestinationPath $requestedPath `
+            -Mode ManifestOnly
+
+        $expectedPath = "$requestedPath.rkit"
+        $result.Path | Should -Be ([System.IO.Path]::GetFullPath($expectedPath))
+        Test-Path -LiteralPath $expectedPath -PathType Leaf | Should -BeTrue
+        Test-Path -LiteralPath $requestedPath -PathType Leaf |
+            Should -BeFalse
+    }
+
+    It 'appends the canonical package extension for self-contained exports' {
+        $projectRoot = Join-Path $TestDrive 'ProjectC'
+        $requestedPath = Join-Path $TestDrive 'portable.zip'
+        New-Item -ItemType Directory -Path $projectRoot -Force | Out-Null
+        Set-Content `
+            -LiteralPath (Join-Path $projectRoot 'asset.txt') `
+            -Value 'test asset'
+
+        $result = Export-Project `
+            -ProjectRoot $projectRoot `
+            -DestinationPath $requestedPath `
+            -Mode SelfContained
+
+        $expectedPath = "$requestedPath.rkitpkg"
+        $result.Path | Should -Be ([System.IO.Path]::GetFullPath($expectedPath))
+        Test-Path -LiteralPath $expectedPath -PathType Leaf | Should -BeTrue
+    }
+
+    It 'normalizes the casing of an otherwise canonical extension' {
+        $projectRoot = Join-Path $TestDrive 'ProjectD'
+        $requestedPath = Join-Path $TestDrive 'manifest.RKIT'
+        New-Item -ItemType Directory -Path $projectRoot -Force | Out-Null
+        Set-Content `
+            -LiteralPath (Join-Path $projectRoot 'asset.txt') `
+            -Value 'test asset'
+
+        $result = Export-Project `
+            -ProjectRoot $projectRoot `
+            -DestinationPath $requestedPath `
+            -Mode ManifestOnly
+
+        $expectedPath = Join-Path $TestDrive 'manifest.rkit'
+        $result.Path | Should -Be ([System.IO.Path]::GetFullPath($expectedPath))
+        Test-Path -LiteralPath $expectedPath -PathType Leaf | Should -BeTrue
+    }
+
+    It 'writes both RenderKit project formats as readable zip archives' {
+        $projectRoot = Join-Path $TestDrive 'ProjectE'
+        New-Item -ItemType Directory -Path $projectRoot -Force | Out-Null
+        Set-Content `
+            -LiteralPath (Join-Path $projectRoot 'asset.txt') `
+            -Value 'test asset'
+
+        foreach ($mode in @('ManifestOnly', 'SelfContained')) {
+            $requestedPath = Join-Path $TestDrive $mode
+            $result = Export-Project `
+                -ProjectRoot $projectRoot `
+                -DestinationPath $requestedPath `
+                -Mode $mode
+            $archive = [System.IO.Compression.ZipFile]::OpenRead($result.Path)
+            try {
+                $archive.GetEntry('project.xml') | Should -Not -BeNullOrEmpty
+            }
+            finally {
+                $archive.Dispose()
+            }
+        }
     }
 }
