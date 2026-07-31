@@ -134,6 +134,88 @@ function Get-BackupFfmpegEncoderNameList {
     }
 }
 
+function Test-BackupFfmpegEncoderCapability {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$FfmpegPath,
+        [Parameter(Mandatory)]
+        [string]$EncoderName,
+        [ValidateRange(1, 60)]
+        [int]$TimeoutSeconds = 15
+    )
+
+    $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $processInfo.FileName = $FfmpegPath
+    $processInfo.UseShellExecute = $false
+    $processInfo.RedirectStandardOutput = $true
+    $processInfo.RedirectStandardError = $true
+    $processInfo.CreateNoWindow = $true
+    foreach ($argument in @(
+            '-hide_banner',
+            '-loglevel', 'error',
+            '-f', 'lavfi',
+            '-i', 'color=c=black:s=64x64:d=0.1',
+            '-frames:v', '1',
+            '-an',
+            '-c:v', $EncoderName,
+            '-f', 'null',
+            '-')) {
+        $processInfo.ArgumentList.Add($argument)
+    }
+
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $processInfo
+    try {
+        [void]$process.Start()
+        $standardOutput = $process.StandardOutput.ReadToEndAsync()
+        $standardError = $process.StandardError.ReadToEndAsync()
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            $process.Kill($true)
+            $process.WaitForExit()
+            return [PSCustomObject]@{
+                encoderName = $EncoderName
+                usable = $false
+                exitCode = $null
+                reason = 'ProbeTimedOut'
+                error = "Encoder probe exceeded $TimeoutSeconds second(s)."
+            }
+        }
+
+        $outputText = $standardOutput.GetAwaiter().GetResult()
+        $errorText = $standardError.GetAwaiter().GetResult()
+        return [PSCustomObject]@{
+            encoderName = $EncoderName
+            usable = $process.ExitCode -eq 0
+            exitCode = [int]$process.ExitCode
+            reason = if ($process.ExitCode -eq 0) {
+                'ProbeSucceeded'
+            }
+            else {
+                'ProbeFailed'
+            }
+            error = if ([string]::IsNullOrWhiteSpace($errorText)) {
+                $outputText
+            }
+            else {
+                $errorText
+            }
+        }
+    }
+    catch {
+        return [PSCustomObject]@{
+            encoderName = $EncoderName
+            usable = $false
+            exitCode = $null
+            reason = 'ProbeFailed'
+            error = $_.Exception.Message
+        }
+    }
+    finally {
+        $process.Dispose()
+    }
+}
+
 function Get-BackupVideoControllerNameList {
     [CmdletBinding()]
     param()
@@ -190,6 +272,7 @@ function New-BackupGpuCapabilityReport {
         [ValidateRange(1, 8760)]
         [int]$CacheTtlHours = 168,
         [string]$Source = 'Provided',
+        [hashtable]$EncoderProbeResults,
         [switch]$RunBenchmark
     )
 
@@ -226,12 +309,32 @@ function New-BackupGpuCapabilityReport {
         foreach ($codec in @('H264', 'H265', 'AV1')) {
             $encoder = [string](Get-BackupGpuObjectValue -InputObject $definition.encoders -Name $codec)
             $ffmpegSupported = $normalizedEncoderNames -contains $encoder.ToLowerInvariant()
+            $probeKnown = $null -ne $EncoderProbeResults -and
+                $EncoderProbeResults.ContainsKey($encoder)
+            $probeSucceeded = $probeKnown -and
+                [bool]$EncoderProbeResults[$encoder].usable
             $codecCapabilities[$codec] = [PSCustomObject]@{
                 codec          = $codec
                 encoderName    = $encoder
                 ffmpegSupported = [bool]$ffmpegSupported
                 hardwareDetected = [bool]$hardwareDetected
-                usableForAuto = [bool]($ffmpegSupported -and $hardwareDetected)
+                probeKnown     = [bool]$probeKnown
+                probeSucceeded = if ($probeKnown) {
+                    [bool]$probeSucceeded
+                }
+                else {
+                    $null
+                }
+                probeReason    = if ($probeKnown) {
+                    [string]$EncoderProbeResults[$encoder].reason
+                }
+                else {
+                    $null
+                }
+                usableForAuto = [bool](
+                    $ffmpegSupported -and
+                    $hardwareDetected -and
+                    (-not $RunBenchmark -or $probeSucceeded))
             }
         }
 
@@ -289,7 +392,7 @@ function New-BackupGpuCapabilityReport {
 
     $detectedAtUtc = (Get-Date).ToUniversalTime()
     return [PSCustomObject]@{
-        schemaVersion = '1.0'
+        schemaVersion = '1.1'
         source        = $Source
         detectedAtUtc = $detectedAtUtc.ToString('o')
         expiresAtUtc  = $detectedAtUtc.AddHours($CacheTtlHours).ToString('o')
@@ -307,9 +410,15 @@ function New-BackupGpuCapabilityReport {
         recommendations = [PSCustomObject]$recommendations
         benchmark     = [PSCustomObject]@{
             requested = [bool]$RunBenchmark
-            state     = if ($RunBenchmark) { 'Planned' } else { 'NotRun' }
+            state     = if ($RunBenchmark) { 'Completed' } else { 'NotRun' }
             mode      = 'CapabilityCacheMicroBenchmark'
-            reason    = if ($RunBenchmark) { 'Benchmark can be run by a worker without blocking planning.' } else { 'Capability detection does not run encode benchmarks by default.' }
+            reason    = if ($RunBenchmark) { 'Hardware encoders were validated with a one-frame capability probe.' } else { 'Capability detection did not run encode probes.' }
+            results   = if ($null -ne $EncoderProbeResults) {
+                [PSCustomObject]$EncoderProbeResults
+            }
+            else {
+                [PSCustomObject]@{}
+            }
         }
         cache         = [PSCustomObject]@{
             enabled  = $true
@@ -373,6 +482,9 @@ function Read-BackupGpuCapabilityCache {
     try {
         $report = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop |
             ConvertFrom-Json -ErrorAction Stop
+        if ([string]$report.schemaVersion -ne '1.1') {
+            return $null
+        }
         $expiresAtText = [string](Get-BackupGpuObjectValue -InputObject $report -Name 'expiresAtUtc')
         $expiresAt = [datetime]::MinValue
         $isExpired = -not [datetime]::TryParse(
@@ -429,6 +541,39 @@ function Get-BackupGpuCapabilityReport {
         }
     )
 
+    $detectedReport = New-BackupGpuCapabilityReport `
+        -EncoderNames @($encoderNames) `
+        -VideoControllerNames @($controllerNames) `
+        -DetectedCommands @($detectedCommands) `
+        -FfmpegPath $ffmpegPath `
+        -CachePath $cachePath `
+        -CacheTtlHours $CacheTtlHours `
+        -Source 'Live'
+
+    $probeResults = @{}
+    if (-not [string]::IsNullOrWhiteSpace($ffmpegPath)) {
+        foreach ($provider in @($detectedReport.providers |
+                Where-Object { [bool]$_.hardwareDetected })) {
+            foreach ($codec in @('H264', 'H265', 'AV1')) {
+                $capability = Get-BackupGpuObjectValue `
+                    -InputObject $provider.codecCapabilities `
+                    -Name $codec
+                if (-not $capability -or
+                    -not [bool]$capability.ffmpegSupported) {
+                    continue
+                }
+                $encoderName = [string]$capability.encoderName
+                if ($probeResults.ContainsKey($encoderName)) {
+                    continue
+                }
+                $probeResults[$encoderName] =
+                    Test-BackupFfmpegEncoderCapability `
+                        -FfmpegPath $ffmpegPath `
+                        -EncoderName $encoderName
+            }
+        }
+    }
+
     $report = New-BackupGpuCapabilityReport `
         -EncoderNames @($encoderNames) `
         -VideoControllerNames @($controllerNames) `
@@ -437,7 +582,8 @@ function Get-BackupGpuCapabilityReport {
         -CachePath $cachePath `
         -CacheTtlHours $CacheTtlHours `
         -Source 'Live' `
-        -RunBenchmark:$RunBenchmark
+        -EncoderProbeResults $probeResults `
+        -RunBenchmark
 
     if (-not $SkipCacheWrite) {
         Save-BackupGpuCapabilityCache -Report $report -Path $cachePath | Out-Null
