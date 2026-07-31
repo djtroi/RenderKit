@@ -1826,6 +1826,44 @@ Describe 'RenderKit BackupProject job planning' {
         $profile.encoderSelection.reason | Should -Be 'NoUsableHardwareEncoderDetected'
     }
 
+    It 'falls back to CPU when RS-1129 hardware probing rejects an advertised encoder' {
+        $profile = InModuleScope RenderKit {
+            $capabilities = New-BackupGpuCapabilityReport `
+                -EncoderNames @('h264_nvenc', 'hevc_nvenc', 'av1_nvenc') `
+                -VideoControllerNames @('NVIDIA GeForce GTX 1080 Ti') `
+                -DetectedCommands @('nvidia-smi') `
+                -FfmpegPath 'ffmpeg' `
+                -Source 'Test' `
+                -EncoderProbeResults @{
+                    h264_nvenc = [PSCustomObject]@{
+                        usable = $true
+                        reason = 'ProbeSucceeded'
+                    }
+                    hevc_nvenc = [PSCustomObject]@{
+                        usable = $true
+                        reason = 'ProbeSucceeded'
+                    }
+                    av1_nvenc = [PSCustomObject]@{
+                        usable = $false
+                        reason = 'ProbeFailed'
+                    }
+                } `
+                -RunBenchmark
+            Get-BackupEncodingProfile `
+                -CompressionPreset Smallest `
+                -VideoCodec AV1 `
+                -EncoderDevice Auto `
+                -QualityPreset Smallest `
+                -AudioProfile Auto `
+                -GpuCapabilities $capabilities
+        }
+
+        $profile.videoCodec | Should -Be 'AV1'
+        $profile.encoderDevice | Should -Be 'CPU'
+        $profile.encoderName | Should -Be 'libsvtav1'
+        $profile.encoderSelection.source | Should -Be 'CpuFallback'
+    }
+
     It 'persists and reads the GPU capability cache' {
         $cached = InModuleScope RenderKit -Parameters @{
             CachePath = (Join-Path $TestDrive 'gpu-cache\gpu-capabilities.json')
