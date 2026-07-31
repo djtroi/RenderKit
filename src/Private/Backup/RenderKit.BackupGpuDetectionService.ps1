@@ -155,7 +155,7 @@ function Test-BackupFfmpegEncoderCapability {
             '-hide_banner',
             '-loglevel', 'error',
             '-f', 'lavfi',
-            '-i', 'color=c=black:s=64x64:d=0.1',
+            '-i', 'color=c=black:s=640x360:d=0.1',
             '-frames:v', '1',
             '-an',
             '-c:v', $EncoderName,
