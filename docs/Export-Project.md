@@ -21,7 +21,7 @@ Export-Project -ProjectRoot <string> -DestinationPath <string> [-Mode <string>] 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
 | `-ProjectRoot` | `string` | Yes | – | Full path to the project directory. |
-| `-DestinationPath` | `string` | Yes | – | Destination file path for the manifest/package, or an existing destination directory. Directory destinations create `<ProjectRootName>.rkit` for `ManifestOnly` exports and `<ProjectRootName>.rkitpkg` for `SelfContained` exports. |
+| `-DestinationPath` | `string` | Yes | – | Destination file path for the manifest/package, or an existing destination directory. RenderKit always appends the canonical `.rkit` or `.rkitpkg` extension when it is missing or another extension was supplied. Directory destinations create `<ProjectRootName>.rkit` for `ManifestOnly` exports and `<ProjectRootName>.rkitpkg` for `SelfContained` exports. |
 | `-Mode` | `string` | No | `'ManifestOnly'` | Export mode. |
 | `-CompressionMethod` | `string` | No | `'Zip'` | Compression method. |
 | `-CompressionLevel` | `string` | No | `'Optimal'` | Compression level. |
@@ -36,6 +36,19 @@ Export-Project -ProjectRoot "D:\Projects\ClientA" -DestinationPath "E:\Transfer"
 ```
 
 Exports `D:\Projects\ClientA` to `E:\Transfer\ClientA.rkit`.
+
+If a non-RenderKit extension is supplied, it remains part of the base file
+name and the canonical extension is appended:
+
+```powershell
+Export-Project `
+  -ProjectRoot "D:\Projects\ClientA" `
+  -DestinationPath "E:\Transfer\ClientA.zip" `
+  -Mode SelfContained
+```
+
+This writes `E:\Transfer\ClientA.zip.rkitpkg`. Existing files at the originally
+requested non-RenderKit path are not overwritten.
 
 
 Before running the command, inspect its full help with `Get-Help Export-Project -Full`. For commands that support `ShouldProcess`, use `-WhatIf` before making production changes.

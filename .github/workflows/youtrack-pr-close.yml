@@ -1,0 +1,102 @@
+name: Update YouTrack on PR close
+
+on:
+  pull_request:
+    branches:
+      - main
+      - '*.*.*'
+    types:
+      - closed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: youtrack-pr-close-${{ github.repository }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  update-youtrack-state:
+    name: Update linked YouTrack ticket
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.title, 'RS-') }}
+    runs-on: windows-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Set YouTrack ticket state
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          YT_BASE: ${{ vars.YT_BASE_URL }}
+          YT_TOKEN: ${{ secrets.YT_API_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if ([string]::IsNullOrWhiteSpace($env:YT_BASE)) {
+            throw 'YouTrack base URL is missing. Configure the repository variable YT_BASE_URL.'
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:YT_TOKEN)) {
+            throw 'YouTrack token is missing. Configure YT_API_TOKEN as an Actions secret.'
+          }
+
+          $ticketIds = [regex]::Matches(
+            $env:PR_TITLE,
+            '(?<![A-Za-z0-9])RS-[0-9]+(?![A-Za-z0-9])'
+          ) |
+            ForEach-Object { $_.Value.ToUpperInvariant() } |
+            Select-Object -Unique
+
+          if (-not $ticketIds) {
+            Write-Host "No RS ticket ID found in closed PR #$env:PR_NUMBER; nothing to update."
+            exit 0
+          }
+
+          $targetState = if ($env:PR_AUTHOR -eq 'dependabot[bot]') {
+            'Done'
+          }
+          else {
+            'Functional Review'
+          }
+
+          $headers = @{
+            Authorization = "Bearer $($env:YT_TOKEN.Trim())"
+            Accept = 'application/json'
+          }
+
+          foreach ($ticketId in $ticketIds) {
+            $payload = [ordered]@{
+              customFields = @(
+                [ordered]@{
+                  name = 'State'
+                  '$type' = 'StateIssueCustomField'
+                  value = [ordered]@{ name = $targetState }
+                }
+              )
+            } | ConvertTo-Json -Depth 6
+
+            $encodedTicketId = [Uri]::EscapeDataString($ticketId)
+            $uri = "$($env:YT_BASE.TrimEnd('/'))/api/issues/${encodedTicketId}?fields=idReadable,customFields(name,value(name))"
+
+            try {
+              Invoke-RestMethod `
+                -Method Post `
+                -Uri $uri `
+                -Headers $headers `
+                -ContentType 'application/json; charset=utf-8' `
+                -Body $payload | Out-Null
+            }
+            catch {
+              $details = if ($_.ErrorDetails.Message) { $_.ErrorDetails.Message } else { $_.Exception.Message }
+              throw "Unable to set YouTrack ticket $ticketId to '$targetState': $details"
+            }
+
+            Write-Host "Set YouTrack ticket $ticketId to '$targetState' after PR #$env:PR_NUMBER was closed (merged: $env:PR_MERGED)."
+            Write-Host "PR: $env:PR_URL"
+          }

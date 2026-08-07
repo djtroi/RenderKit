@@ -18,7 +18,9 @@ Validates a built-in, stored, imported, or in-memory backup profile.
         [hashtable]$Settings = @{},
         [Parameter(ParameterSetName = 'Draft')]
         [string]$DraftName = 'studio-draft',
-        [switch]$CheckAdapters
+        [switch]$CheckAdapters,
+        [switch]$CheckHardware,
+        [object[]]$WorkerCapability
     )
 
     process {
@@ -54,17 +56,34 @@ Validates a built-in, stored, imported, or in-memory backup profile.
             $settingsValidation = Test-BackupConfigProfileSettings `
                 -Settings $profile.settings `
                 -CheckAdapters:$CheckAdapters
+            $executionCompatibility = if (
+                $CheckHardware -and $settingsValidation.normalizedSettings
+            ) {
+                $capabilities = if ($WorkerCapability) {
+                    @($WorkerCapability)
+                }
+                else {
+                    @(Get-BackupWorkerCapability)
+                }
+                Test-BackupProfileWorkerCompatibility `
+                    -Settings $settingsValidation.normalizedSettings `
+                    -WorkerCapability $capabilities
+            }
+            else {
+                $null
+            }
             return [PSCustomObject]@{
-                Name              = [string]$profile.name
-                Source            = 'BuiltIn'
-                Path              = $null
-                IsValid           = [bool]$settingsValidation.isValid
-                SchemaVersion     = [string]$profile.schemaVersion
-                ProfileVersion    = [string]$profile.profileVersion
-                Compatibility     = 'Current'
-                Errors            = @($settingsValidation.errors)
-                Warnings          = @($settingsValidation.warnings)
-                EffectiveSettings = $settingsValidation.normalizedSettings
+                Name                   = [string]$profile.name
+                Source                 = 'BuiltIn'
+                Path                   = $null
+                IsValid                = [bool]$settingsValidation.isValid
+                SchemaVersion          = [string]$profile.schemaVersion
+                ProfileVersion         = [string]$profile.profileVersion
+                Compatibility          = 'Current'
+                ExecutionCompatibility = $executionCompatibility
+                Errors                 = @($settingsValidation.errors)
+                Warnings               = @($settingsValidation.warnings)
+                EffectiveSettings      = $settingsValidation.normalizedSettings
             }
         }
 
@@ -73,31 +92,49 @@ Validates a built-in, stored, imported, or in-memory backup profile.
             $validation = Test-BackupConfigProfileDocumentDetailed `
                 -Profile $currentProfile `
                 -CheckAdapters:$CheckAdapters
+            $executionCompatibility = if (
+                $CheckHardware -and $validation.normalizedSettings
+            ) {
+                $capabilities = if ($WorkerCapability) {
+                    @($WorkerCapability)
+                }
+                else {
+                    @(Get-BackupWorkerCapability)
+                }
+                Test-BackupProfileWorkerCompatibility `
+                    -Settings $validation.normalizedSettings `
+                    -WorkerCapability $capabilities
+            }
+            else {
+                $null
+            }
             return [PSCustomObject]@{
-                Name              = [string]$currentProfile.name
-                Source            = $source
-                Path              = $sourcePath
-                IsValid           = [bool]$validation.isValid
-                SchemaVersion     = [string]$currentProfile.schemaVersion
-                ProfileVersion    = [string]$currentProfile.profileVersion
-                Compatibility     = if ($validation.compatibility) { [string]$validation.compatibility.Status } else { 'Unknown' }
-                Errors            = @($validation.errors)
-                Warnings          = @($validation.warnings)
-                EffectiveSettings = $validation.normalizedSettings
+                Name                   = [string]$currentProfile.name
+                Source                 = $source
+                Path                   = $sourcePath
+                IsValid                = [bool]$validation.isValid
+                SchemaVersion          = [string]$currentProfile.schemaVersion
+                ProfileVersion         = [string]$currentProfile.profileVersion
+                Compatibility          = if ($validation.compatibility) { [string]$validation.compatibility.Status } else { 'Unknown' }
+                ExecutionCompatibility = $executionCompatibility
+                Errors                 = @($validation.errors)
+                Warnings               = @($validation.warnings)
+                EffectiveSettings      = $validation.normalizedSettings
             }
         }
         catch {
             return [PSCustomObject]@{
-                Name              = if ($profile) { [string]$profile.name } else { $null }
-                Source            = $source
-                Path              = $sourcePath
-                IsValid           = $false
-                SchemaVersion     = if ($profile) { [string]$profile.schemaVersion } else { $null }
-                ProfileVersion    = if ($profile) { [string]$profile.profileVersion } else { $null }
-                Compatibility     = 'Invalid'
-                Errors            = @($_.Exception.Message)
-                Warnings          = @()
-                EffectiveSettings = $null
+                Name                   = if ($profile) { [string]$profile.name } else { $null }
+                Source                 = $source
+                Path                   = $sourcePath
+                IsValid                = $false
+                SchemaVersion          = if ($profile) { [string]$profile.schemaVersion } else { $null }
+                ProfileVersion         = if ($profile) { [string]$profile.profileVersion } else { $null }
+                Compatibility          = 'Invalid'
+                ExecutionCompatibility = $null
+                Errors                 = @($_.Exception.Message)
+                Warnings               = @()
+                EffectiveSettings      = $null
             }
         }
     }

@@ -34,6 +34,7 @@ try {
         'src/Resources/Metadata/ixml-field-map.json',
         'src/Resources/Metadata/iptc-field-map.json',
         'src/Resources/Metadata/matroska-field-map.json',
+        'src/Resources/FileFormats/RenderKit.FileFormats.json',
         'src/Resources/ThirdParty/MediaInfo/manifest.json',
         'src/Resources/ThirdParty/ExifTool/manifest.json',
         'src/Resources/ThirdParty/ExifTool/files.sha256',

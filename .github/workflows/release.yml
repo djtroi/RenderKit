@@ -26,12 +26,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
       - name: Set up .NET SDK
-        uses: actions/setup-dotnet@main
+        uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: '8.0.x'
 
@@ -46,58 +46,59 @@ jobs:
           "STAGE_PATH=$($result.StagePath)"                     >> $env:GITHUB_OUTPUT
 
       - name: Upload .nupkg artifact
-        uses: actions/upload-artifact@main
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: RenderKit-${{ steps.build.outputs.VERSION }}-nupkg
           path: ${{ steps.build.outputs.NUPKG_PATH }}
           if-no-files-found: error
 
       - name: Upload staged module artifact
-        uses: actions/upload-artifact@main
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: RenderKit-${{ steps.build.outputs.VERSION }}-stage
           path: ${{ steps.build.outputs.STAGE_PATH }}
-          if-no-files-found: error       
+          if-no-files-found: error
+
   package-compatibility:
-      name: Validate supported installers
-      needs: build
-      runs-on: windows-latest
+    name: Validate supported installers
+    needs: build
+    runs-on: windows-latest
 
-      steps:
-        - name: Checkout
-          uses: actions/checkout@main
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
 
-        - name: Download .nupkg artifact
-          uses: actions/download-artifact@main
-          with:
-            name: RenderKit-${{ needs.build.outputs.version }}-nupkg
-            path: ./artifacts
+      - name: Download .nupkg artifact
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: RenderKit-${{ needs.build.outputs.version }}-nupkg
+          path: ./artifacts
 
-        - name: Validate PSResourceGet installation
-          shell: pwsh
-          run: |
-            $package = Get-Item ./artifacts/*.nupkg
-            ./build/Test-RenderKitLocalInstall.ps1 `
-              -PackagePath $package.FullName `
-              -Version '${{ needs.build.outputs.version }}' `
-              -PackageManager PSResourceGet
+      - name: Validate PSResourceGet installation
+        shell: pwsh
+        run: |
+          $package = Get-Item ./artifacts/*.nupkg
+          ./build/Test-RenderKitLocalInstall.ps1 `
+            -PackagePath $package.FullName `
+            -Version '${{ needs.build.outputs.version }}' `
+            -PackageManager PSResourceGet
 
-        - name: Install PowerShellGet 2.2.5
-          shell: powershell
-          run: |
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
-            Install-Module -Name PowerShellGet -RequiredVersion 2.2.5 -Scope CurrentUser -Force -AllowClobber
+      - name: Install PowerShellGet 2.2.5
+        shell: powershell
+        run: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+          Install-Module -Name PowerShellGet -RequiredVersion 2.2.5 -Scope CurrentUser -Force -AllowClobber
 
-        - name: Validate PowerShellGet installation
-          shell: powershell
-          run: |
-            Import-Module PowerShellGet -RequiredVersion 2.2.5 -Force
-            $package = Get-Item ./artifacts/*.nupkg
-            ./build/Test-RenderKitLocalInstall.ps1 `
-              -PackagePath $package.FullName `
-              -Version '${{ needs.build.outputs.version }}' `
-              -PackageManager PowerShellGet
+      - name: Validate PowerShellGet installation
+        shell: powershell
+        run: |
+          Import-Module PowerShellGet -RequiredVersion 2.2.5 -Force
+          $package = Get-Item ./artifacts/*.nupkg
+          ./build/Test-RenderKitLocalInstall.ps1 `
+            -PackagePath $package.FullName `
+            -Version '${{ needs.build.outputs.version }}' `
+            -PackageManager PowerShellGet
 
   github-release:
     name: GitHub Release
@@ -110,12 +111,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
       - name: Download .nupkg artifact
-        uses: actions/download-artifact@main
+        uses: actions/download-artifact@v8.0.1
         with:
           name: RenderKit-${{ needs.build.outputs.version }}-nupkg
           path: ./artifacts
@@ -159,7 +160,7 @@ jobs:
           No changelog entry found for version $version.
 
           Expected a heading such as:
-          ## $version - YYYY-MM-DD
+          ## [$version] - YYYY-MM-DD
           "@
           }
 
@@ -276,7 +277,7 @@ jobs:
 
     steps:
       - name: Download .nupkg artifact
-        uses: actions/download-artifact@main
+        uses: actions/download-artifact@v8.0.1
         with:
           name: RenderKit-${{ needs.build.outputs.version }}-nupkg
           path: ./artifacts
@@ -301,7 +302,7 @@ jobs:
 
     steps:
       - name: Download staged module
-        uses: actions/download-artifact@main
+        uses: actions/download-artifact@v8.0.1
         with:
           name: RenderKit-${{ needs.build.outputs.version }}-stage
           path: ./stage
@@ -348,7 +349,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v7.0.1
 
       - name: Validate with PSResourceGet
         shell: pwsh
