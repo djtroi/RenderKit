@@ -1,6 +1,6 @@
 @{
     RootModule = 'RenderKit.psm1'
-    ModuleVersion = '1.1.3' # Major.Minor.Patch
+    ModuleVersion = '1.1.4' # Major.Minor.Patch
     Author = 'Norbert Marton'
     Description = 'PowerShell tools for structured video editing project workflows.'
     GUID = '32e3f476-8e44-4511-82c7-952748e6463b'
@@ -101,11 +101,10 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 1.1.3 improves backup worker compatibility and project archive portability:
-- Adds worker capability discovery and per-worker backup profile compatibility reporting.
-- Probes advertised hardware encoders with a real one-frame encode before automatic selection and safely falls back to CPU encoding.
-- Preserves offline worker registrations while reporting compatible workers for heterogeneous worker pools.
-- Defines the canonical RenderKit project archive formats and enforces `.rkit` and `.rkitpkg` export extensions.
+Version 1.1.4 is a corrective release of the RenderKit 1.1.3 feature set:
+- Fixes stale release-version assertions and README metadata left behind by the 1.1.3 release cut.
+- Updates release-documentation validation for canonical Keep a Changelog version headings.
+- Contains no additional runtime feature changes beyond RenderKit 1.1.3.
 '@
         } # End of PSData hashtable
 
