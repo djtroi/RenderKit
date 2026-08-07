@@ -1,0 +1,298 @@
+name: Maintain changelog
+
+on:
+  push:
+    branches:
+      - main
+      - '*.*.*'
+  pull_request:
+    branches:
+      - main
+      - '*.*.*'
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+concurrency:
+  group: changelog-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  dependabot-ticket:
+    name: Dependabot YouTrack Ticket
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]' }}
+    runs-on: windows-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: pwsh
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Create YouTrack ticket and update PR title
+        env:
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          YT_BASE: ${{ vars.YT_BASE_URL }}
+          YT_TOKEN: ${{ secrets.YT_API_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if ([string]::IsNullOrWhiteSpace($env:YT_BASE)) {
+            throw 'YouTrack base URL is missing. Configure the repository variable YT_BASE_URL, for example https://example.youtrack.cloud.'
+          }
+
+          if ($env:YT_BASE -match 'deine-instanz') {
+            throw 'YouTrack base URL still contains the placeholder deine-instanz. Configure the repository variable YT_BASE_URL.'
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:YT_TOKEN)) {
+            throw 'YouTrack token is missing. Configure YT_API_TOKEN as a Dependabot secret for Dependabot-triggered pull requests.'
+          }
+
+          $prTitleOutput = & gh pr view $env:PR_NUMBER `
+            --repo $env:GITHUB_REPOSITORY `
+            --json title `
+            --jq '.title' 2>&1
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Unable to read pull request title: $($prTitleOutput | Out-String)"
+          }
+
+          $prTitle = ($prTitleOutput | Out-String).Trim()
+
+          if ($prTitle -match '(?<![A-Za-z0-9])RS-[0-9]+(?![A-Za-z0-9])') {
+            Write-Host 'YouTrack ticket is already present in the current PR title.'
+            exit 0
+          }
+
+          $dueDateUtc = [DateTime]::UtcNow.Date.AddDays(30).AddHours(12)
+          $dueDateTimestamp = [DateTimeOffset]::new($dueDateUtc).ToUnixTimeMilliseconds()
+
+          $customFields = @(
+            [ordered]@{
+              name = 'State'
+              '$type' = 'StateIssueCustomField'
+              value = [ordered]@{ name = 'Open' }
+            }
+            [ordered]@{
+              name = 'Type'
+              '$type' = 'SingleEnumIssueCustomField'
+              value = [ordered]@{ name = 'Task' }
+            }
+            [ordered]@{
+              name = 'Priority'
+              '$type' = 'SingleEnumIssueCustomField'
+              value = [ordered]@{ name = 'Normal' }
+            }
+            [ordered]@{
+              name = 'Edition'
+              '$type' = 'SingleOwnedIssueCustomField'
+              value = [ordered]@{ name = 'Studio' }
+            }
+            [ordered]@{
+              name = 'Go-Live'
+              '$type' = 'SingleOwnedIssueCustomField'
+              value = [ordered]@{ name = 'Nein' }
+            }
+            [ordered]@{
+              name = 'Due Date'
+              '$type' = 'DateIssueCustomField'
+              value = $dueDateTimestamp
+            }
+          )
+
+          if ($env:BASE_BRANCH -match '^\d+\.\d+\.\d+$') {
+            Write-Host "Sprint: $env:BASE_BRANCH"
+            $customFields += [ordered]@{
+              name = 'Sprints'
+              '$type' = 'MultiVersionIssueCustomField'
+              value = @([ordered]@{ name = $env:BASE_BRANCH })
+            }
+          }
+          else {
+            Write-Host "Base branch '$env:BASE_BRANCH' is not a stable version branch; no sprint is assigned."
+          }
+
+          $payload = [ordered]@{
+            project = [ordered]@{ id = '0-3' }
+            summary = "Dependency Update: $prTitle"
+            description = "Automatisch erstellt für [PR #$env:PR_NUMBER]($env:PR_URL)"
+            customFields = $customFields
+          } | ConvertTo-Json -Depth 10
+
+          $uri = "$($env:YT_BASE.TrimEnd('/'))/api/issues?fields=idReadable"
+          $headers = @{ Authorization = "Bearer $env:YT_TOKEN" }
+
+          try {
+            $response = Invoke-RestMethod `
+              -Method Post `
+              -Uri $uri `
+              -Headers $headers `
+              -ContentType 'application/json; charset=utf-8' `
+              -Body $payload
+          }
+          catch {
+            $details = if ($_.ErrorDetails.Message) { $_.ErrorDetails.Message } else { $_.Exception.Message }
+            throw "YouTrack ticket creation failed: $details"
+          }
+
+          $ticketId = [string]$response.idReadable
+          if ([string]::IsNullOrWhiteSpace($ticketId)) {
+            throw "YouTrack response did not contain an idReadable value: $($response | ConvertTo-Json -Depth 10 -Compress)"
+          }
+
+          Write-Host "Created YouTrack ticket $ticketId."
+          $editOutput = & gh pr edit $env:PR_NUMBER `
+            --repo $env:GITHUB_REPOSITORY `
+            --title "$ticketId $prTitle" 2>&1
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Unable to update pull request title: $($editOutput | Out-String)"
+          }
+
+  validate-ticket:
+    name: Require RS ticket
+    needs:
+      - dependabot-ticket
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    runs-on: renderkit
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: pwsh
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Require successful Dependabot ticket creation
+        if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' && needs.dependabot-ticket.result != 'success' }}
+        env:
+          DEPENDABOT_TICKET_RESULT: ${{ needs.dependabot-ticket.result }}
+        run: |
+          Write-Error "Dependabot YouTrack ticket job result: $env:DEPENDABOT_TICKET_RESULT"
+          exit 1
+
+      - name: Check out RenderKit Studio
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.23.0'
+          package-manager-cache: false
+
+      - name: Test ticket validation rules
+        run: node scripts/Test-ValidateChangeTicket.mjs
+
+      - name: Read current pull request title
+        id: current-pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $titleOutput = & gh pr view $env:PR_NUMBER `
+            --repo $env:GITHUB_REPOSITORY `
+            --json title `
+            --jq '.title' 2>&1
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Unable to read pull request title: $($titleOutput | Out-String)"
+          }
+
+          $title = ($titleOutput | Out-String).Trim()
+          "title=$title" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Validate pull request title
+        run: node scripts/Validate-ChangeTicket.mjs
+        env:
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_TITLE: ${{ steps.current-pr.outputs.title }}
+
+  update-changelog:
+    name: Update Unreleased changelog
+    if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip changelog]') }}
+    runs-on: renderkit
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: pwsh
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out current branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.23.0'
+          package-manager-cache: false
+
+      - name: Test changelog scope rules
+        run: node scripts/Test-ChangelogScope.mjs
+
+      - name: Check changelog scope
+        id: changelog-scope
+        run: node scripts/Check-ChangelogScope.mjs
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+
+      - name: Update changelog
+        if: ${{ steps.changelog-scope.outputs.required == 'true' }}
+        id: changelog
+        run: node scripts/Update-Changelog.mjs
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.event.after }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Commit changelog update
+        if: ${{ steps.changelog.outputs.changed == 'true' }}
+        env:
+          CHANGELOG_TICKETS: ${{ steps.changelog.outputs.tickets }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          git config user.name 'github-actions[bot]'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          git add -- CHANGELOG.md
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host 'No changelog changes to commit.'
+            exit 0
+          }
+          if ($LASTEXITCODE -ne 1) { exit $LASTEXITCODE }
+
+          git commit -m "chore(changelog): $env:CHANGELOG_TICKETS update Unreleased [skip changelog]"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          git pull --rebase origin $env:GITHUB_REF_NAME
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          git push origin "HEAD:$env:GITHUB_REF_NAME"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
