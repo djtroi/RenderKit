@@ -1,0 +1,95 @@
+name: Sync Dependabot Target Branch
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync-target:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Check out default branch
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Detect highest semantic-version branch
+        id: detect
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $remoteHeads = & git ls-remote --heads origin 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            throw "Unable to list remote branches: $($remoteHeads | Out-String)"
+          }
+
+          $versions = foreach ($line in $remoteHeads) {
+            if ($line -match 'refs/heads/(?<version>[0-9]+\.[0-9]+\.[0-9]+)$') {
+              [pscustomobject]@{
+                Name = $Matches.version
+                Version = [version]$Matches.version
+              }
+            }
+          }
+
+          $highest = $versions |
+            Sort-Object -Property Version -Descending |
+            Select-Object -First 1
+
+          $target = if ($null -ne $highest) { $highest.Name } else { 'main' }
+          Write-Host "Dependabot target branch: $target"
+          "branch=$target" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Update dependabot.yml target branch
+        env:
+          TARGET_BRANCH: ${{ steps.detect.outputs.branch }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $path = '.github/dependabot.yml'
+          $content = Get-Content -LiteralPath $path -Raw -Encoding utf8
+
+          if ($content -notmatch '(?m)^\s+target-branch:\s*\S+\s*$') {
+            throw 'dependabot.yml does not contain the expected target-branch field.'
+          }
+
+          $updated = [regex]::Replace(
+            $content,
+            '(?m)^(\s+)target-branch:\s*\S+\s*$',
+            "`$1target-branch: $env:TARGET_BRANCH"
+          )
+
+          if ($updated -ne $content) {
+            Set-Content -LiteralPath $path -Value $updated -Encoding utf8 -NoNewline
+          }
+
+      - name: Commit target update when required
+        env:
+          TARGET_BRANCH: ${{ steps.detect.outputs.branch }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          git diff --quiet -- .github/dependabot.yml
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host 'Dependabot target is already current.'
+            exit 0
+          }
+          if ($LASTEXITCODE -ne 1) { exit $LASTEXITCODE }
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- .github/dependabot.yml
+          git commit -m "ci: sync dependabot target to $env:TARGET_BRANCH [skip changelog]"
+          git pull --rebase origin $env:GITHUB_REF_NAME
+          git push origin "HEAD:$env:GITHUB_REF_NAME"
