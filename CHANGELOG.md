@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [1.1.4] - 2026-08-07
+
+### Fixed
+
+- Fixed stale release-version assertions and README metadata left at `1.1.2` after the `1.1.3` release cut.
+- Fixed release-documentation validation to recognize the canonical Keep a Changelog heading format (`## [version]`).
+
 ## [1.1.3] - 2026-07-31
 
 ### Added
