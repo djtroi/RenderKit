@@ -44,7 +44,9 @@ Dependabot YouTrack Ticket
 
 The prerequisite reads the current PR title, creates the YouTrack issue when no `RS-<number>` is present, and updates the title. `Require RS ticket` then reads the title again before validating it.
 
-The Dependabot target branch is synchronized weekly. The highest stable semantic-version branch is selected when one exists; otherwise the configuration falls back to `main`.
+The Dependabot target branch is synchronized weekly. The workflow reads `ModuleVersion` from `origin/main:RenderKit.psd1` and selects the highest stable semantic-version branch whose version is greater than the version currently declared on `main`. Once a release has been squash-merged and `main` declares that version, the old release branch is ignored even if it still exists remotely. If no newer release branch exists, Dependabot targets `main`.
+
+This version-based rule is intentionally used instead of Git ancestry because squash-merging a release branch does not make the release-branch head an ancestor of `main`.
 
 Required repository configuration:
 
@@ -114,7 +116,7 @@ When `CHANGELOG.md` changes, GitHub Actions creates a commit similar to:
 chore(changelog): RS-1129 update Unreleased [skip changelog]
 ```
 
-The `[skip changelog]` marker prevents an automation loop.
+The `[skip changelog]` marker suppresses generation of a change entry for automation-only commits. Structural normalization still runs, so an accidentally reverted Keep a Changelog header or version-heading syntax can be repaired without producing a duplicate release-note entry.
 
 ## Cutting a release
 
