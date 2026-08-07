@@ -35,6 +35,24 @@ jobs:
             throw 'Unable to fetch remote branches.'
           }
 
+          $mainManifest = & git show 'origin/main:RenderKit.psd1' 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            throw "Unable to read RenderKit.psd1 from main: $($mainManifest | Out-String)"
+          }
+
+          $mainManifestText = $mainManifest | Out-String
+          $mainVersionMatch = [regex]::Match(
+            $mainManifestText,
+            "(?m)^\s*ModuleVersion\s*=\s*'(?<version>[0-9]+\.[0-9]+\.[0-9]+)'"
+          )
+          if (-not $mainVersionMatch.Success) {
+            throw 'Unable to resolve ModuleVersion from origin/main:RenderKit.psd1.'
+          }
+
+          $mainVersionText = $mainVersionMatch.Groups['version'].Value
+          $mainVersion = [version]$mainVersionText
+          Write-Host "Current main version: $mainVersionText"
+
           $remoteRefs = & git for-each-ref --format='%(refname:short)' refs/remotes/origin
           if ($LASTEXITCODE -ne 0) {
             throw 'Unable to enumerate remote branches.'
@@ -42,28 +60,24 @@ jobs:
 
           $versions = foreach ($ref in $remoteRefs) {
             if ($ref -match '^origin/(?<version>[0-9]+\.[0-9]+\.[0-9]+)$') {
-              [pscustomobject]@{
-                Name = $Matches.version
-                Version = [version]$Matches.version
+              $candidateVersion = [version]$Matches.version
+              if ($candidateVersion -gt $mainVersion) {
+                [pscustomobject]@{
+                  Name = $Matches.version
+                  Version = $candidateVersion
+                }
+              }
+              else {
+                Write-Host "Skipping released/stale branch $($Matches.version) because main is $mainVersionText."
               }
             }
           }
 
-          $target = 'main'
-          foreach ($candidate in ($versions | Sort-Object -Property Version -Descending)) {
-            & git merge-base --is-ancestor "origin/$($candidate.Name)" 'origin/main'
-            if ($LASTEXITCODE -eq 0) {
-              Write-Host "Skipping merged release branch $($candidate.Name)."
-              continue
-            }
-            if ($LASTEXITCODE -ne 1) {
-              throw "Unable to compare release branch $($candidate.Name) with main."
-            }
+          $highest = $versions |
+            Sort-Object -Property Version -Descending |
+            Select-Object -First 1
 
-            $target = $candidate.Name
-            break
-          }
-
+          $target = if ($null -ne $highest) { $highest.Name } else { 'main' }
           Write-Host "Dependabot target branch: $target"
           "branch=$target" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
@@ -74,15 +88,16 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $path = '.github/dependabot.yml'
           $content = Get-Content -LiteralPath $path -Raw -Encoding utf8
+          $targetPattern = '(?m)^(?<indent>[ \t]+)target-branch:[ \t]*\S+[ \t]*$'
 
-          if ($content -notmatch '(?m)^\s+target-branch:\s*\S+\s*$') {
+          if ($content -notmatch $targetPattern) {
             throw 'dependabot.yml does not contain the expected target-branch field.'
           }
 
           $updated = [regex]::Replace(
             $content,
-            '(?m)^(\s+)target-branch:\s*\S+\s*$',
-            "`$1target-branch: $env:TARGET_BRANCH"
+            $targetPattern,
+            "`${indent}target-branch: $env:TARGET_BRANCH"
           )
 
           if ($updated -ne $content) {
