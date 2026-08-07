@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0",
+  "formats": [
+    {
+      "id": "project-manifest",
+      "displayName": "RenderKit Project Manifest",
+      "extension": ".rkit",
+      "exportMode": "ManifestOnly",
+      "container": "zip",
+      "mediaType": "application/vnd.renderkit.project+zip",
+      "fallbackMediaType": "application/zip",
+      "uniformTypeIdentifier": "com.conceptmarton.renderkit.project-manifest",
+      "windowsProgId": "RenderKit.ProjectManifest"
+    },
+    {
+      "id": "project-package",
+      "displayName": "RenderKit Project Package",
+      "extension": ".rkitpkg",
+      "exportMode": "SelfContained",
+      "container": "zip",
+      "mediaType": "application/vnd.renderkit.project-package+zip",
+      "fallbackMediaType": "application/zip",
+      "uniformTypeIdentifier": "com.conceptmarton.renderkit.project-package",
+      "windowsProgId": "RenderKit.ProjectPackage"
+    }
+  ]
+}
