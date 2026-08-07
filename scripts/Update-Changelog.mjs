@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 const CHANGELOG_PATH = process.env.CHANGELOG_PATH || 'CHANGELOG.md';
 const BEFORE_SHA = process.env.BEFORE_SHA || '';
 const AFTER_SHA = process.env.AFTER_SHA || 'HEAD';
+const PROCESS_ENTRIES = !/^(?:false|0|no)$/i.test(process.env.PROCESS_ENTRIES || 'true');
 const ZERO_SHA = /^0+$/;
 const TICKET_PATTERN = /\bRS-\d+\b/gi;
 const SKIP_PATTERN = /\[skip changelog\]/i;
@@ -301,15 +302,38 @@ async function writeOutputs(values) {
 }
 
 async function main() {
-  const commits = loadCommits().filter((commit) => {
-    const message = `${commit.subject}\n${commit.body}`;
-    return !SKIP_PATTERN.test(message)
-      && !/github-actions\[bot\]/i.test(commit.authorEmail);
-  });
+  const commits = PROCESS_ENTRIES
+    ? loadCommits().filter((commit) => {
+        const message = `${commit.subject}\n${commit.body}`;
+        return !SKIP_PATTERN.test(message)
+          && !/github-actions\[bot\]/i.test(commit.authorEmail);
+      })
+    : [];
+
+  let original = '';
+  try {
+    original = await readFile(CHANGELOG_PATH, 'utf8');
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      throw error;
+    }
+  }
+
+  let content = normalizeChangelog(original);
 
   if (commits.length === 0) {
-    console.log('No changelog-relevant commits found.');
-    await writeOutputs({ changed: 'false', tickets: '', entries: '0' });
+    const normalizedOriginal = original.replace(/\r\n/g, '\n');
+    const changed = content !== normalizedOriginal;
+    if (changed) {
+      await writeFile(CHANGELOG_PATH, content, 'utf8');
+    }
+
+    await writeOutputs({ changed: String(changed), tickets: '', entries: '0' });
+    console.log(
+      changed
+        ? `Normalized ${CHANGELOG_PATH} without adding a change entry.`
+        : 'No changelog-relevant commits found and changelog structure is current.',
+    );
     return;
   }
 
@@ -323,16 +347,6 @@ async function main() {
     throw new Error(`Every change must reference an RS ticket. Missing ticket:\n${list}`);
   }
 
-  let original = '';
-  try {
-    original = await readFile(CHANGELOG_PATH, 'utf8');
-  } catch (error) {
-    if (error.code !== 'ENOENT') {
-      throw error;
-    }
-  }
-
-  let content = normalizeChangelog(original);
   const allTickets = new Set();
   let addedCount = 0;
 
