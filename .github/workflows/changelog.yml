@@ -26,7 +26,7 @@ jobs:
   dependabot-ticket:
     name: Dependabot YouTrack Ticket
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]' }}
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     defaults:
       run:
@@ -48,11 +48,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
 
           if ([string]::IsNullOrWhiteSpace($env:YT_BASE)) {
-            throw 'YouTrack base URL is missing. Configure the repository variable YT_BASE_URL, for example https://example.youtrack.cloud.'
-          }
-
-          if ($env:YT_BASE -match 'deine-instanz') {
-            throw 'YouTrack base URL still contains the placeholder deine-instanz. Configure the repository variable YT_BASE_URL.'
+            throw 'YouTrack base URL is missing. Configure the repository variable YT_BASE_URL.'
           }
 
           if ([string]::IsNullOrWhiteSpace($env:YT_TOKEN)) {
@@ -95,11 +91,6 @@ jobs:
               value = [ordered]@{ name = 'Normal' }
             }
             [ordered]@{
-              name = 'Edition'
-              '$type' = 'SingleOwnedIssueCustomField'
-              value = [ordered]@{ name = 'Studio' }
-            }
-            [ordered]@{
               name = 'Go-Live'
               '$type' = 'SingleOwnedIssueCustomField'
               value = [ordered]@{ name = 'Nein' }
@@ -125,7 +116,7 @@ jobs:
 
           $payload = [ordered]@{
             project = [ordered]@{ id = '0-3' }
-            summary = "Dependency Update: $prTitle"
+            summary = "RenderKit Dependency Update: $prTitle"
             description = "Automatisch erstellt für [PR #$env:PR_NUMBER]($env:PR_URL)"
             customFields = $customFields
           } | ConvertTo-Json -Depth 10
@@ -165,7 +156,7 @@ jobs:
     needs:
       - dependabot-ticket
     if: ${{ always() && github.event_name == 'pull_request' }}
-    runs-on: renderkit
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     defaults:
       run:
@@ -183,7 +174,7 @@ jobs:
           Write-Error "Dependabot YouTrack ticket job result: $env:DEPENDABOT_TICKET_RESULT"
           exit 1
 
-      - name: Check out RenderKit Studio
+      - name: Check out RenderKit
         uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -225,7 +216,7 @@ jobs:
   update-changelog:
     name: Update Unreleased changelog
     if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip changelog]') }}
-    runs-on: renderkit
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
       run:
