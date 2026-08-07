@@ -18,7 +18,7 @@ concurrency:
 jobs:
   update-youtrack-state:
     name: Update linked YouTrack ticket
-    if: ${{ contains(github.event.pull_request.title, 'RS-') }}
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.title, 'RS-') }}
     runs-on: windows-latest
     timeout-minutes: 5
     defaults:
@@ -43,7 +43,7 @@ jobs:
           }
 
           if ([string]::IsNullOrWhiteSpace($env:YT_TOKEN)) {
-            throw 'YouTrack token is missing. Configure YT_API_TOKEN as both an Actions secret and a Dependabot secret.'
+            throw 'YouTrack token is missing. Configure YT_API_TOKEN as an Actions secret.'
           }
 
           $ticketIds = [regex]::Matches(

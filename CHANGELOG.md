@@ -53,7 +53,7 @@
   terminal `Archived` lifecycle status; legacy backup-generated archive
   transitions are now interpreted as their preceding status.
 
-## 1.1.1 - 2026-07-23
+## [1.1.1] - 2026-07-23
 
 ### Fixed
 
@@ -65,7 +65,7 @@
 - Fixed mapping template resolution so mapping identifiers are consistently
   normalized to their corresponding `.json` files before loading.
 
-## 1.1.0 - 2026-07-11
+## [1.1.0] - 2026-07-11
 
 ### Added
 
@@ -188,7 +188,7 @@
 - Fixed successful structured ExifTool imports being reported as failures by
   Windows PowerShell 5.1 when ExifTool writes its status line to stderr.
   
-## 1.0.1 - 2026-07-01
+## [1.0.1] - 2026-07-01
 
 ### Patch
 
@@ -203,7 +203,7 @@
 - Fixed large files monopolizing the complete in-flight budget until read-back verification completed. Pipeline admission now accounts for estimated resident buffers rather than logical file size.
 - Added `-TransferVerificationMode Fast|Full`. The default `Fast` mode uses the native file-copy path with staging-length validation and atomic commit, while `Full` retains independent SHA read-back verification.
 
-## 1.0.0 - 2026-06-19
+## [1.0.0] - 2026-06-19
 
 ### Major
 
@@ -257,7 +257,7 @@
 - Fixed project logging so `Write-RenderKitLog` no longer calls `Add-Content` directly against a potentially deleted `renderkit.log`; it now routes file writes through `Write-RenderKitLogFileEntry`.
 - Fixed the debug-level comparison typo so debug entries are written when `-Level Debug` is used.
 
-## 0.3.9 - 2026-06-18
+## [0.3.9] - 2026-06-18
 
 ### Patch
 
@@ -275,7 +275,7 @@
 - Fixed release builds after removal of the optional RenderKit logo asset by omitting icon metadata and package files when the image is not present.
 - Improved `dotnet pack` failure reporting by preserving the native exit code, printing normal-verbosity output, including the generated nuspec in the exception, and uploading staging diagnostics from CI.
 
-## 0.3.8 - 2026-06-16
+## [0.3.8] - 2026-06-16
 
 ### Patch
 
@@ -313,7 +313,7 @@
 - Fixed exported documentation coverage by listing the newly merged project lifecycle and delivery commands.
 - Fixed release publishing robustness by registering PSGallery idempotently before `Publish-PSResource` runs.
 
-## 0.3.7 - 2026-04-21
+## [0.3.7] - 2026-04-21
 
 ### Patch
 
@@ -333,7 +333,7 @@
 - Fixed wizard configuration binding so classification now reads `wizardConfig.Classify` correctly
 - Fixed wizard transfer prompting so the transfer mode menu only appears when transfer was enabled during setup
 
-## 0.3.6 - 2026-04-xx
+## [0.3.6] - 2026-04-xx
 
 ### Patch
 
@@ -371,7 +371,7 @@
 - Fixes #124 - PSScriptAnalyzer Warning
 - Fixes #112 - PSScriptAnalyzer Warning
 
-## 0.3.5 - 2026-04-11
+## [0.3.5] - 2026-04-11
 
 ### Patch
 
@@ -396,7 +396,7 @@
  Replaced `Copy-Item` with stream-based copying and continous progress updates (copy, source hash, staging hash), improving responsiveness and visibility during long operations.
  Relevant file: `RenderKit.ImportService.ps1`
 
-## 0.3.4 - 2026-04-10
+## [0.3.4] - 2026-04-10
 
 ### Patch
 
@@ -404,7 +404,7 @@
 
 - Refactored the .psm1 file for robust dot sourcing
 
-## 0.3.3 - 2026-04-04
+## [0.3.3] - 2026-04-04
 
 ### Patch
 
@@ -423,7 +423,7 @@
 
 - Removed some PluralNouns that make sense. Suppressed some others.
 
-## 0.3.2 - 2026.04.02
+## [0.3.2] - 2026.04.02
 
 ### Patch
 
@@ -433,7 +433,7 @@
 
 - Fixed a minor error in  "FunctionsToExport" segment in the Manifest file.
 
-## 0.3.1 - 2026-04-02
+## [0.3.1] - 2026-04-02
 
 ### Patch
 
@@ -443,7 +443,7 @@
 
 - Removed trailing white spaces in the code
 
-## 0.3.0 – 2026-03-31
+## [0.3.0] - 2026-03-31
 
 ### Minor Release
 
@@ -498,7 +498,7 @@
 
 - No changes
 
-## 0.2.0 – 2026-02-11
+## [0.2.0] - 2026-02-11
 
 ### Minor Release
 
@@ -572,7 +572,7 @@
 
 - No changes
 
-## 0.1.0 2026.01.29
+## [0.1.0] - 2026.01.29
 
 ### Added
 
