@@ -1,4 +1,33 @@
 # Changelog
+
+## 1.1.3 - 2026-07-31
+
+### Added
+
+- Added RS-798/RS-799 worker capability discovery for local and registered
+  backup workers, including per-worker CPU, GPU, FFmpeg, and encoder support.
+- Added per-worker backup-profile execution results with eligible worker IDs,
+  compatibility states, and CPU-fallback reporting without preventing users
+  from storing structurally valid custom profiles.
+- Added RS-1204 machine-readable and documented RenderKit file-format
+  definitions for the ZIP-based `.rkit` and `.rkitpkg` project archives.
+
+### Changed
+
+- RS-1204 project exports now always append the canonical `.rkit` or
+  `.rkitpkg` extension when another extension is requested, normalize canonical
+  extension casing, and continue returning the effective output path.
+- RS-798/RS-799 hardware validation now evaluates every available worker
+  independently and preserves offline worker registrations for heterogeneous
+  future worker pools.
+
+### Fixed
+
+- Fixed RS-1129 automatic encoder selection treating an FFmpeg encoder as
+  usable when the installed GPU cannot execute it. Hardware encoders are now
+  probed with a real one-frame encode at supported dimensions and safely fall
+  back to a compatible CPU encoder.
+
 ## 1.1.2 - 2026-07-23
 
 ### Added

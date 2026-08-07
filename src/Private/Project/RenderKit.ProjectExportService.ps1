@@ -3,6 +3,85 @@ if ($PSVersionTable.PSVersion.Major -le 5) {
     Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
 } # Powershell 5.1 Support guard. T_T 
 
+function Get-RenderKitProjectExportFormat {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('ManifestOnly', 'SelfContained')]
+        [string]$Mode
+    )
+
+    if ($null -eq $script:RenderKitFileFormatCatalog) {
+        $catalogPath = Join-Path `
+            -Path $script:RenderKitModuleRoot `
+            -ChildPath 'src/Resources/FileFormats/RenderKit.FileFormats.json'
+        if (-not (Test-Path -LiteralPath $catalogPath -PathType Leaf)) {
+            throw "RenderKit file format catalog '$catalogPath' was not found."
+        }
+        $script:RenderKitFileFormatCatalog = Get-Content `
+            -LiteralPath $catalogPath `
+            -Raw `
+            -Encoding UTF8 |
+            ConvertFrom-Json
+    }
+
+    $format = @($script:RenderKitFileFormatCatalog.formats |
+        Where-Object { [string]$_.exportMode -eq $Mode } |
+        Select-Object -First 1)
+    if ($format.Count -eq 0 -or
+        [string]::IsNullOrWhiteSpace([string]$format[0].extension)) {
+        throw "No RenderKit file format is registered for export mode '$Mode'."
+    }
+    return $format[0]
+}
+
+function Resolve-RenderKitProjectExportDestination {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ProjectRoot,
+        [Parameter(Mandatory)][string]$DestinationPath,
+        [Parameter(Mandatory)]
+        [ValidateSet('ManifestOnly', 'SelfContained')]
+        [string]$Mode
+    )
+
+    $format = Get-RenderKitProjectExportFormat -Mode $Mode
+    $requiredExtension = [string]$format.extension
+    $destinationIsDirectory = Test-Path `
+        -LiteralPath $DestinationPath `
+        -PathType Container
+    $trimmedDestination = $DestinationPath.TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    if ($destinationIsDirectory -or
+        $trimmedDestination.Length -ne $DestinationPath.Length) {
+        $destinationDirectory = if ($destinationIsDirectory) {
+            (Resolve-Path `
+                -LiteralPath $DestinationPath `
+                -ErrorAction Stop).ProviderPath
+        }
+        else {
+            [System.IO.Path]::GetFullPath($trimmedDestination)
+        }
+        return Join-Path `
+            -Path $destinationDirectory `
+            -ChildPath ("{0}{1}" -f (
+                    Split-Path -Path $ProjectRoot -Leaf
+                ), $requiredExtension)
+    }
+
+    if ($DestinationPath.EndsWith(
+            $requiredExtension,
+            [System.StringComparison]::OrdinalIgnoreCase)) {
+        return '{0}{1}' -f $DestinationPath.Substring(
+            0,
+            $DestinationPath.Length - $requiredExtension.Length
+        ), $requiredExtension
+    }
+    return "$DestinationPath$requiredExtension"
+}
+
 function ConvertTo-RenderKitProjectRelativePath {
     [CmdletBinding()]
     param(
