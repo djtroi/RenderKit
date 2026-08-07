@@ -97,6 +97,7 @@ Describe 'RenderKit backup command contracts' {
     It 'exposes the backup config profile creator lifecycle' {
         foreach ($commandName in @(
                 'New-BackupConfigProfile',
+                'Get-BackupWorkerCapability',
                 'Set-BackupConfigProfile',
                 'Test-BackupConfigProfile',
                 'Export-BackupConfigProfile',

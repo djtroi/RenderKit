@@ -82,6 +82,8 @@ function Start-RenderKitJobWorker {
             -JobType $JobType `
             -QueueName $QueueName `
             -LogPath $LogPath `
+            -Capabilities (Get-BackupWorkerCapabilitySnapshot `
+                -WorkerId $normalizedWorkerId) `
             -Status Starting
         $state.processId = [int]$process.Id
         Save-RenderKitWorkerState -State $state | Out-Null
