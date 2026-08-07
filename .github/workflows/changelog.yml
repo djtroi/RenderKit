@@ -175,12 +175,12 @@ jobs:
           exit 1
 
       - name: Check out RenderKit
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.0.0
         with:
           node-version: '22.23.0'
           package-manager-cache: false
@@ -215,7 +215,7 @@ jobs:
 
   update-changelog:
     name: Update Unreleased changelog
-    if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip changelog]') }}
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -226,14 +226,14 @@ jobs:
 
     steps:
       - name: Check out current branch
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
           persist-credentials: true
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v7.0.0
         with:
           node-version: '22.23.0'
           package-manager-cache: false
@@ -248,12 +248,12 @@ jobs:
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
 
       - name: Update changelog
-        if: ${{ steps.changelog-scope.outputs.required == 'true' }}
         id: changelog
         run: node scripts/Update-Changelog.mjs
         env:
           BEFORE_SHA: ${{ github.event.before }}
           AFTER_SHA: ${{ github.event.after }}
+          PROCESS_ENTRIES: ${{ steps.changelog-scope.outputs.required }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
       - name: Commit changelog update
@@ -279,7 +279,15 @@ jobs:
           }
           if ($LASTEXITCODE -ne 1) { exit $LASTEXITCODE }
 
-          git commit -m "chore(changelog): $env:CHANGELOG_TICKETS update Unreleased [skip changelog]"
+          $ticketText = ([string]$env:CHANGELOG_TICKETS).Trim()
+          $commitMessage = if ([string]::IsNullOrWhiteSpace($ticketText)) {
+            'chore(changelog): normalize structure [skip changelog]'
+          }
+          else {
+            "chore(changelog): $ticketText update Unreleased [skip changelog]"
+          }
+
+          git commit -m $commitMessage
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           git pull --rebase origin $env:GITHUB_REF_NAME
