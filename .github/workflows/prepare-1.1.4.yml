@@ -10,7 +10,7 @@ on:
       - synchronize
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   prepare:
@@ -26,7 +26,7 @@ jobs:
         with:
           ref: 1.1.4
           fetch-depth: 0
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Prepare corrective release
         run: |
@@ -45,7 +45,6 @@ jobs:
             )
           }
 
-          # Manifest -> 1.1.4.
           $manifestPath = 'RenderKit.psd1'
           $manifest = Read-RepoFile $manifestPath
           if (-not $manifest.Contains("ModuleVersion = '1.1.3'")) {
@@ -69,14 +68,12 @@ jobs:
           )
           Write-RepoFile $manifestPath $manifest
 
-          # README release metadata.
           $readmePath = 'README.md'
           $readme = Read-RepoFile $readmePath
           $readme = $readme.Replace('Current repository version: **1.1.2**', 'Current repository version: **1.1.4**')
           $readme = $readme.Replace('command exported by the 1.1.0 manifest', 'command exported by the 1.1.4 manifest')
           Write-RepoFile $readmePath $readme
 
-          # Remove hard-coded module version from backup-profile test.
           $backupTestPath = 'Tests/Backup/RenderKit.BackupConfigProfile.Tests.ps1'
           $backupTest = Read-RepoFile $backupTestPath
           $oldAssertion = '$upgrade.ModuleVersion | Should -Be ''1.1.2'''
@@ -87,7 +84,6 @@ jobs:
           $backupTest = $backupTest.Replace($oldAssertion, $newAssertion)
           Write-RepoFile $backupTestPath $backupTest
 
-          # Require canonical bracketed Keep a Changelog release headings.
           $docsTestPath = 'Tests/Documentation/RenderKit.Documentation.Tests.ps1'
           $docsTest = Read-RepoFile $docsTestPath
           $oldChangelogAssertion = '$changelog | Should -Match "(?m)^## $version(?:\s|$)"'
@@ -98,7 +94,6 @@ jobs:
           $docsTest = $docsTest.Replace($oldChangelogAssertion, $newChangelogAssertion)
           Write-RepoFile $docsTestPath $docsTest
 
-          # Cut 1.1.4 while leaving Unreleased empty.
           $changelogPath = 'CHANGELOG.md'
           $changelog = Read-RepoFile $changelogPath
           $releaseSection = @'
@@ -125,7 +120,6 @@ jobs:
           $changelog = [regex]::Replace($changelog, $changelogBoundary, $releaseSection.TrimEnd(), 1)
           Write-RepoFile $changelogPath $changelog
 
-          # Release workflow: successful Quality Gate on main is the hard gate.
           $releasePath = '.github/workflows/release.yml'
           $release = Read-RepoFile $releasePath
           $triggerPattern = '(?ms)^on:\r?\n  push:\r?\n    branches:\r?\n      - main\r?\n'
@@ -144,7 +138,6 @@ jobs:
           }
           $release = [regex]::Replace($release, $triggerPattern, ($triggerReplacement.TrimEnd() + "`n"), 1)
 
-          # Build GitHub expressions at runtime so this preparation workflow does not evaluate them.
           $headShaExpression = '$' + '{{ github.event.workflow_run.head_sha }}'
           $workflowGateExpression = '$' + "{{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' }}"
           $shouldReleaseExpression = '$' + "{{ needs.preflight.outputs.should_release == 'true' }}"
@@ -206,7 +199,6 @@ jobs:
             throw 'Release workflow jobs block was not found.'
           }
           $release = [regex]::Replace($release, '(?m)^jobs:\r?$', ('jobs:' + "`n" + $preflight.TrimEnd()), 1)
-
           $release = [regex]::Replace(
             $release,
             '(?m)^  build:\r?\n    name: Build Package$',
@@ -214,7 +206,6 @@ jobs:
             1
           )
 
-          # All checkout steps must use the exact commit validated by Quality Gate.
           $checkoutWithPattern = '(?m)^(?<indent>\s*)uses: actions/checkout@v7\.0\.1\r?\n(?<withindent>\s*)with:\r?\n'
           $release = [regex]::Replace(
             $release,
@@ -241,22 +232,27 @@ jobs:
             }
           )
 
-          # Release notes and tag target must reference the tested commit.
           $oldGithubShaExpression = '$' + '{{ github.sha }}'
           $release = $release.Replace($oldGithubShaExpression, $headShaExpression)
           Write-RepoFile $releasePath $release
 
-      - name: Commit prepared 1.1.4 release
+      - name: Stage prepared files
         run: |
-          $ErrorActionPreference = 'Stop'
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add --all
-          git diff --cached --quiet
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host 'No release preparation changes found.'
-            exit 0
-          }
-          if ($LASTEXITCODE -ne 1) { exit $LASTEXITCODE }
-          git commit -m 'chore(release): prepare RenderKit 1.1.4 [skip changelog]'
-          git push origin HEAD:1.1.4
+          New-Item -ItemType Directory -Path prepared -Force | Out-Null
+          Copy-Item RenderKit.psd1 prepared/RenderKit.psd1
+          Copy-Item README.md prepared/README.md
+          Copy-Item CHANGELOG.md prepared/CHANGELOG.md
+          New-Item -ItemType Directory -Path prepared/Tests/Backup -Force | Out-Null
+          New-Item -ItemType Directory -Path prepared/Tests/Documentation -Force | Out-Null
+          New-Item -ItemType Directory -Path prepared/.github/workflows -Force | Out-Null
+          Copy-Item Tests/Backup/RenderKit.BackupConfigProfile.Tests.ps1 prepared/Tests/Backup/RenderKit.BackupConfigProfile.Tests.ps1
+          Copy-Item Tests/Documentation/RenderKit.Documentation.Tests.ps1 prepared/Tests/Documentation/RenderKit.Documentation.Tests.ps1
+          Copy-Item .github/workflows/release.yml prepared/.github/workflows/release.yml
+
+      - name: Upload prepared files
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: renderkit-1.1.4-prepared
+          path: prepared
+          if-no-files-found: error
+          retention-days: 1
