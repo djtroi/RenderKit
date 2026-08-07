@@ -23,7 +23,7 @@ Describe 'RenderKit release documentation' {
         $readme | Should -Match (
             "Current repository version:\s+\*\*$version\*\*"
         )
-        $changelog | Should -Match "(?m)^## $version(?:\s|$)"
+        $changelog | Should -Match "(?m)^## \[$version\](?:\s|$)"
     }
 
     It 'documents every exported function in the complete reference' {
