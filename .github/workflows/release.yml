@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'RenderKit.psd1'
 
 permissions:
   contents: write
@@ -227,6 +229,11 @@ jobs:
 
           exit 0
 
+      - name: Reject duplicate release version
+        if: steps.check.outputs.EXISTS == 'true'
+        run: |
+          throw "Release v${{ needs.build.outputs.version }} already exists. Bump RenderKit.psd1 before publishing another release."
+
       - name: Create GitHub Release
         if: steps.check.outputs.EXISTS == 'false'
         env:
@@ -243,28 +250,6 @@ jobs:
             --target $commit `
             --title "RenderKit $tag" `
             --notes-file $env:RELEASE_NOTES_PATH
-
-      - name: Update existing release
-        if: steps.check.outputs.EXISTS == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $tag = "v${{ needs.build.outputs.version }}"
-          $nupkg = "./artifacts/${{ needs.build.outputs.nupkg_name }}"
-
-          # Update Description from CHANGELOG.md.
-          gh release edit `
-            $tag `
-            --repo '${{ github.repository }}' `
-            --title "RenderKit $tag" `
-            --notes-file $env:RELEASE_NOTES_PATH
-
-          # Overwrite existing package.
-          gh release upload `
-            $tag `
-            $nupkg `
-            --clobber `
-            --repo '${{ github.repository }}'
 
   github-packages:
     name: Publish to GitHub Packages
