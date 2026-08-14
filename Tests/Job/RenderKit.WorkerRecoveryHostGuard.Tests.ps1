@@ -25,15 +25,14 @@ Describe 'RS-1515 worker recovery host guard' {
 
             $outcome = Register-RenderKitWorkerCrashIfNeeded `
                 -WorkerId 'foreign-worker'
-            [PSCustomObject]@{
-                outcome = $outcome
-                pidProbeCalls = (Get-MockCalledCount `
-                    -CommandName Test-RenderKitWorkerProcessAlive)
-            }
+            Assert-MockCalled `
+                -CommandName Test-RenderKitWorkerProcessAlive `
+                -Times 0 `
+                -Exactly
+            $outcome
         }
 
-        $result.outcome.crashDetected | Should -BeFalse
-        $result.pidProbeCalls | Should -Be 0
+        $result.crashDetected | Should -BeFalse
     }
 
     It 'does not classify legacy state without machine identity as a local crash' {
@@ -50,15 +49,14 @@ Describe 'RS-1515 worker recovery host guard' {
 
             $outcome = Register-RenderKitWorkerCrashIfNeeded `
                 -WorkerId 'legacy-worker'
-            [PSCustomObject]@{
-                outcome = $outcome
-                pidProbeCalls = (Get-MockCalledCount `
-                    -CommandName Test-RenderKitWorkerProcessAlive)
-            }
+            Assert-MockCalled `
+                -CommandName Test-RenderKitWorkerProcessAlive `
+                -Times 0 `
+                -Exactly
+            $outcome
         }
 
-        $result.outcome.crashDetected | Should -BeFalse
-        $result.pidProbeCalls | Should -Be 0
+        $result.crashDetected | Should -BeFalse
     }
 
     It 'treats an invalid PID as dead only after local host ownership is confirmed' {
@@ -86,18 +84,18 @@ Describe 'RS-1515 worker recovery host guard' {
             $outcome = Register-RenderKitWorkerCrashIfNeeded `
                 -WorkerId 'local-invalid-pid-worker' `
                 -LogPath 'worker.log'
-            [PSCustomObject]@{
-                outcome = $outcome
-                pidProbeCalls = (Get-MockCalledCount `
-                    -CommandName Test-RenderKitWorkerProcessAlive)
-                saveCalls = (Get-MockCalledCount `
-                    -CommandName Save-RenderKitWorkerState)
-            }
+            Assert-MockCalled `
+                -CommandName Test-RenderKitWorkerProcessAlive `
+                -Times 0 `
+                -Exactly
+            Assert-MockCalled `
+                -CommandName Save-RenderKitWorkerState `
+                -Times 1 `
+                -Exactly
+            $outcome
         }
 
-        $result.outcome.crashDetected | Should -BeTrue
-        $result.pidProbeCalls | Should -Be 0
-        $result.saveCalls | Should -Be 1
+        $result.crashDetected | Should -BeTrue
     }
 
     It 'documents the host ownership boundary in crash recovery' {
