@@ -11,36 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **RS-1520:** Merge pull request #96 from djtroi/fix/-release-publishing-gate. (`cd94c4a`)
-- **RS-1520:** Merge branch '1.1.5' into fix/-release-publishing-gate. (`29cc680`)
-- **RS-1520:** Cover transactional release workflow ordering. (`e0b0958`)
-- **RS-1520:** Serialize validated release publishing. (`95d2b17`)
-- **RS-1519:** Merge pull request #95 from djtroi/fix/-ffmpeg-probe-ps51-compatibility. (`b075c83`)
-- **RS-1519:** Make quoting assertions host-stable. (`8d97279`)
-- **RS-1519:** Make quoting fixtures character-explicit. (`35b0498`)
-- **RS-1519:** Cover legacy FFmpeg argument quoting. (`3ab4629`)
-- **RS-1519:** Correct legacy argument escaping characters. (`23ec8e8`)
-- **RS-1519:** Harden legacy FFmpeg probe argument quoting. (`6eaf3df`)
-- **RS-1517:** Merge pull request #93 from djtroi/fix/-import-project-metadata-path. (`7d337bc`)
-- **RS-1517:** Document provider-neutral regression scope. (`db6c65d`)
-- **RS-1517:** Keep import path regression focused on metadata segments. (`f842748`)
-- **RS-1517:** Preserve candidate array shape in Unix test. (`ed5c71e`)
-- **RS-1517:** Cover literal Unix backslash project names. (`bc273e8`)
-- **RS-1517:** Centralize portable import metadata paths. (`ff0e015`)
-- **RS-1516:** Merge pull request #92 from djtroi/fix/-portable-backup-audit-identity. (`f2dfa6c`)
-- **RS-1516:** Cover non-mutating audit identity normalization. (`7846468`)
-- **RS-1516:** Normalize backup job audit identity without mutation. (`be364e5`)
-- **RS-1515:** Merge pull request #91 from djtroi/fix/-worker-state-host-pid-recovery. (`9afbdb4`)
-- **RS-1515:** Use portable Pester mock assertions. (`319fa23`)
-- **RS-1515:** Cover cross-host worker recovery guard. (`2f928eb`)
-- **RS-1515:** Guard worker crash recovery by host identity. (`f165102`)
-- **RS-1514:** Merge pull request #90 from djtroi/fix/-backup-lock-cross-platform. (`e72d74e`)
-- **RS-1514:** Cover unverifiable local lock ownership. (`e11cb04`)
-- **RS-1514:** Harden unverifiable backup lock ownership. (`d0c1650`)
-- **RS-1513:** Merge pull request #89 from djtroi/fix/-worker-diagnostics-best-effort. (`3979667`)
-- **RS-1513:** Cover default worker log path failures. (`ef25d1e`)
-- **RS-1513:** Harden worker diagnostic path resolution. (`84f887a`)
-
 ### Deprecated
 
 ### Removed
@@ -51,21 +21,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.5] - 2026-08-14
 
+RenderKit 1.1.5 is a patch release focused on runtime safety, durable job execution,
+cross-platform correctness, backup reliability, and release-pipeline safeguards.
+The public command surface and persisted job/event schemas remain unchanged.
+
 ### Changed
 
-- Release automation now runs only when `RenderKit.psd1` changes, waits for the successful Quality Gate run for the exact `main` commit, validates supported installers before publishing, and rejects an already-published version instead of modifying an existing GitHub release.
-- Event-to-job bridge deduplication now performs the duplicate check and enqueue in one job-store transaction.
-- Worker diagnostic logging is best-effort so log-path failures cannot change worker control flow.
-- Backup locks now use portable machine and user identity across supported platforms and conservatively handle legacy locks without machine ownership on shared paths.
+- **RS-1512:** Event-to-job bridge deduplication now evaluates the duplicate condition and appends the new job inside the same JobStore transaction. Concurrent bridge invocations therefore cannot pass a separate read-before-write check and enqueue duplicate work for the same idempotent trigger.
+- **RS-1513:** Worker diagnostic logging is now strictly best-effort, including failures while resolving the default log path. Diagnostic I/O and warning behavior can no longer change worker control flow, even when callers use terminating warning preferences.
+- **RS-1514:** Backup lock ownership now uses portable runtime machine/user identity and treats legacy or unverifiable ownership conservatively on shared paths instead of assuming that an unknown lock belongs to the local host.
+- **RS-1516:** Backup manifests and background-job audit metadata now use portable runtime identity. Missing `requestedBy.user` and `requestedBy.machine` values are filled without mutating caller-owned context objects or overwriting explicitly supplied audit fields.
+- **RS-1520:** Release publishing is now serialized and gated by the successful Quality Gate for the exact `main` push SHA. Package build, local installer validation, secrets/version/changelog preflight, GitHub Packages publication, PowerShell Gallery publication, and Gallery installation validation all complete before the GitHub Release is created as the final visible success marker. Existing release versions are never overwritten.
 
 ### Fixed
 
-- **RS-1508:** Fixed parallel backup workers invoking PowerShell script blocks from `Process.ErrorDataReceived` callbacks on thread-pool threads without an available PowerShell runspace. Redirected stderr is now drained asynchronously without cross-thread PowerShell callbacks while stdout remains available for FFmpeg progress streaming.
-- **RS-1508:** Failure notifications and private backup validation, compression, and lock paths no longer emit secondary PowerShell `ErrorRecord`s when a terminating exception is already the canonical failure.
-- **RS-1508:** Hardened hardware encoder probing on Windows PowerShell 5.1 by falling back when `ProcessStartInfo.ArgumentList` or process-tree termination is unavailable, while preserving timeout handling and redirected output diagnostics.
-- Fixed generic job execution overwriting a state deliberately persisted by a handler during normal completion or exception handling.
-- Fixed stale backup-lock detection treating a blank machine identity as local on Unix-like hosts, which could incorrectly expire a lock from another machine based on a foreign PID.
-- Fixed stale backup-lock takeover using a remove-then-create window that could allow a slower contender to delete another process's freshly acquired lock. Stale takeover now verifies and replaces the observed lock through the same exclusive file handle.
+- **RS-1508:** Fixed parallel backup workers invoking PowerShell script blocks from `Process.ErrorDataReceived` callbacks on thread-pool threads without an available PowerShell runspace. Redirected stderr is drained asynchronously without cross-thread PowerShell callbacks while stdout remains available for FFmpeg progress streaming.
+- **RS-1511:** Fixed generic worker completion and retry handling overwriting a job state that a handler had already persisted deliberately. Handler-owned states remain authoritative on both normal return and exception paths; generic success/retry behavior applies only while the job is still `Running`.
+- **RS-1514:** Fixed stale backup-lock detection and takeover races. Foreign or machine-less locks are no longer evaluated using local PIDs, and stale ownership is verified and replaced through the same exclusive file handle so a slower contender cannot remove a freshly acquired lock.
+- **RS-1515:** Fixed worker crash recovery interpreting foreign or legacy shared worker state as a dead local process. PID liveness checks and `CrashDetected` recovery are now performed only when persisted state explicitly identifies the current host.
+- **RS-1517:** Fixed import project discovery constructing `.renderkit/project.json` with an embedded Windows path separator. Physical metadata paths are now resolved from native path segments on Windows, Linux, and macOS.
+- **RS-1518:** Fixed private backup failure paths emitting a secondary PowerShell `ErrorRecord` immediately before throwing the canonical terminating exception. Persistent diagnostics remain available without creating duplicate error representations that can mask the primary failure in hosted PowerShell environments.
+- **RS-1519:** Fixed the Windows PowerShell 5.1 FFmpeg hardware-probe fallback relying on modern process argument/termination APIs and incomplete legacy command-line quoting. The fallback now handles whitespace, empty arguments, quotes, backslashes, timeout termination, and redirected diagnostics without changing the modern PowerShell 7 path.
 
 ## [1.1.4] - 2026-08-07
 
@@ -195,7 +171,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   extracted-file integrity mismatches.
 - Bundled ExifTool 13.59 for Windows x86/x64 and as the official portable Perl
   distribution for macOS/Linux, with pinned upstream archive checksums,
-  per-file hashes, and preserved license material.
+  per-file hashes and preserved license material.
 - Added a reproducible ExifTool asset sync script and resolver coverage for
   explicit, bundled, metadata-host, and system-CLI execution.
 - Bundled hash-verified TagLibSharp 2.3.0 assemblies and LGPL license material
