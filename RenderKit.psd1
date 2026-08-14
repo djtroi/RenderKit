@@ -101,11 +101,12 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 1.1.5 hardens backup process execution and release publishing:
-- Fixes backup worker crashes caused by asynchronous PowerShell process callbacks in hosted runspaces.
-- Keeps FFmpeg progress streaming while draining redirected stderr without cross-thread PowerShell callbacks.
-- Preserves hardware encoder probing on Windows PowerShell 5.1 by providing compatible argument and timeout-termination fallbacks.
-- Limits automatic release runs to manifest changes and rejects duplicate GitHub release versions instead of overwriting existing releases.
+Version 1.1.5 hardens backup execution, durable workers, automation, and release publishing:
+- Fixes RS-1508 hosted-runspace crashes by removing cross-thread PowerShell process callbacks and prevents failure notifications from creating secondary ErrorRecords.
+- Keeps FFmpeg progress streaming and hardware encoder probing compatible with Windows PowerShell 5.1.
+- Makes event-to-job deduplication transactional and preserves handler-owned persisted job states across completion and exception paths.
+- Makes worker diagnostic logging best-effort so logging failures cannot become worker failures.
+- Gates publishing on the successful Quality Gate for the exact main commit, validates supported installers before publication, and rejects duplicate release versions.
 '@
         } # End of PSData hashtable
 
