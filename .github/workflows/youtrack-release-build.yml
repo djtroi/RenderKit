@@ -1,0 +1,258 @@
+name: Sync YouTrack released build
+
+on:
+  workflow_run:
+    workflows:
+      - Release RenderKit
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Released RenderKit version to backfill, for example 1.1.5
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: youtrack-release-build-${{ github.event.workflow_run.id || inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  sync-released-build:
+    name: Set YouTrack Behoben in Build
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out released commit
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || format('v{0}', inputs.version) }}
+          fetch-depth: 0
+
+      - name: Resolve released version and tickets
+        id: release
+        shell: pwsh
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $manifest = Import-PowerShellDataFile `
+            -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'RenderKit.psd1')
+          $manifestVersion = [string]$manifest.ModuleVersion
+
+          $version = if ([string]::IsNullOrWhiteSpace($env:REQUESTED_VERSION)) {
+            $manifestVersion
+          }
+          else {
+            $env:REQUESTED_VERSION.Trim()
+          }
+
+          if ($version -ne $manifestVersion) {
+            throw "Requested version '$version' does not match checked-out manifest version '$manifestVersion'."
+          }
+
+          $changelogPath = Join-Path $env:GITHUB_WORKSPACE 'CHANGELOG.md'
+          $changelog = Get-Content -LiteralPath $changelogPath -Raw -Encoding utf8
+          $escapedVersion = [regex]::Escape($version)
+          $pattern = (
+            '(?m)^##\s+' +
+            "(?:v?$escapedVersion|\[v?$escapedVersion\])" +
+            '(?=\s|$)[^\r\n]*\r?\n' +
+            '(?<body>[\s\S]*?)' +
+            '(?=^##\s+|\z)'
+          )
+          $matches = [regex]::Matches($changelog, $pattern)
+          if ($matches.Count -ne 1) {
+            throw "Expected exactly one CHANGELOG.md entry for version $version."
+          }
+
+          $ticketIds = [regex]::Matches(
+            $matches[0].Groups['body'].Value,
+            '(?<![A-Za-z0-9])RS-[0-9]+(?![A-Za-z0-9])'
+          ) |
+            ForEach-Object { $_.Value.ToUpperInvariant() } |
+            Select-Object -Unique
+
+          if (-not $ticketIds) {
+            throw "Release $version does not reference any RS tickets in CHANGELOG.md."
+          }
+
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "tickets=$($ticketIds -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Host "Release $version contains: $($ticketIds -join ', ')"
+
+      - name: Verify GitHub release exists
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & gh release view "v$env:VERSION" --repo $env:GITHUB_REPOSITORY 2>&1 | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            throw "GitHub Release v$env:VERSION does not exist; YouTrack build synchronization is blocked."
+          }
+
+      - name: Synchronize Behoben in Build
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          TICKETS: ${{ steps.release.outputs.tickets }}
+          YT_BASE: ${{ vars.YT_BASE_URL }}
+          YT_TOKEN: ${{ secrets.YT_API_TOKEN }}
+          YT_FIXED_BUILD_FIELD: ${{ vars.YT_FIXED_BUILD_FIELD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if ([string]::IsNullOrWhiteSpace($env:YT_BASE)) {
+            throw 'YouTrack base URL is missing. Configure the repository variable YT_BASE_URL.'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:YT_TOKEN)) {
+            throw 'YouTrack token is missing. Configure YT_API_TOKEN as an Actions secret.'
+          }
+
+          $fieldName = if ([string]::IsNullOrWhiteSpace($env:YT_FIXED_BUILD_FIELD)) {
+            'Behoben in Build'
+          }
+          else {
+            $env:YT_FIXED_BUILD_FIELD.Trim()
+          }
+          $version = $env:VERSION.Trim()
+          $ticketIds = @($env:TICKETS.Split(',', [StringSplitOptions]::RemoveEmptyEntries))
+          $base = $env:YT_BASE.TrimEnd('/')
+          $headers = @{
+            Authorization = "Bearer $($env:YT_TOKEN.Trim())"
+            Accept = 'application/json'
+          }
+
+          foreach ($ticketIdValue in $ticketIds) {
+            $ticketId = $ticketIdValue.Trim().ToUpperInvariant()
+            $encodedTicketId = [Uri]::EscapeDataString($ticketId)
+            $issueFields = 'idReadable,project(id),customFields(id,name,$type,value(id,name),projectCustomField(id,$type))'
+            $issueUri = "$base/api/issues/${encodedTicketId}?fields=$([Uri]::EscapeDataString($issueFields))"
+
+            try {
+              $issue = Invoke-RestMethod -Method Get -Uri $issueUri -Headers $headers
+            }
+            catch {
+              $details = if ($_.ErrorDetails.Message) { $_.ErrorDetails.Message } else { $_.Exception.Message }
+              throw "Unable to read YouTrack ticket $ticketId: $details"
+            }
+
+            $field = @($issue.customFields | Where-Object { [string]$_.name -eq $fieldName }) |
+              Select-Object -First 1
+            if ($null -eq $field) {
+              throw "YouTrack ticket $ticketId does not expose custom field '$fieldName'."
+            }
+
+            $fieldType = [string]$field.'$type'
+            $projectId = [string]$issue.project.id
+            $projectFieldId = [string]$field.projectCustomField.id
+            if ([string]::IsNullOrWhiteSpace($projectId) -or [string]::IsNullOrWhiteSpace($projectFieldId)) {
+              throw "Unable to resolve project custom-field metadata for '$fieldName' on $ticketId."
+            }
+
+            $isMulti = $fieldType -match '^Multi(?:Build|Version)IssueCustomField$'
+            $isSingle = $fieldType -match '^Single(?:Build|Version)IssueCustomField$'
+            if (-not $isMulti -and -not $isSingle) {
+              throw "Custom field '$fieldName' on $ticketId has unsupported type '$fieldType'."
+            }
+
+            $currentValues = @($field.value) | Where-Object { $null -ne $_ }
+            if (@($currentValues | Where-Object { [string]$_.name -eq $version }).Count -gt 0) {
+              Write-Host "$ticketId already contains build $version."
+              continue
+            }
+
+            $projectFieldFields = 'id,bundle(id,isUpdateable,values(id,name,$type))'
+            $projectFieldUri = "$base/api/admin/projects/$([Uri]::EscapeDataString($projectId))/customFields/$([Uri]::EscapeDataString($projectFieldId))?fields=$([Uri]::EscapeDataString($projectFieldFields))"
+            try {
+              $projectField = Invoke-RestMethod -Method Get -Uri $projectFieldUri -Headers $headers
+            }
+            catch {
+              $details = if ($_.ErrorDetails.Message) { $_.ErrorDetails.Message } else { $_.Exception.Message }
+              throw "Unable to read YouTrack bundle for '$fieldName' on $ticketId: $details"
+            }
+
+            $bundleElement = @($projectField.bundle.values | Where-Object { [string]$_.name -eq $version }) |
+              Select-Object -First 1
+
+            if ($null -eq $bundleElement) {
+              if (-not [bool]$projectField.bundle.isUpdateable) {
+                throw "Build '$version' is missing from '$fieldName' and the configured YouTrack token cannot update its bundle."
+              }
+
+              $elementType = if ($fieldType -match 'BuildIssueCustomField$') {
+                'BuildBundleElement'
+              }
+              else {
+                'VersionBundleElement'
+              }
+              $bundleValueUri = "$base/api/admin/projects/$([Uri]::EscapeDataString($projectId))/customFields/$([Uri]::EscapeDataString($projectFieldId))/bundle/values?fields=id,name,%24type"
+              $bundlePayload = [ordered]@{
+                name = $version
+                '$type' = $elementType
+              } | ConvertTo-Json -Depth 4
+
+              try {
+                $bundleElement = Invoke-RestMethod `
+                  -Method Post `
+                  -Uri $bundleValueUri `
+                  -Headers $headers `
+                  -ContentType 'application/json; charset=utf-8' `
+                  -Body $bundlePayload
+              }
+              catch {
+                $details = if ($_.ErrorDetails.Message) { $_.ErrorDetails.Message } else { $_.Exception.Message }
+                throw "Unable to create YouTrack build '$version' for '$fieldName': $details"
+              }
+              Write-Host "Created YouTrack build value $version."
+            }
+
+            $newElement = [ordered]@{
+              id = [string]$bundleElement.id
+              name = [string]$bundleElement.name
+            }
+            $newValue = if ($isMulti) {
+              @(
+                $currentValues | ForEach-Object {
+                  [ordered]@{ id = [string]$_.id; name = [string]$_.name }
+                }
+              ) + @($newElement)
+            }
+            else {
+              $newElement
+            }
+
+            $payload = [ordered]@{
+              customFields = @(
+                [ordered]@{
+                  name = $fieldName
+                  '$type' = $fieldType
+                  value = $newValue
+                }
+              )
+            } | ConvertTo-Json -Depth 8
+
+            $updateUri = "$base/api/issues/${encodedTicketId}?fields=idReadable,customFields(name,value(id,name))"
+            try {
+              Invoke-RestMethod `
+                -Method Post `
+                -Uri $updateUri `
+                -Headers $headers `
+                -ContentType 'application/json; charset=utf-8' `
+                -Body $payload | Out-Null
+            }
+            catch {
+              $details = if ($_.ErrorDetails.Message) { $_.ErrorDetails.Message } else { $_.Exception.Message }
+              throw "Unable to set '$fieldName' to '$version' on $ticketId: $details"
+            }
+
+            Write-Host "Set $ticketId '$fieldName' to include $version."
+          }
