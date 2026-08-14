@@ -48,15 +48,18 @@ Describe 'FFmpeg hardware probe compatibility' {
             }
         }
 
-        $quote = [char]34
-        $backslash = [char]92
+        $quoteText = ([char]34).ToString()
+        $backslashText = ([char]92).ToString()
         $result.plain | Should -Be 'plain'
-        $result.whitespace | Should -Be ($quote + 'two words' + $quote)
-        $result.empty | Should -Be ($quote.ToString() + $quote)
+        $result.whitespace | Should -Be (
+            $quoteText + 'two words' + $quoteText)
+        $result.empty | Should -Be ($quoteText + $quoteText)
         $result.literalQuote | Should -Be (
-            $quote + 'quote' + $backslash + $quote + 'value' + $quote)
+            $quoteText + 'quote' + $backslashText + $quoteText +
+            'value' + $quoteText)
         $result.trailingBackslash | Should -Be (
-            $quote + 'path with space' + $backslash + $backslash + $quote)
+            $quoteText + 'path with space' + $backslashText +
+            $backslashText + $quoteText)
     }
 
     It 'falls back when process-tree termination is unavailable' {
