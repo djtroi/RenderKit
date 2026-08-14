@@ -46,15 +46,20 @@ function Get-BackupLock {
         Remove-Item -Path $lockPath -Force -ErrorAction Stop
     }
 
+    # Environment.MachineName/UserName are populated consistently across the
+    # supported PowerShell platforms. COMPUTERNAME/USERNAME are Windows-centric
+    # and can be empty on Unix, which makes shared-path lock ownership ambiguous.
+    $machineName = [System.Environment]::MachineName
+    $userName = [System.Environment]::UserName
     $ownerToken = [guid]::NewGuid().ToString()
     $lock = @{
         lockType        = "backup"
         lockedAt        = (Get-Date).ToString("o")
         ownerToken      = $ownerToken
         processId       = $PID
-        machine         = $ENV:COMPUTERNAME
-        maschine        = $ENV:COMPUTERNAME
-        user            = $ENV:USERNAME
+        machine         = $machineName
+        maschine        = $machineName
+        user            = $userName
         toolVersion     = $script:RenderKitModuleVersion
     }
 
