@@ -1,3 +1,39 @@
+function ConvertTo-BackupRequestedByRuntimeIdentity {
+    [CmdletBinding()]
+    param(
+        [object]$RequestedBy
+    )
+
+    # RS-1516: Normalize into a new object instead of decorating the caller's
+    # instance in-place. Audit context is often reused by hosts across multiple
+    # operations, so adding fallback properties to the supplied object would be
+    # an observable side effect unrelated to creating this backup job.
+    $normalized = [ordered]@{}
+    if ($RequestedBy -is [System.Collections.IDictionary]) {
+        foreach ($key in @($RequestedBy.Keys)) {
+            $normalized[[string]$key] = $RequestedBy[$key]
+        }
+    }
+    elseif ($RequestedBy) {
+        foreach ($property in @($RequestedBy.PSObject.Properties)) {
+            if ($property.MemberType -in @('NoteProperty', 'Property', 'AliasProperty')) {
+                $normalized[[string]$property.Name] = $property.Value
+            }
+        }
+    }
+
+    if (-not $normalized.Contains('user') -or
+        [string]::IsNullOrWhiteSpace([string]$normalized['user'])) {
+        $normalized['user'] = [System.Environment]::UserName
+    }
+    if (-not $normalized.Contains('machine') -or
+        [string]::IsNullOrWhiteSpace([string]$normalized['machine'])) {
+        $normalized['machine'] = [System.Environment]::MachineName
+    }
+
+    return [PSCustomObject]$normalized
+}
+
 function New-BackupProjectJob {
     [CmdletBinding()]
     param(
@@ -17,25 +53,8 @@ function New-BackupProjectJob {
     # are empty on Unix. Normalize the persisted audit identity at the private
     # job boundary so every caller gets portable user/machine metadata without
     # changing the public backup command contract.
-    if (-not $RequestedBy) {
-        $RequestedBy = [PSCustomObject]@{}
-    }
-    if ($RequestedBy.PSObject.Properties.Name -notcontains 'user' -or
-        [string]::IsNullOrWhiteSpace([string]$RequestedBy.user)) {
-        $RequestedBy |
-            Add-Member `
-                -NotePropertyName user `
-                -NotePropertyValue ([System.Environment]::UserName) `
-                -Force
-    }
-    if ($RequestedBy.PSObject.Properties.Name -notcontains 'machine' -or
-        [string]::IsNullOrWhiteSpace([string]$RequestedBy.machine)) {
-        $RequestedBy |
-            Add-Member `
-                -NotePropertyName machine `
-                -NotePropertyValue ([System.Environment]::MachineName) `
-                -Force
-    }
+    $RequestedBy = ConvertTo-BackupRequestedByRuntimeIdentity `
+        -RequestedBy $RequestedBy
 
     $job = New-RenderKitJob `
         -JobType 'BackupProject' `
