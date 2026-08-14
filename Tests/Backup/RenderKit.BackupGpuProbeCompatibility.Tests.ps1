@@ -35,13 +35,16 @@ Describe 'FFmpeg hardware probe compatibility' {
 
     It 'quotes whitespace, empty values, literal quotes and trailing backslashes for the legacy Arguments path' {
         $result = InModuleScope RenderKit {
+            $quote = [char]34
+            $backslash = [char]92
             [PSCustomObject]@{
                 plain = ConvertTo-BackupProbeArgumentText -Arguments @('plain')
                 whitespace = ConvertTo-BackupProbeArgumentText -Arguments @('two words')
                 empty = ConvertTo-BackupProbeArgumentText -Arguments @('')
-                literalQuote = ConvertTo-BackupProbeArgumentText -Arguments @('quote"value')
+                literalQuote = ConvertTo-BackupProbeArgumentText `
+                    -Arguments @(('quote' + $quote + 'value'))
                 trailingBackslash = ConvertTo-BackupProbeArgumentText `
-                    -Arguments @('path with space\')
+                    -Arguments @(('path with space' + $backslash))
             }
         }
 
