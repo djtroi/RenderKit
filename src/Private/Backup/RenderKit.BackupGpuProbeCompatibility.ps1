@@ -63,7 +63,9 @@ function Test-BackupFfmpegEncoderCapability {
 
         if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
             $supportsTreeKill = @($process.PSObject.Methods['Kill'].OverloadDefinitions) |
-                Where-Object { [string]$_ -match 'Boolean\s+entireProcessTree' } |
+                Where-Object {
+                    [string]$_ -match '(?:System\.)?(?:Boolean|bool)\s+entireProcessTree'
+                } |
                 Select-Object -First 1
 
             if ($supportsTreeKill) {
