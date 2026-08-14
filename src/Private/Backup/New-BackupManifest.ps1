@@ -207,13 +207,18 @@ function New-BackupManifest {
         }
     }
 
+    # Environment.UserName/MachineName are portable across Windows and Unix.
+    # Windows-specific environment variables may be absent in supported hosts.
+    $runtimeUser = [System.Environment]::UserName
+    $runtimeMachine = [System.Environment]::MachineName
+
     return [PSCustomObject]@{
         schemaVersion = Get-RenderKitBackupManifestSchemaVersion
         backup = @{
             id        = [guid]::NewGuid().ToString()
             createdAt = (Get-Date).ToString("o")
-            createdBy = $ENV:USERNAME
-            machine   = $ENV:COMPUTERNAME
+            createdBy = $runtimeUser
+            machine   = $runtimeMachine
             tool      = @{
                 name    = "RenderKit"
                 version = $script:RenderKitModuleVersion
