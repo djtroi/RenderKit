@@ -32,30 +32,29 @@ Describe 'RenderKit worker diagnostic hardening' {
         $directoryTarget = Join-Path $TestDrive 'strict-warning-log-directory'
         New-Item -ItemType Directory -Path $directoryTarget -Force | Out-Null
 
-        $result = InModuleScope RenderKit -Parameters @{
+        InModuleScope RenderKit -Parameters @{
             LogPath = $directoryTarget
         } {
             $previousPreference = $WarningPreference
             try {
                 $WarningPreference = 'Stop'
-                Write-RenderKitWorkerLogEntry `
-                    -WorkerId 'strict-warning-worker' `
-                    -Message 'diagnostic message' `
-                    -LogPath $LogPath `
-                    -WarningVariable warningRecord
+                $warningRecord = @()
 
-                [PSCustomObject]@{
-                    warningCount = @($warningRecord).Count
-                    completed = $true
-                }
+                {
+                    Write-RenderKitWorkerLogEntry `
+                        -WorkerId 'strict-warning-worker' `
+                        -Message 'diagnostic message' `
+                        -LogPath $LogPath `
+                        -WarningVariable warningRecord |
+                        Out-Null
+                } | Should -Not -Throw
+
+                @($warningRecord).Count | Should -Be 1
             }
             finally {
                 $WarningPreference = $previousPreference
             }
         }
-
-        $result.completed | Should -BeTrue
-        $result.warningCount | Should -Be 1
     }
 
     It 'documents why worker logging is best-effort' {
