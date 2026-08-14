@@ -12,11 +12,19 @@ function Test-BackupArchiveContentIntegrity {
     )
 
     if (-not (Test-Path -Path $ProjectPath -PathType Container)) {
-        Write-RenderKitLog -Level Error -Message "Project path '$ProjectPath' does not exist."
+        # RS-1518: Input validation throws are the canonical PowerShell errors.
+        # Persist diagnostics without emitting a second non-terminating record.
+        Write-RenderKitLog `
+            -Level Error `
+            -Message "Project path '$ProjectPath' does not exist." `
+            -NoConsole
         throw "Project path '$ProjectPath' does not exist."
     }
     if (-not (Test-Path -Path $ArchivePath -PathType Leaf)) {
-        Write-RenderKitLog -Level Error -Message "Archive path '$ArchivePath' does not exist."
+        Write-RenderKitLog `
+            -Level Error `
+            -Message "Archive path '$ArchivePath' does not exist." `
+            -NoConsole
         throw "Archive path '$ArchivePath' does not exist."
     }
 

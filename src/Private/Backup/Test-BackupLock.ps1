@@ -20,10 +20,16 @@ function Test-BackupLock {
     }
 
     try {
-        $lock = Get-Content $lockPath -Raw | ConvertFrom-Json
+        $lock = Get-Content -LiteralPath $lockPath -Raw -ErrorAction Stop |
+            ConvertFrom-Json -ErrorAction Stop
     }
     catch {
-        Write-RenderKitLog -Level Error -Message "Backup lock exists but is corrupted: '$lockPath'."
+        # Parsing failure is reported by the terminating exception below; keep
+        # the diagnostic log off the error stream to avoid a duplicate record.
+        Write-RenderKitLog `
+            -Level Error `
+            -Message "Backup lock exists but is corrupted: '$lockPath'." `
+            -NoConsole
         throw "Backup lock exists but is corrupted $lockPath"
     }
 
@@ -35,26 +41,70 @@ function Test-BackupLock {
         $lockMachine = [string]$lock.maschine
     }
 
-    # stale lock detection is only safe for local-machine locks
-    $isLocalMachine = [string]::IsNullOrWhiteSpace($lockMachine) -or
-        $lockMachine.Equals($env:COMPUTERNAME, [System.StringComparison]::OrdinalIgnoreCase)
+    # RS-1514: PID checks are meaningful only when the lock positively identifies
+    # the current machine and contains a usable positive PID. A missing/invalid
+    # PID is not proof that a lock is alive; fall back to age-based ownership
+    # uncertainty instead of keeping such a lock permanently active.
+    $currentMachine = [System.Environment]::MachineName
+    $isLocalMachine = -not [string]::IsNullOrWhiteSpace($lockMachine) -and
+        $lockMachine.Equals(
+            $currentMachine,
+            [System.StringComparison]::OrdinalIgnoreCase
+        )
 
-        $isStale = $false
+    $lockProcessId = 0
+    $hasUsableProcessId = $false
+    if ($null -ne $lock.processId) {
+        $parsedProcessId = 0
+        if ([int]::TryParse([string]$lock.processId, [ref]$parsedProcessId) -and
+            $parsedProcessId -gt 0) {
+            $lockProcessId = $parsedProcessId
+            $hasUsableProcessId = $true
+        }
+    }
 
-    if ($isLocalMachine) {
-        if ($lock.processId -and -not (Get-Process -Id $lock.processId -ErrorAction SilentlyContinue)) {
+    $isStale = $false
+
+    if ($isLocalMachine -and $hasUsableProcessId) {
+        if (-not (Get-Process -Id $lockProcessId -ErrorAction SilentlyContinue)) {
             $isStale = $true
         }
     }
     else {
-        $lockAge = (Get-Date) - (Get-Item $lockPath).LastWriteTime
-            if ($lockAge -gt $StaleThreshold) {
-                $isStale = $true
-                Write-RenderKitLog -Level Warning -Message "Lock originates from machine '$lockMachine' and is $([int]$lockAge.TotalHours)h old. Treating as stale."
-            }
-            else {
-                Write-RenderKitLog -Level Warning -Message "Lock originates from machine '$lockMachine'. Cannot verify remote process. Lock age: $([int]$lockAge.TotalHours).h (threshold: $([int]$StaleThreshold.TotalHours)h)."
-            }
+        $lockAge = (Get-Date) - (
+            Get-Item -LiteralPath $lockPath -ErrorAction Stop
+        ).LastWriteTime
+        $displayMachine = if ([string]::IsNullOrWhiteSpace($lockMachine)) {
+            'unknown-machine'
+        }
+        else {
+            $lockMachine
+        }
+        $ownershipReason = if ($isLocalMachine) {
+            "local lock has no usable process id"
+        }
+        else {
+            "lock process cannot be verified on this machine"
+        }
+
+        if ($lockAge -gt $StaleThreshold) {
+            $isStale = $true
+            Write-RenderKitLog `
+                -Level Warning `
+                -Message ("Lock from '{0}' is {1}h old and {2}. Treating as stale." -f
+                    $displayMachine,
+                    [int]$lockAge.TotalHours,
+                    $ownershipReason)
+        }
+        else {
+            Write-RenderKitLog `
+                -Level Warning `
+                -Message ("Lock from '{0}' is {1}h old and {2}. Keeping it active until the {3}h stale threshold." -f
+                    $displayMachine,
+                    [int]$lockAge.TotalHours,
+                    $ownershipReason,
+                    [int]$StaleThreshold.TotalHours)
+        }
     }
 
     if ($isStale) {

@@ -7,7 +7,7 @@
 
 **RenderKit** is a free and open-source PowerShell toolkit for video editors, media creators, and small production teams who want repeatable project folders, safer media imports, simple delivery packages, and auditable backups.
 
-Current repository version: **1.1.4**. RenderKit supports **Windows PowerShell 5.1** and **PowerShell 7+**.
+Current repository version: **1.1.5**. RenderKit supports **Windows PowerShell 5.1** and **PowerShell 7+**.
 
 RenderKit is currently the workflow/engine foundation for a future local-first MAM/DAM-style tool. Think of it as the practical workflow layer around your editing software: project setup, ingest discipline, transfer checks, packaging, and backup structure.
 
@@ -294,7 +294,7 @@ Key technical documents:
 ## Public Functions
 
 The [complete public-function reference](docs/public-functions.md) lists every
-command exported by the 1.1.4 manifest. Detailed workflow documentation is
+command exported by the 1.1.5 manifest. Detailed workflow documentation is
 grouped by [projects](docs/project-lifecycle.md), [metadata](docs/metadata.md),
 [clients](docs/client-registry.md), [publishing](docs/publishing.md), and
 [backup/jobs](docs/backup-operations.md).

@@ -2,11 +2,47 @@ import { appendFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { versionBranchPattern } from './Validate-ChangeTicket.mjs';
 
-export function requiresChangelog(messageValue) {
-  const subject = (messageValue || '').split(/\r?\n/u, 1)[0].trim();
-  const sourceTitle = subject.replace(/\s+\(#\d+\)\s*$/u, '').trim();
+function normalizeVersionCandidate(value) {
+  return (value || '').replace(/\s+\(#\d+\)\s*$/u, '').trim();
+}
 
-  return !versionBranchPattern.test(sourceTitle);
+export function requiresChangelog(messageValue) {
+  const message = messageValue || '';
+  const lines = message
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const subject = lines[0] || '';
+  const sourceTitle = normalizeVersionCandidate(subject);
+
+  if (versionBranchPattern.test(sourceTitle)) {
+    return false;
+  }
+
+  // A release PR can be integrated with either squash/rebase semantics or a
+  // normal GitHub merge commit. In the latter case the version-only PR title
+  // lives in the merge message body rather than the subject. Treat that exact
+  // version line as the same release cut so changelog automation cannot turn
+  // the release merge itself into a new Unreleased entry.
+  if (/^Merge pull request #\d+\b/iu.test(subject)) {
+    const mergedTitle = lines
+      .slice(1)
+      .map(normalizeVersionCandidate)
+      .find((line) => versionBranchPattern.test(line));
+
+    if (mergedTitle) {
+      return false;
+    }
+  }
+
+  const branchMerge = subject.match(
+    /^Merge branch ['"](?<version>\d+\.\d+\.\d+(?:-rc\d+)?)['"] into main$/iu,
+  );
+  if (branchMerge && versionBranchPattern.test(branchMerge.groups.version)) {
+    return false;
+  }
+
+  return true;
 }
 
 async function main() {
@@ -23,7 +59,7 @@ async function main() {
   console.log(
     required
       ? 'The pushed commit requires changelog processing.'
-      : 'Skipping changelog processing for a version-only squash commit.',
+      : 'Skipping changelog processing for a version-only release cut.',
   );
 }
 

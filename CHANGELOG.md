@@ -11,8 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **RS-1508:** Fix embedded backup worker runspace callback (#84). (`8ce5706`)
-
 ### Deprecated
 
 ### Removed
@@ -20,6 +18,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 ### Security
+
+## [1.1.5] - 2026-08-14
+
+RenderKit 1.1.5 is a patch release focused on runtime safety, durable job execution,
+cross-platform correctness, backup reliability, and release-pipeline safeguards.
+The public command surface and persisted job/event schemas remain unchanged.
+
+### Changed
+
+- **RS-1512:** Event-to-job bridge deduplication now evaluates the duplicate condition and appends the new job inside the same JobStore transaction. Concurrent bridge invocations therefore cannot pass a separate read-before-write check and enqueue duplicate work for the same idempotent trigger.
+- **RS-1513:** Worker diagnostic logging is now strictly best-effort, including failures while resolving the default log path. Diagnostic I/O and warning behavior can no longer change worker control flow, even when callers use terminating warning preferences.
+- **RS-1514:** Backup lock ownership now uses portable runtime machine/user identity and treats legacy or unverifiable ownership conservatively on shared paths instead of assuming that an unknown lock belongs to the local host.
+- **RS-1516:** Backup manifests and background-job audit metadata now use portable runtime identity. Missing `requestedBy.user` and `requestedBy.machine` values are filled without mutating caller-owned context objects or overwriting explicitly supplied audit fields.
+- **RS-1520:** Release publishing is now serialized and gated by the successful Quality Gate for the exact `main` push SHA. Package build, local installer validation, secrets/version/changelog preflight, GitHub Packages publication, PowerShell Gallery publication, and Gallery installation validation all complete before the GitHub Release is created as the final visible success marker. Existing release versions are never overwritten.
+
+### Fixed
+
+- **RS-1508:** Fixed parallel backup workers invoking PowerShell script blocks from `Process.ErrorDataReceived` callbacks on thread-pool threads without an available PowerShell runspace. Redirected stderr is drained asynchronously without cross-thread PowerShell callbacks while stdout remains available for FFmpeg progress streaming.
+- **RS-1511:** Fixed generic worker completion and retry handling overwriting a job state that a handler had already persisted deliberately. Handler-owned states remain authoritative on both normal return and exception paths; generic success/retry behavior applies only while the job is still `Running`.
+- **RS-1514:** Fixed stale backup-lock detection and takeover races. Foreign or machine-less locks are no longer evaluated using local PIDs, and stale ownership is verified and replaced through the same exclusive file handle so a slower contender cannot remove a freshly acquired lock.
+- **RS-1515:** Fixed worker crash recovery interpreting foreign or legacy shared worker state as a dead local process. PID liveness checks and `CrashDetected` recovery are now performed only when persisted state explicitly identifies the current host.
+- **RS-1517:** Fixed import project discovery constructing `.renderkit/project.json` with an embedded Windows path separator. Physical metadata paths are now resolved from native path segments on Windows, Linux, and macOS.
+- **RS-1518:** Fixed private backup failure paths emitting a secondary PowerShell `ErrorRecord` immediately before throwing the canonical terminating exception. Persistent diagnostics remain available without creating duplicate error representations that can mask the primary failure in hosted PowerShell environments.
+- **RS-1519:** Fixed the Windows PowerShell 5.1 FFmpeg hardware-probe fallback relying on modern process argument/termination APIs and incomplete legacy command-line quoting. The fallback now handles whitespace, empty arguments, quotes, backslashes, timeout termination, and redirected diagnostics without changing the modern PowerShell 7 path.
 
 ## [1.1.4] - 2026-08-07
 
@@ -243,7 +265,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added architecture documentation for project identity and registry, project lifecycle, domain events and jobs, artifact versioning, cross-platform storage, security baseline, and the phased implementation plan.
 - Added cross-platform user storage support and documentation for configuration, state, cache, and user data roots, including `RENDERKIT_HOME` overrides and legacy data preservation guidance.
 - Added atomic JSON persistence helpers with file locking, backup restoration support, validation hooks, and transaction-style updates for RenderKit state files.
-- Added a central artifact versioning catalog and compatibility service for project, registry, event, job, template, mapping, device, and configuration artifacts.
+- Added a central artifact versioning catalog and compatibility service for project, registry, event, job, template, mapping, device, client, publishing, metadata, and configuration artifacts.
 - Added internal project registry and lifecycle services for tracking known projects, reconciling moved/missing project folders, validating lifecycle status transitions, and emitting lifecycle events.
 - Added internal domain-event storage, event-to-job automation subscriptions, durable job storage, job worker registration, and repair/health checks for RenderKit state.
 - Added host-facing engine contracts with actor and operation contexts, correlation/causation id handling, stable `RenderKitResult` envelopes, registered error codes, and a machine-readable engine contract snapshot for broker/Electron handoff.

@@ -12,7 +12,12 @@ function Save-BackupManifest {
     $targetPath = $ManifestPath
     if ([string]::IsNullOrWhiteSpace($targetPath)) {
         if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
-            Write-RenderKitLog -Level Error -Message "Either -ProjectRoot or -ManifestPath must be provided."
+            # RS-1518: The terminating exception is the canonical PowerShell
+            # failure. Persist diagnostics without emitting a second ErrorRecord.
+            Write-RenderKitLog `
+                -Level Error `
+                -Message "Either -ProjectRoot or -ManifestPath must be provided." `
+                -NoConsole
             throw "Either -ProjectRoot or -ManifestPath must be provided."
         }
 

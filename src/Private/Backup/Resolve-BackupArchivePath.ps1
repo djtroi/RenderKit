@@ -17,7 +17,12 @@ function Resolve-BackupArchivePath {
     }
 
     if ([string]::IsNullOrWhiteSpace($effectiveDestinationRoot)) {
-        Write-RenderKitLog -Level Error -Message "Destination root could not be resolved."
+        # RS-1518: The throw below is the caller-facing failure. Keep the error
+        # log file-only so the same failure is not represented twice upstream.
+        Write-RenderKitLog `
+            -Level Error `
+            -Message "Destination root could not be resolved." `
+            -NoConsole
         throw "Destination root could not be resolved."
     }
 
