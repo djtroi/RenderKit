@@ -12,7 +12,12 @@ function Compress-Project{
 
     $resolvedProjectPath = (Resolve-Path -Path $ProjectPath -ErrorAction Stop).ProviderPath
     if (-not (Test-Path -Path $resolvedProjectPath -PathType Container)) {
-        Write-RenderKitLog -Level Error -Message "Project path '$ProjectPath' is not a directory."
+        # The exception is the canonical caller-facing failure. Keep the error
+        # log file-only so hosted PowerShell callers do not receive two errors.
+        Write-RenderKitLog `
+            -Level Error `
+            -Message "Project path '$ProjectPath' is not a directory." `
+            -NoConsole
         throw "Project path '$ProjectPath' is not a directory."
     }
 
@@ -27,7 +32,10 @@ function Compress-Project{
 
     $basePath = Split-Path -Path $resolvedProjectPath -Parent
     if ([string]::IsNullOrWhiteSpace($basePath)) {
-        Write-RenderKitLog -Level Error -Message "Could not resolve base path for '$resolvedProjectPath'."
+        Write-RenderKitLog `
+            -Level Error `
+            -Message "Could not resolve base path for '$resolvedProjectPath'." `
+            -NoConsole
         throw "Could not resolve base path for '$resolvedProjectPath'."
     }
 
