@@ -37,15 +37,29 @@ Describe 'RenderKit import project discovery path handling' {
         } {
             [PSCustomObject]@{
                 candidates = @(Get-RenderKitImportProjectCandidate -BasePath $BasePath)
-                definition = (Get-Command Get-RenderKitImportProjectCandidate).Definition
+                metadataPath = Get-RenderKitImportProjectMetadataPath `
+                    -ProjectRoot (Join-Path $BasePath 'PortableProject')
+                candidateDefinition = (
+                    Get-Command Get-RenderKitImportProjectCandidate
+                ).Definition
+                metadataDefinition = (
+                    Get-Command Get-RenderKitImportProjectMetadataPath
+                ).Definition
             }
         }
+
+        $expectedMetadataPath = Join-Path `
+            -Path (Join-Path $projectRoot '.renderkit') `
+            -ChildPath 'project.json'
 
         $result.candidates.Count | Should -Be 1
         $result.candidates[0].Name | Should -Be 'Portable Project'
         $result.candidates[0].ProjectRoot | Should -Be $projectRoot
-        $result.definition | Should -Match "ChildPath '.renderkit'"
-        $result.definition | Should -Match "ChildPath 'project.json'"
-        $result.definition | Should -Not -Match '\.renderkit\\project\.json'
+        $result.metadataPath | Should -Be $expectedMetadataPath
+        $result.candidateDefinition | Should -Match 'Get-RenderKitImportProjectMetadataPath'
+        $result.metadataDefinition | Should -Match 'RS-1517'
+        $result.metadataDefinition | Should -Match "ChildPath '.renderkit'"
+        $result.metadataDefinition | Should -Match "ChildPath 'project.json'"
+        $result.metadataDefinition | Should -Not -Match '\.renderkit\\project\.json'
     }
 }

@@ -1,3 +1,23 @@
+function Get-RenderKitImportProjectMetadataPath {
+    [CmdletBinding()]
+    [OutputType([System.String])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ProjectRoot
+    )
+
+    # RS-1517: Keep the physical project metadata path segment-based. A literal
+    # backslash is a valid filename character on Unix, so embedding Windows
+    # separators in a ChildPath changes the path meaning instead of descending
+    # into the .renderkit directory.
+    $metadataRoot = Join-Path `
+        -Path $ProjectRoot `
+        -ChildPath '.renderkit'
+    return Join-Path `
+        -Path $metadataRoot `
+        -ChildPath 'project.json'
+}
+
 function Get-RenderKitImportProjectCandidate {
     [CmdletBinding()]
     [OutputType([System.Object[]])]
@@ -38,15 +58,8 @@ function Get-RenderKitImportProjectCandidate {
         foreach ($projectDir in @(
                 Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue
             )) {
-            # Build metadata paths from individual segments. Embedded Windows
-            # separators are valid filename characters on Unix and can hide an
-            # otherwise valid RenderKit project from discovery.
-            $metadataRoot = Join-Path `
-                -Path $projectDir.FullName `
-                -ChildPath '.renderkit'
-            $metadataPath = Join-Path `
-                -Path $metadataRoot `
-                -ChildPath 'project.json'
+            $metadataPath = Get-RenderKitImportProjectMetadataPath `
+                -ProjectRoot $projectDir.FullName
             if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
                 continue
             }
