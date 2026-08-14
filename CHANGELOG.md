@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RS-1515:** Merge pull request #91 from djtroi/fix/-worker-state-host-pid-recovery. (`9afbdb4`)
+- **RS-1515:** Use portable Pester mock assertions. (`319fa23`)
+- **RS-1515:** Cover cross-host worker recovery guard. (`2f928eb`)
+- **RS-1515:** Guard worker crash recovery by host identity. (`f165102`)
 - **RS-1514:** Merge pull request #90 from djtroi/fix/-backup-lock-cross-platform. (`e72d74e`)
 - **RS-1514:** Cover unverifiable local lock ownership. (`e11cb04`)
 - **RS-1514:** Harden unverifiable backup lock ownership. (`d0c1650`)
