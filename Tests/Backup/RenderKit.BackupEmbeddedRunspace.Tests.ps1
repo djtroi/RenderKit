@@ -2,6 +2,13 @@ Describe 'RS-1508 embedded backup worker process handling' {
     BeforeAll {
         $repositoryRoot = Split-Path -Parent (
             Split-Path -Parent $PSScriptRoot)
+        $implementationPath = Join-Path `
+            $repositoryRoot `
+            'src/Private/Backup/RenderKit.BackupProcessExecution.ps1'
+        $implementationSource = Get-Content `
+            -LiteralPath $implementationPath `
+            -Raw
+
         Import-Module `
             (Join-Path $repositoryRoot 'RenderKit.psd1') `
             -Force
@@ -11,11 +18,15 @@ Describe 'RS-1508 embedded backup worker process handling' {
         Remove-Module RenderKit -Force -ErrorAction SilentlyContinue
     }
 
+    It 'documents the ticket context on the hosted-runspace fix' {
+        $implementationSource | Should -Match 'RS-1508'
+        $implementationSource | Should -Match 'DefaultRunspace'
+    }
+
     It 'uses the hosted-runspace-safe backup worker implementation' {
         InModuleScope RenderKit {
             $definition = (Get-Command Start-BackupScheduledThreadJob).Definition
 
-            $definition | Should -Match 'RS-1508'
             $definition | Should -Not -Match 'add_ErrorDataReceived'
             $definition | Should -Not -Match 'BeginErrorReadLine'
             $definition | Should -Match 'StandardError\.ReadToEndAsync'
