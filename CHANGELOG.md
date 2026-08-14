@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RS-1508:** Keep failure notifications off the error stream. (`27a0d75`)
+
 ### Deprecated
 
 ### Removed
