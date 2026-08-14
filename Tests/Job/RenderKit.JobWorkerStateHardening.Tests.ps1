@@ -32,6 +32,7 @@ Describe 'RenderKit job worker persisted state hardening' {
                         -JobId ([string]$Job.id) `
                         -Status Failed `
                         -ErrorMessage 'handler persisted failure'
+                    throw 'secondary handler exception'
                 }
 
             $job = Add-RenderKitJob -Job (
@@ -43,5 +44,6 @@ Describe 'RenderKit job worker persisted state hardening' {
 
         $result.status | Should -Be 'Failed'
         $result.lastError.message | Should -Be 'handler persisted failure'
+        [int]$result.attempts | Should -Be 1
     }
 }
