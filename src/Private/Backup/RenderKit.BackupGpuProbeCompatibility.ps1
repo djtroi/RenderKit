@@ -1,5 +1,69 @@
 # RS-1508: Keep the hardware encoder probe compatible with Windows PowerShell 5.1
 # while preserving the hosted-runspace-safe process handling used by newer runtimes.
+function ConvertTo-BackupProbeArgumentText {
+    [CmdletBinding()]
+    param(
+        [AllowEmptyString()]
+        [string[]]$Arguments
+    )
+
+    # RS-1519: ProcessStartInfo.Arguments is one command-line string on .NET
+    # Framework. Quote each argument using the Windows command-line escaping
+    # rules: backslashes before a literal quote are doubled, and trailing
+    # backslashes are doubled before the closing quote. Simple arguments stay
+    # untouched so the modern ArgumentList and legacy Arguments paths remain
+    # semantically equivalent.
+    $quote = [char]34
+    $backslash = [char]92
+    $backslashText = $backslash.ToString()
+
+    $escaped = foreach ($argumentValue in @($Arguments)) {
+        $argument = [string]$argumentValue
+        if ($argument.Length -gt 0 -and $argument -notmatch '[\s"]') {
+            $argument
+            continue
+        }
+
+        $builder = New-Object System.Text.StringBuilder
+        [void]$builder.Append($quote)
+        $backslashCount = 0
+
+        foreach ($character in $argument.ToCharArray()) {
+            if ($character -eq $backslash) {
+                $backslashCount++
+                continue
+            }
+
+            if ($character -eq $quote) {
+                if ($backslashCount -gt 0) {
+                    [void]$builder.Append(
+                        ($backslashText * ($backslashCount * 2)))
+                }
+                [void]$builder.Append($backslash)
+                [void]$builder.Append($quote)
+                $backslashCount = 0
+                continue
+            }
+
+            if ($backslashCount -gt 0) {
+                [void]$builder.Append(
+                    ($backslashText * $backslashCount))
+                $backslashCount = 0
+            }
+            [void]$builder.Append($character)
+        }
+
+        if ($backslashCount -gt 0) {
+            [void]$builder.Append(
+                ($backslashText * ($backslashCount * 2)))
+        }
+        [void]$builder.Append($quote)
+        $builder.ToString()
+    }
+
+    return ($escaped -join ' ')
+}
+
 function Test-BackupFfmpegEncoderCapability {
     [CmdletBinding()]
     param(
@@ -10,21 +74,6 @@ function Test-BackupFfmpegEncoderCapability {
         [ValidateRange(1, 60)]
         [int]$TimeoutSeconds = 15
     )
-
-    function ConvertTo-BackupProbeArgumentText {
-        param([string[]]$Arguments)
-
-        $escaped = foreach ($argument in @($Arguments)) {
-            if ($argument -match '[\s"]') {
-                '"' + ($argument -replace '"', '\"') + '"'
-            }
-            else {
-                $argument
-            }
-        }
-
-        return ($escaped -join ' ')
-    }
 
     $arguments = @(
         '-hide_banner',
