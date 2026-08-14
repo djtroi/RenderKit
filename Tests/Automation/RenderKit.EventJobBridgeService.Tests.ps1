@@ -75,4 +75,44 @@ Describe 'RenderKit event/job bridge service' {
         $secondResult.CreatedJobCount | Should -Be 0
         @((Read-RenderKitJobStore).jobs).Count | Should -Be 1
     }
+
+    It 'keeps duplicate detection and enqueue inside one JobStore transaction' {
+        $event = New-RenderKitDomainEvent `
+            -EventType 'ProjectLifecycleStatusChanged' `
+            -AggregateType 'Project' `
+            -AggregateId 'project-atomic'
+        $subscription = @(Get-RenderKitEventJobSubscription `
+            -EventType ([string]$event.eventType))[0]
+
+        $firstCandidate = New-RenderKitJobFromDomainEvent `
+            -Event $event `
+            -Subscription $subscription
+        $secondCandidate = New-RenderKitJobFromDomainEvent `
+            -Event $event `
+            -Subscription $subscription
+
+        $firstCreated = Add-RenderKitEventJobIfMissing -Job $firstCandidate
+        $secondCreated = Add-RenderKitEventJobIfMissing -Job $secondCandidate
+
+        $firstCreated.id | Should -Be $firstCandidate.id
+        $secondCreated | Should -BeNullOrEmpty
+
+        $jobs = @((Read-RenderKitJobStore).jobs | Where-Object {
+            [string]$_.triggerEventId -eq [string]$event.id -and
+            [string]$_.jobType -eq [string]$subscription.JobType
+        })
+        $jobs.Count | Should -Be 1
+        $jobs[0].id | Should -Be $firstCandidate.id
+        $jobs[0].correlationId | Should -Be $event.correlationId
+        $jobs[0].payload.subscriptionId | Should -Be $subscription.Id
+    }
+
+    It 'documents the RS-1512 transaction boundary' {
+        $definition = (Get-Command Add-RenderKitEventJobIfMissing).Definition
+
+        $definition | Should -Match 'RS-1512'
+        $definition | Should -Match 'Invoke-RenderKitJsonFileTransaction'
+        $definition | Should -Match 'alreadyExists'
+        $definition | Should -Match 'committed store'
+    }
 }
