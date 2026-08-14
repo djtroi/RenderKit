@@ -10,10 +10,66 @@ on:
 permissions:
   contents: write
   packages: write
+  actions: read
 
 jobs:
+  quality-gate:
+    name: Wait for Quality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+
+    steps:
+      - name: Wait for successful Quality Gate on this commit
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $deadline = [DateTime]::UtcNow.AddMinutes(90)
+
+          # Release and Quality Gate are independent push-triggered workflows.
+          # Publishing must wait for the Quality Gate run that validates this
+          # exact main commit, not merely the latest successful repository run.
+          while ([DateTime]::UtcNow -lt $deadline) {
+              $runs = gh run list `
+                  --repo '${{ github.repository }}' `
+                  --workflow 'quality-gate.yml' `
+                  --commit $env:GITHUB_SHA `
+                  --event push `
+                  --limit 20 `
+                  --json databaseId,status,conclusion,headSha |
+                  ConvertFrom-Json
+
+              $run = @(
+                  $runs |
+                      Where-Object { [string]$_.headSha -eq $env:GITHUB_SHA } |
+                      Select-Object -First 1
+              )
+
+              if ($run.Count -eq 0) {
+                  Write-Host "Quality Gate run for $env:GITHUB_SHA is not visible yet."
+                  Start-Sleep -Seconds 15
+                  continue
+              }
+
+              if ([string]$run[0].status -ne 'completed') {
+                  Write-Host "Quality Gate is $($run[0].status)."
+                  Start-Sleep -Seconds 30
+                  continue
+              }
+
+              if ([string]$run[0].conclusion -ne 'success') {
+                  throw "Quality Gate for $env:GITHUB_SHA completed with '$($run[0].conclusion)'. Release is blocked."
+              }
+
+              Write-Host "Quality Gate passed for $env:GITHUB_SHA."
+              exit 0
+          }
+
+          throw "Timed out waiting for Quality Gate for $env:GITHUB_SHA."
+
   build:
     name: Build Package
+    needs: quality-gate
     runs-on: windows-latest
 
     defaults:
@@ -104,7 +160,7 @@ jobs:
 
   github-release:
     name: GitHub Release
-    needs: build
+    needs: [build, package-compatibility]
     runs-on: windows-latest
 
     defaults:
@@ -253,7 +309,7 @@ jobs:
 
   github-packages:
     name: Publish to GitHub Packages
-    needs: build
+    needs: [build, package-compatibility]
     runs-on: windows-latest
 
     defaults:
