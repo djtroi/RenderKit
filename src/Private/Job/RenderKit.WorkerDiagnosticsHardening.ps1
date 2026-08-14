@@ -1,6 +1,3 @@
-# Worker diagnostics are best-effort and must never become worker control flow.
-# The persisted worker/job state remains the durable source of truth if a log
-# path disappears, becomes read-only, or is temporarily unavailable.
 function Write-RenderKitWorkerLogEntry {
     [CmdletBinding()]
     param(
@@ -14,6 +11,9 @@ function Write-RenderKitWorkerLogEntry {
         [string]$LogPath
     )
 
+    # Worker diagnostics are best-effort and must never become worker control
+    # flow. The persisted worker/job state remains the durable source of truth
+    # if a log path disappears, becomes read-only, or is temporarily unavailable.
     if ([string]::IsNullOrWhiteSpace($LogPath)) {
         $LogPath = Get-RenderKitWorkerLogPath -WorkerId $WorkerId
     }
