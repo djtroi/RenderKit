@@ -27,8 +27,11 @@ function Get-CleanupRule{
     )
     if ($unknownProfiles.Count -gt 0) {
         $available = @($profiles.Keys | Sort-Object) -join ", "
-        Write-RenderKitLog -Level Error -Message "Unknown backup profile(s): $($unknownProfiles -join ', '). Available profiles: $available."
-        throw "Unknown backup profile(s): $($unknownProfiles -join ', '). Available profiles: $available."
+        $message = "Unknown backup profile(s): $($unknownProfiles -join ', '). Available profiles: $available."
+        # The terminating exception below is the caller-facing failure. Logging
+        # remains file-only to avoid duplicating it on PowerShell's error stream.
+        Write-RenderKitLog -Level Error -Message $message -NoConsole
+        throw $message
     }
 
     $folders = New-Object System.Collections.Generic.List[string]
