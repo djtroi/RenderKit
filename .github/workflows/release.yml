@@ -1,4 +1,4 @@
-﻿name: Release RenderKit
+name: Release RenderKit
 
 on:
   push:
@@ -11,6 +11,13 @@ permissions:
   contents: write
   packages: write
   actions: read
+
+# RS-1520: External registries do not provide a cross-registry transaction.
+# Serialize release runs so two version bumps cannot interleave their publish
+# phases, and keep every reversible validation ahead of the first publication.
+concurrency:
+  group: renderkit-release
+  cancel-in-progress: false
 
 jobs:
   quality-gate:
@@ -26,27 +33,36 @@ jobs:
         run: |
           $deadline = [DateTime]::UtcNow.AddMinutes(90)
 
-          # Release and Quality Gate are independent push-triggered workflows.
-          # Publishing must wait for the Quality Gate run that validates this
-          # exact main commit, not merely the latest successful repository run.
+          # RS-1520: The same SHA can have a successful push run from a feature
+          # branch before it reaches main. Only the Quality Gate created by the
+          # exact main push that triggered this release can authorize publishing.
           while ([DateTime]::UtcNow -lt $deadline) {
               $runs = gh run list `
                   --repo '${{ github.repository }}' `
                   --workflow 'quality-gate.yml' `
+                  --branch 'main' `
                   --commit $env:GITHUB_SHA `
                   --event push `
                   --limit 20 `
-                  --json databaseId,status,conclusion,headSha |
+                  --json databaseId,status,conclusion,headSha,headBranch,event |
                   ConvertFrom-Json
+
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Unable to query Quality Gate runs for $env:GITHUB_SHA."
+              }
 
               $run = @(
                   $runs |
-                      Where-Object { [string]$_.headSha -eq $env:GITHUB_SHA } |
+                      Where-Object {
+                          [string]$_.headSha -eq $env:GITHUB_SHA -and
+                          [string]$_.headBranch -eq 'main' -and
+                          [string]$_.event -eq 'push'
+                      } |
                       Select-Object -First 1
               )
 
               if ($run.Count -eq 0) {
-                  Write-Host "Quality Gate run for $env:GITHUB_SHA is not visible yet."
+                  Write-Host "Main Quality Gate run for $env:GITHUB_SHA is not visible yet."
                   Start-Sleep -Seconds 15
                   continue
               }
@@ -58,14 +74,14 @@ jobs:
               }
 
               if ([string]$run[0].conclusion -ne 'success') {
-                  throw "Quality Gate for $env:GITHUB_SHA completed with '$($run[0].conclusion)'. Release is blocked."
+                  throw "Quality Gate for main commit $env:GITHUB_SHA completed with '$($run[0].conclusion)'. Release is blocked."
               }
 
-              Write-Host "Quality Gate passed for $env:GITHUB_SHA."
+              Write-Host "Quality Gate passed for main commit $env:GITHUB_SHA."
               exit 0
           }
 
-          throw "Timed out waiting for Quality Gate for $env:GITHUB_SHA."
+          throw "Timed out waiting for the main Quality Gate for $env:GITHUB_SHA."
 
   build:
     name: Build Package
@@ -158,8 +174,8 @@ jobs:
             -Version '${{ needs.build.outputs.version }}' `
             -PackageManager PowerShellGet
 
-  github-release:
-    name: GitHub Release
+  publish-preflight:
+    name: Validate publication preconditions
     needs: [build, package-compatibility]
     runs-on: windows-latest
 
@@ -168,41 +184,34 @@ jobs:
         shell: pwsh
 
     steps:
-      - name: Checkout
+      - name: Checkout exact release commit
         uses: actions/checkout@v7.0.1
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
-      - name: Download .nupkg artifact
-        uses: actions/download-artifact@v8.0.1
-        with:
-          name: RenderKit-${{ needs.build.outputs.version }}-nupkg
-          path: ./artifacts
-
-      - name: Extract release notes from CHANGELOG.md
+      - name: Validate secrets, changelog and immutable release version
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NUGETAPIKEY: ${{ secrets.NUGETAPIKEY }}
           VERSION: ${{ needs.build.outputs.version }}
         run: |
-          $version = $env:VERSION
-          $changelogPath = Join-Path $env:GITHUB_WORKSPACE 'CHANGELOG.md'
-          $releaseNotesPath = Join-Path $env:RUNNER_TEMP 'release-notes.md'
-
-          if (-not (Test-Path -LiteralPath $changelogPath -PathType Leaf)) {
-              throw "CHANGELOG.md not found: $changelogPath"
+          if ([string]::IsNullOrWhiteSpace($env:NUGETAPIKEY)) {
+              throw 'Missing repository secret NUGETAPIKEY. Nothing has been published.'
           }
 
+          $manifest = Import-PowerShellDataFile `
+              -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'RenderKit.psd1')
+          if ([string]$manifest.ModuleVersion -ne $env:VERSION) {
+              throw "Build version '$env:VERSION' does not match manifest version '$($manifest.ModuleVersion)'."
+          }
+
+          $changelogPath = Join-Path $env:GITHUB_WORKSPACE 'CHANGELOG.md'
           $changelog = Get-Content `
-            -LiteralPath $changelogPath `
-            -Raw `
-            -Encoding utf8
-
-          $escapedVersion = [regex]::Escape($version)
-
-          # Supported Headers
-          # ## 1.0.1
-          # ## v1.0.1
-          # ## [1.0.1]
-          # ## [v1.0.1] - 2026-07-11
+              -LiteralPath $changelogPath `
+              -Raw `
+              -Encoding utf8
+          $escapedVersion = [regex]::Escape($env:VERSION)
           $pattern = (
               '(?m)^##\s+' +
               "(?:v?$escapedVersion|\[v?$escapedVersion\])" +
@@ -210,106 +219,30 @@ jobs:
               '(?<body>[\s\S]*?)' +
               '(?=^##\s+|\z)'
           )
-
           $matches = [regex]::Matches($changelog, $pattern)
-
-          if ($matches.Count -eq 0) {
-              throw @"
-          No changelog entry found for version $version.
-
-          Expected a heading such as:
-          ## [$version] - YYYY-MM-DD
-          "@
+          if ($matches.Count -ne 1 -or
+              [string]::IsNullOrWhiteSpace($matches[0].Groups['body'].Value)) {
+              throw "Expected exactly one non-empty CHANGELOG.md entry for version $env:VERSION."
           }
 
-          if ($matches.Count -gt 1) {
-              throw "Found multiple CHANGELOG.md entries for version $version."
+          $tag = "v$env:VERSION"
+          $releaseList = gh release list `
+              --repo '${{ github.repository }}' `
+              --limit 100 `
+              --json tagName |
+              ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) {
+              throw "Unable to verify existing GitHub releases for $tag."
+          }
+          if (@($releaseList | Where-Object { [string]$_.tagName -eq $tag }).Count -gt 0) {
+              throw "Release $tag already exists. Bump RenderKit.psd1 before publishing another release."
           }
 
-          $changelogNotes = $matches[0].Groups['body'].Value.Trim()
-
-          if ([string]::IsNullOrWhiteSpace($changelogNotes)) {
-              throw "The CHANGELOG.md entry for version $version is empty."
-          }
-
-          $commit = '${{ github.sha }}'
-          $shortCommit = $commit.Substring(0, 7)
-          $releaseDate = [DateTime]::UtcNow.ToString(
-              'yyyy-MM-dd HH:mm UTC'
-          )
-
-          $releaseNotes = @"
-          ## RenderKit v$version
-
-          - **Commit:** $shortCommit
-          - **Date:** $releaseDate
-          - **Branch:** main
-
-          $changelogNotes
-          "@
-
-          Set-Content `
-            -LiteralPath $releaseNotesPath `
-            -Value $releaseNotes.Trim() `
-            -Encoding utf8
-
-          "RELEASE_NOTES_PATH=$releaseNotesPath" |
-            Out-File `
-              -FilePath $env:GITHUB_ENV `
-              -Encoding utf8 `
-              -Append
-
-          Write-Host "Extracted release notes for version ${version}:"
-          Write-Host ''
-          Write-Host $releaseNotes
-
-      - name: Check if release exists
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $tag = "v${{ needs.build.outputs.version }}"
-
-          gh release view `
-            $tag `
-            --repo '${{ github.repository }}' `
-            2>&1 |
-            Out-Null
-
-          if ($LASTEXITCODE -eq 0) {
-              "EXISTS=true" >> $env:GITHUB_OUTPUT
-          }
-          else {
-              "EXISTS=false" >> $env:GITHUB_OUTPUT
-          }
-
-          exit 0
-
-      - name: Reject duplicate release version
-        if: steps.check.outputs.EXISTS == 'true'
-        run: |
-          throw "Release v${{ needs.build.outputs.version }} already exists. Bump RenderKit.psd1 before publishing another release."
-
-      - name: Create GitHub Release
-        if: steps.check.outputs.EXISTS == 'false'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $tag = "v${{ needs.build.outputs.version }}"
-          $nupkg = "./artifacts/${{ needs.build.outputs.nupkg_name }}"
-          $commit = '${{ github.sha }}'
-
-          gh release create `
-            $tag `
-            $nupkg `
-            --repo '${{ github.repository }}' `
-            --target $commit `
-            --title "RenderKit $tag" `
-            --notes-file $env:RELEASE_NOTES_PATH
+          Write-Host "Publication preflight passed for $tag."
 
   github-packages:
     name: Publish to GitHub Packages
-    needs: [build, package-compatibility]
+    needs: [build, package-compatibility, publish-preflight]
     runs-on: windows-latest
 
     defaults:
@@ -327,14 +260,15 @@ jobs:
         run: |
           $nupkg = "./artifacts/${{ needs.build.outputs.nupkg_name }}"
 
+          # Do not skip duplicates. An orphaned package from a previous partial
+          # publish must stop the pipeline before later registries are changed.
           dotnet nuget push $nupkg `
             --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" `
-            --api-key ${{ secrets.GITHUB_TOKEN }} `
-            --skip-duplicate
+            --api-key ${{ secrets.GITHUB_TOKEN }}
 
   psgallery:
     name: Publish to PowerShell Gallery
-    needs: [build, github-release, package-compatibility]
+    needs: [build, package-compatibility, publish-preflight, github-packages]
     runs-on: windows-latest
 
     defaults:
@@ -352,13 +286,11 @@ jobs:
         run: |
           Import-Module Microsoft.PowerShell.PSResourceGet -Force
 
-          # Repository-Store-Verzeichnis anlegen, falls nicht vorhanden
           $storePath = Join-Path $env:LOCALAPPDATA 'PSResourceGet'
           if (-not (Test-Path $storePath)) {
               New-Item -Path $storePath -ItemType Directory -Force | Out-Null
           }
 
-          # PSGallery registrieren (idempotent)
           if (-not (Get-PSResourceRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
               Register-PSResourceRepository -PSGallery -Trusted
           }
@@ -391,6 +323,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
 
       - name: Validate with PSResourceGet
         shell: pwsh
@@ -413,3 +347,117 @@ jobs:
           ./build/Test-RenderKitGalleryInstall.ps1 `
             -Version '${{ needs.build.outputs.version }}' `
             -PackageManager PowerShellGet
+
+  github-release:
+    name: GitHub Release
+    needs:
+      - build
+      - package-compatibility
+      - publish-preflight
+      - github-packages
+      - gallery-validation
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout exact release commit
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Download .nupkg artifact
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: RenderKit-${{ needs.build.outputs.version }}-nupkg
+          path: ./artifacts
+
+      - name: Extract release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          $version = $env:VERSION
+          $changelogPath = Join-Path $env:GITHUB_WORKSPACE 'CHANGELOG.md'
+          $releaseNotesPath = Join-Path $env:RUNNER_TEMP 'release-notes.md'
+
+          $changelog = Get-Content `
+            -LiteralPath $changelogPath `
+            -Raw `
+            -Encoding utf8
+          $escapedVersion = [regex]::Escape($version)
+          $pattern = (
+              '(?m)^##\s+' +
+              "(?:v?$escapedVersion|\[v?$escapedVersion\])" +
+              '(?=\s|$)[^\r\n]*\r?\n' +
+              '(?<body>[\s\S]*?)' +
+              '(?=^##\s+|\z)'
+          )
+          $matches = [regex]::Matches($changelog, $pattern)
+          if ($matches.Count -ne 1) {
+              throw "Expected exactly one CHANGELOG.md entry for version $version."
+          }
+          $changelogNotes = $matches[0].Groups['body'].Value.Trim()
+          if ([string]::IsNullOrWhiteSpace($changelogNotes)) {
+              throw "The CHANGELOG.md entry for version $version is empty."
+          }
+
+          $commit = '${{ github.sha }}'
+          $shortCommit = $commit.Substring(0, 7)
+          $releaseDate = [DateTime]::UtcNow.ToString('yyyy-MM-dd HH:mm UTC')
+          $releaseNotes = @"
+          ## RenderKit v$version
+
+          - **Commit:** $shortCommit
+          - **Date:** $releaseDate
+          - **Branch:** main
+
+          $changelogNotes
+          "@
+
+          Set-Content `
+            -LiteralPath $releaseNotesPath `
+            -Value $releaseNotes.Trim() `
+            -Encoding utf8
+          "RELEASE_NOTES_PATH=$releaseNotesPath" |
+            Out-File `
+              -FilePath $env:GITHUB_ENV `
+              -Encoding utf8 `
+              -Append
+
+      - name: Recheck immutable release version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "v${{ needs.build.outputs.version }}"
+          $releaseList = gh release list `
+              --repo '${{ github.repository }}' `
+              --limit 100 `
+              --json tagName |
+              ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) {
+              throw "Unable to recheck GitHub releases for $tag."
+          }
+          if (@($releaseList | Where-Object { [string]$_.tagName -eq $tag }).Count -gt 0) {
+              throw "Release $tag appeared after preflight; refusing to overwrite it."
+          }
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "v${{ needs.build.outputs.version }}"
+          $nupkg = "./artifacts/${{ needs.build.outputs.nupkg_name }}"
+          $commit = '${{ github.sha }}'
+
+          # The GitHub Release is the final success marker after package
+          # publication and PSGallery installation validation have succeeded.
+          gh release create `
+            $tag `
+            $nupkg `
+            --repo '${{ github.repository }}' `
+            --target $commit `
+            --title "RenderKit $tag" `
+            --notes-file $env:RELEASE_NOTES_PATH
