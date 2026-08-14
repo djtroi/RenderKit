@@ -75,11 +75,14 @@ Describe 'RenderKit import project discovery path handling' {
                 -LiteralPath (Join-Path $metadataRoot 'project.json') `
                 -Encoding UTF8
 
-        $candidates = InModuleScope RenderKit -Parameters @{
+        # InModuleScope writes function output through the pipeline. Wrap the
+        # complete scope invocation so a single discovered candidate keeps the
+        # collection shape consistently across PowerShell hosts.
+        $candidates = @(InModuleScope RenderKit -Parameters @{
             BasePath = $basePath
         } {
-            @(Get-RenderKitImportProjectCandidate -BasePath $BasePath)
-        }
+            Get-RenderKitImportProjectCandidate -BasePath $BasePath
+        })
 
         $candidates.Count | Should -Be 1
         $candidates[0].Name | Should -Be 'Backslash Project'
