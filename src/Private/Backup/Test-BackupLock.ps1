@@ -20,10 +20,16 @@ function Test-BackupLock {
     }
 
     try {
-        $lock = Get-Content $lockPath -Raw | ConvertFrom-Json
+        $lock = Get-Content -LiteralPath $lockPath -Raw -ErrorAction Stop |
+            ConvertFrom-Json -ErrorAction Stop
     }
     catch {
-        Write-RenderKitLog -Level Error -Message "Backup lock exists but is corrupted: '$lockPath'."
+        # Parsing failure is reported by the terminating exception below; keep
+        # the diagnostic log off the error stream to avoid a duplicate record.
+        Write-RenderKitLog `
+            -Level Error `
+            -Message "Backup lock exists but is corrupted: '$lockPath'." `
+            -NoConsole
         throw "Backup lock exists but is corrupted $lockPath"
     }
 
@@ -35,11 +41,18 @@ function Test-BackupLock {
         $lockMachine = [string]$lock.maschine
     }
 
-    # stale lock detection is only safe for local-machine locks
-    $isLocalMachine = [string]::IsNullOrWhiteSpace($lockMachine) -or
-        $lockMachine.Equals($env:COMPUTERNAME, [System.StringComparison]::OrdinalIgnoreCase)
+    # PID checks are meaningful only for a lock that positively identifies the
+    # current machine. Legacy/foreign locks without machine identity are treated
+    # as remote and may become stale only by age; guessing "local" can delete an
+    # active lock on a shared project path when another host happens to use it.
+    $currentMachine = [System.Environment]::MachineName
+    $isLocalMachine = -not [string]::IsNullOrWhiteSpace($lockMachine) -and
+        $lockMachine.Equals(
+            $currentMachine,
+            [System.StringComparison]::OrdinalIgnoreCase
+        )
 
-        $isStale = $false
+    $isStale = $false
 
     if ($isLocalMachine) {
         if ($lock.processId -and -not (Get-Process -Id $lock.processId -ErrorAction SilentlyContinue)) {
@@ -47,14 +60,25 @@ function Test-BackupLock {
         }
     }
     else {
-        $lockAge = (Get-Date) - (Get-Item $lockPath).LastWriteTime
-            if ($lockAge -gt $StaleThreshold) {
-                $isStale = $true
-                Write-RenderKitLog -Level Warning -Message "Lock originates from machine '$lockMachine' and is $([int]$lockAge.TotalHours)h old. Treating as stale."
-            }
-            else {
-                Write-RenderKitLog -Level Warning -Message "Lock originates from machine '$lockMachine'. Cannot verify remote process. Lock age: $([int]$lockAge.TotalHours).h (threshold: $([int]$StaleThreshold.TotalHours)h)."
-            }
+        $lockAge = (Get-Date) - (Get-Item -LiteralPath $lockPath -ErrorAction Stop).LastWriteTime
+        $displayMachine = if ([string]::IsNullOrWhiteSpace($lockMachine)) {
+            'unknown-machine'
+        }
+        else {
+            $lockMachine
+        }
+
+        if ($lockAge -gt $StaleThreshold) {
+            $isStale = $true
+            Write-RenderKitLog `
+                -Level Warning `
+                -Message "Lock originates from machine '$displayMachine' and is $([int]$lockAge.TotalHours)h old. Treating as stale."
+        }
+        else {
+            Write-RenderKitLog `
+                -Level Warning `
+                -Message "Lock originates from machine '$displayMachine'. Cannot verify remote process. Lock age: $([int]$lockAge.TotalHours)h (threshold: $([int]$StaleThreshold.TotalHours)h)."
+        }
     }
 
     if ($isStale) {
