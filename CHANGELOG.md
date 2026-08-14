@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RS-1517:** Merge pull request #93 from djtroi/fix/-import-project-metadata-path. (`7d337bc`)
+- **RS-1517:** Document provider-neutral regression scope. (`db6c65d`)
+- **RS-1517:** Keep import path regression focused on metadata segments. (`f842748`)
+- **RS-1517:** Preserve candidate array shape in Unix test. (`ed5c71e`)
+- **RS-1517:** Cover literal Unix backslash project names. (`bc273e8`)
+- **RS-1517:** Centralize portable import metadata paths. (`ff0e015`)
 - **RS-1516:** Merge pull request #92 from djtroi/fix/-portable-backup-audit-identity. (`f2dfa6c`)
 - **RS-1516:** Cover non-mutating audit identity normalization. (`7846468`)
 - **RS-1516:** Normalize backup job audit identity without mutation. (`be364e5`)
