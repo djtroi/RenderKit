@@ -13,6 +13,10 @@ function ConvertTo-BackupProbeArgumentText {
     # backslashes are doubled before the closing quote. Simple arguments stay
     # untouched so the modern ArgumentList and legacy Arguments paths remain
     # semantically equivalent.
+    $quote = [char]34
+    $backslash = [char]92
+    $backslashText = $backslash.ToString()
+
     $escaped = foreach ($argumentValue in @($Arguments)) {
         $argument = [string]$argumentValue
         if ($argument.Length -gt 0 -and $argument -notmatch '[\s"]') {
@@ -21,35 +25,39 @@ function ConvertTo-BackupProbeArgumentText {
         }
 
         $builder = New-Object System.Text.StringBuilder
-        [void]$builder.Append('"')
+        [void]$builder.Append($quote)
         $backslashCount = 0
 
         foreach ($character in $argument.ToCharArray()) {
-            if ($character -eq '\') {
+            if ($character -eq $backslash) {
                 $backslashCount++
                 continue
             }
 
-            if ($character -eq '"') {
+            if ($character -eq $quote) {
                 if ($backslashCount -gt 0) {
-                    [void]$builder.Append(('\' * ($backslashCount * 2)))
+                    [void]$builder.Append(
+                        ($backslashText * ($backslashCount * 2)))
                 }
-                [void]$builder.Append('\"')
+                [void]$builder.Append($backslash)
+                [void]$builder.Append($quote)
                 $backslashCount = 0
                 continue
             }
 
             if ($backslashCount -gt 0) {
-                [void]$builder.Append(('\' * $backslashCount))
+                [void]$builder.Append(
+                    ($backslashText * $backslashCount))
                 $backslashCount = 0
             }
             [void]$builder.Append($character)
         }
 
         if ($backslashCount -gt 0) {
-            [void]$builder.Append(('\' * ($backslashCount * 2)))
+            [void]$builder.Append(
+                ($backslashText * ($backslashCount * 2)))
         }
-        [void]$builder.Append('"')
+        [void]$builder.Append($quote)
         $builder.ToString()
     }
 
