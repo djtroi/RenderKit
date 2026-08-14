@@ -247,9 +247,15 @@ function Invoke-RenderKitJob {
     try {
         & $handler $runningJob | Out-Null
         $currentJob = Get-RenderKitJobById -JobId $JobId
-        if ($currentJob -and [string]$currentJob.status -eq 'Cancelled') {
+
+        # A handler may deliberately persist a terminal or re-queued state as
+        # part of its own transaction. Auto-completion is only valid while the
+        # job is still Running; overwriting another persisted state can turn a
+        # valid handler decision or lease recovery into a false success/retry.
+        if ($currentJob -and [string]$currentJob.status -ne 'Running') {
             return $currentJob
         }
+
         return Complete-RenderKitJob -JobId $JobId
     }
     catch {
