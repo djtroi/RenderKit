@@ -11,8 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **RS-1508:** Fix embedded backup worker runspace callback (#84). (`8ce5706`)
-
 ### Deprecated
 
 ### Removed
@@ -20,6 +18,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 ### Security
+
+## [1.1.5] - 2026-08-14
+
+### Changed
+
+- Release automation now runs only when `RenderKit.psd1` changes and rejects an already-published version instead of modifying an existing GitHub release.
+
+### Fixed
+
+- **RS-1508:** Fixed parallel backup workers invoking PowerShell script blocks from `Process.ErrorDataReceived` callbacks on thread-pool threads without an available PowerShell runspace. Redirected stderr is now drained asynchronously without cross-thread PowerShell callbacks while stdout remains available for FFmpeg progress streaming.
+- **RS-1508:** Hardened hardware encoder probing on Windows PowerShell 5.1 by falling back when `ProcessStartInfo.ArgumentList` or process-tree termination is unavailable, while preserving timeout handling and redirected output diagnostics.
 
 ## [1.1.4] - 2026-08-07
 
