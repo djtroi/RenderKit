@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RS-1520:** Merge pull request #96 from djtroi/fix/-release-publishing-gate. (`cd94c4a`)
+- **RS-1520:** Merge branch '1.1.5' into fix/-release-publishing-gate. (`29cc680`)
+- **RS-1520:** Cover transactional release workflow ordering. (`e0b0958`)
+- **RS-1520:** Serialize validated release publishing. (`95d2b17`)
 - **RS-1519:** Merge pull request #95 from djtroi/fix/-ffmpeg-probe-ps51-compatibility. (`b075c83`)
 - **RS-1519:** Make quoting assertions host-stable. (`8d97279`)
 - **RS-1519:** Make quoting fixtures character-explicit. (`35b0498`)
