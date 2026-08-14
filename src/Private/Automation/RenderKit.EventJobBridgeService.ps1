@@ -41,22 +41,6 @@ function Get-RenderKitEventJobSubscription {
     return $subscriptions
 }
 
-function Test-RenderKitJobExistsForEvent {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$TriggerEventId,
-        [Parameter(Mandatory)]
-        [string]$JobType
-    )
-
-    $store = Read-RenderKitJobStore
-    return [bool](@($store.jobs | Where-Object {
-        [string]$_.triggerEventId -eq $TriggerEventId -and
-        [string]$_.jobType -eq $JobType
-    }).Count -gt 0)
-}
-
 function New-RenderKitJobFromDomainEvent {
     [CmdletBinding()]
     param(
@@ -88,12 +72,13 @@ function Add-RenderKitEventJobIfMissing {
     )
 
     $normalizedJob = ConvertTo-RenderKitJobVNext -Job $Job
-    $state = [PSCustomObject]@{ Added = $false }
     $path = Get-RenderKitJobStorePath
+    $appendResult = New-Object System.Collections.Generic.List[bool]
 
-    # The duplicate check and append must share the same file transaction.
-    # A separate read-then-write sequence allows two bridge invocations to
-    # observe the same missing job and enqueue duplicate work concurrently.
+    # RS-1512: the duplicate check and append must share the same file transaction.
+    # A read-before-write check outside this lock allows concurrent bridge invocations
+    # to observe the same missing job and enqueue duplicate work before either writer
+    # commits its update.
     Invoke-RenderKitJsonFileTransaction `
         -Path $path `
         -DefaultValue (New-RenderKitJobStore) `
@@ -111,14 +96,17 @@ function Add-RenderKitEventJobIfMissing {
             if (-not $alreadyExists) {
                 $store.jobs = @($store.jobs) + @($normalizedJob)
                 $store.updatedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
-                $state.Added = $true
+                $appendResult.Add($true)
             }
 
             return $store
         } |
         Out-Null
 
-    if (-not $state.Added) {
+    # RS-1512: this reference-type marker records whether this invocation appended
+    # while holding the JobStore lock. Looking up the generated job id afterwards is
+    # insufficient because callers may legitimately retry with the same job object/id.
+    if ($appendResult.Count -eq 0) {
         return $null
     }
 

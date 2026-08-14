@@ -11,14 +11,15 @@ function Write-RenderKitWorkerLogEntry {
         [string]$LogPath
     )
 
-    # Worker diagnostics are best-effort and must never become worker control
-    # flow. The persisted worker/job state remains the durable source of truth
-    # if a log path disappears, becomes read-only, or is temporarily unavailable.
-    if ([string]::IsNullOrWhiteSpace($LogPath)) {
-        $LogPath = Get-RenderKitWorkerLogPath -WorkerId $WorkerId
-    }
-
+    # RS-1513: Worker diagnostics are strictly best-effort and must never become
+    # worker control flow. Path resolution belongs inside the same protected
+    # boundary as directory creation and file writes; otherwise a failing default
+    # log-path resolver can still terminate an otherwise healthy worker tick.
     try {
+        if ([string]::IsNullOrWhiteSpace($LogPath)) {
+            $LogPath = Get-RenderKitWorkerLogPath -WorkerId $WorkerId
+        }
+
         $logRoot = Split-Path -Path $LogPath -Parent
         if (-not [string]::IsNullOrWhiteSpace($logRoot) -and
             -not (Test-Path -LiteralPath $logRoot -PathType Container)) {
@@ -46,11 +47,17 @@ function Write-RenderKitWorkerLogEntry {
         return $LogPath
     }
     catch {
-        # Explicit Continue prevents a caller-level WarningPreference=Stop from
+        # Explicit Continue prevents caller-level WarningPreference=Stop from
         # turning this diagnostic fallback back into a worker failure.
+        $displayPath = if ([string]::IsNullOrWhiteSpace($LogPath)) {
+            '<default worker log>'
+        }
+        else {
+            $LogPath
+        }
         Write-Warning `
             -Message ("RenderKit could not write worker log '{0}': {1}" -f
-                $LogPath,
+                $displayPath,
                 $_.Exception.Message) `
             -WarningAction Continue
         return $null

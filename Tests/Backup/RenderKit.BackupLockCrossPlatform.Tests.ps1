@@ -116,6 +116,51 @@ Describe 'RenderKit backup lock cross-platform ownership' {
         $result.IsStale | Should -BeTrue
     }
 
+    It 'falls back to lock age when a local lock has no usable process id' {
+        $projectRoot = Join-Path $TestDrive 'local-unverifiable-lock-project'
+        New-Item `
+            -ItemType Directory `
+            -Path (Join-Path $projectRoot '.renderkit') `
+            -Force |
+            Out-Null
+
+        $result = InModuleScope RenderKit -Parameters @{
+            ProjectRoot = $projectRoot
+        } {
+            $lockPath = Get-BackupLockPath -ProjectRoot $ProjectRoot
+            [PSCustomObject]@{
+                lockType  = 'backup'
+                lockedAt  = (Get-Date).ToUniversalTime().ToString('o')
+                processId = 'not-a-pid'
+                machine   = [System.Environment]::MachineName
+            } |
+                ConvertTo-Json |
+                Set-Content -LiteralPath $lockPath -Encoding UTF8
+
+            $fresh = Test-BackupLock `
+                -ProjectRoot $ProjectRoot `
+                -StaleThreshold (New-TimeSpan -Hours 24)
+
+            (Get-Item -LiteralPath $lockPath).LastWriteTime = (Get-Date).AddHours(-48)
+            $aged = Test-BackupLock `
+                -ProjectRoot $ProjectRoot `
+                -StaleThreshold (New-TimeSpan -Hours 24)
+
+            [PSCustomObject]@{
+                fresh = $fresh
+                aged = $aged
+                definition = (Get-Command Test-BackupLock).Definition
+            }
+        }
+
+        $result.fresh.IsLocked | Should -BeTrue
+        $result.fresh.IsStale | Should -BeFalse
+        $result.aged.IsLocked | Should -BeFalse
+        $result.aged.IsStale | Should -BeTrue
+        $result.definition | Should -Match 'RS-1514'
+        $result.definition | Should -Match 'TryParse'
+    }
+
     It 'takes over the same observed stale lock without a remove-create window' {
         $projectRoot = Join-Path $TestDrive 'stale-takeover-project'
         New-Item `

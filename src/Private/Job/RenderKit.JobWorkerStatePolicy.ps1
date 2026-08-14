@@ -31,9 +31,9 @@ function Invoke-RenderKitJob {
         & $handler $runningJob | Out-Null
         $currentJob = Get-RenderKitJobById -JobId $JobId
 
-        # Handler-owned persisted state wins over generic worker policy. This
-        # matters for handlers that atomically cancel, fail, or re-queue their
-        # own work: automatic completion is only valid while status is Running.
+        # RS-1511: Handler-owned persisted state is authoritative. A handler may
+        # atomically fail, cancel, complete, or re-queue its own work, so generic
+        # auto-completion is only valid while the persisted status is Running.
         if ($currentJob -and [string]$currentJob.status -ne 'Running') {
             return $currentJob
         }
@@ -43,9 +43,9 @@ function Invoke-RenderKitJob {
     catch {
         $currentJob = Get-RenderKitJobById -JobId $JobId
 
-        # Apply retry policy only when the handler left the job Running. If the
-        # handler already persisted another state before throwing, mutating it
-        # again here can erase the real outcome or schedule an unintended retry.
+        # RS-1511: Generic retry/failure policy must not overwrite a state the
+        # handler already committed before throwing. The persisted state is the
+        # durable outcome; retry policy applies only while the job remains Running.
         if ($currentJob -and [string]$currentJob.status -ne 'Running') {
             return $currentJob
         }

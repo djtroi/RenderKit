@@ -11,6 +11,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RS-1519:** Merge pull request #95 from djtroi/fix/-ffmpeg-probe-ps51-compatibility. (`b075c83`)
+- **RS-1519:** Make quoting assertions host-stable. (`8d97279`)
+- **RS-1519:** Make quoting fixtures character-explicit. (`35b0498`)
+- **RS-1519:** Cover legacy FFmpeg argument quoting. (`3ab4629`)
+- **RS-1519:** Correct legacy argument escaping characters. (`23ec8e8`)
+- **RS-1519:** Harden legacy FFmpeg probe argument quoting. (`6eaf3df`)
+- **RS-1517:** Merge pull request #93 from djtroi/fix/-import-project-metadata-path. (`7d337bc`)
+- **RS-1517:** Document provider-neutral regression scope. (`db6c65d`)
+- **RS-1517:** Keep import path regression focused on metadata segments. (`f842748`)
+- **RS-1517:** Preserve candidate array shape in Unix test. (`ed5c71e`)
+- **RS-1517:** Cover literal Unix backslash project names. (`bc273e8`)
+- **RS-1517:** Centralize portable import metadata paths. (`ff0e015`)
+- **RS-1516:** Merge pull request #92 from djtroi/fix/-portable-backup-audit-identity. (`f2dfa6c`)
+- **RS-1516:** Cover non-mutating audit identity normalization. (`7846468`)
+- **RS-1516:** Normalize backup job audit identity without mutation. (`be364e5`)
+- **RS-1515:** Merge pull request #91 from djtroi/fix/-worker-state-host-pid-recovery. (`9afbdb4`)
+- **RS-1515:** Use portable Pester mock assertions. (`319fa23`)
+- **RS-1515:** Cover cross-host worker recovery guard. (`2f928eb`)
+- **RS-1515:** Guard worker crash recovery by host identity. (`f165102`)
+- **RS-1514:** Merge pull request #90 from djtroi/fix/-backup-lock-cross-platform. (`e72d74e`)
+- **RS-1514:** Cover unverifiable local lock ownership. (`e11cb04`)
+- **RS-1514:** Harden unverifiable backup lock ownership. (`d0c1650`)
+- **RS-1513:** Merge pull request #89 from djtroi/fix/-worker-diagnostics-best-effort. (`3979667`)
+- **RS-1513:** Cover default worker log path failures. (`ef25d1e`)
+- **RS-1513:** Harden worker diagnostic path resolution. (`84f887a`)
+
 ### Deprecated
 
 ### Removed
