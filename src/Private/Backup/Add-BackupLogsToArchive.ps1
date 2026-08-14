@@ -10,7 +10,12 @@ function Add-BackupLogsToArchive {
     Write-RenderKitLog -Level Debug -Message "Add-BackupLogsToArchive started: ArchivePath='$ArchivePath', ProjectRoot='$ProjectRoot'."
 
     if (-not (Test-Path -Path $ArchivePath -PathType Leaf)) {
-        Write-RenderKitLog -Level Error -Message "Archive '$ArchivePath' was not found."
+        # RS-1518: Keep diagnostics persistent without duplicating the
+        # terminating archive-not-found exception on PowerShell's error stream.
+        Write-RenderKitLog `
+            -Level Error `
+            -Message "Archive '$ArchivePath' was not found." `
+            -NoConsole
         throw "Archive '$ArchivePath' was not found."
     }
     if (-not (Test-Path -Path $ProjectRoot -PathType Container)) {
