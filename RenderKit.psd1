@@ -101,13 +101,14 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 1.1.5 hardens backup execution, durable workers, automation, cross-platform runtime behavior, and release publishing:
-- Fixes RS-1508 hosted-runspace crashes by removing cross-thread PowerShell process callbacks and prevents failure paths from creating secondary ErrorRecords.
-- Keeps FFmpeg progress streaming and hardware encoder probing compatible with Windows PowerShell 5.1.
-- Makes event-to-job deduplication transactional and preserves handler-owned persisted job states across completion and exception paths.
-- Makes worker diagnostic logging best-effort so logging failures cannot become worker failures.
-- Hardens portable filesystem and runtime identity handling for backup locks, manifests, background jobs, worker state, and project discovery, including race-safe stale-lock takeover.
-- Gates publishing on the successful Quality Gate for the exact main commit, validates supported installers before publication, and rejects duplicate release versions.
+Version 1.1.5 is a runtime-safety and cross-platform reliability patch release:
+- RS-1508 removes cross-thread PowerShell process callbacks from parallel backup workers, preserves FFmpeg progress streaming, and keeps the canonical terminating error from being masked by secondary ErrorRecords.
+- RS-1511 and RS-1512 harden durable jobs by preserving handler-owned persisted states and making event-to-job deduplication atomic inside the JobStore transaction.
+- RS-1513, RS-1515, and RS-1516 make worker diagnostics best-effort, guard PID recovery by explicit host ownership, and normalize portable manifest/job audit identity without mutating caller-owned context.
+- RS-1514 makes backup-lock ownership portable and stale-lock takeover race-safe on local and shared project paths.
+- RS-1517, RS-1518, and RS-1519 fix platform-native project metadata paths, duplicate backup error records, and Windows PowerShell 5.1 FFmpeg probe argument/termination compatibility.
+- RS-1520 serializes release publishing, requires the successful Quality Gate for the exact main commit, validates local and Gallery installation paths before the final GitHub Release, and refuses to overwrite existing release versions.
+- No public command or persisted JobStore/EventStore schema changes are introduced by this patch release.
 '@
         } # End of PSData hashtable
 
