@@ -73,12 +73,13 @@ function Add-RenderKitEventJobIfMissing {
 
     $normalizedJob = ConvertTo-RenderKitJobVNext -Job $Job
     $path = Get-RenderKitJobStorePath
+    $appendResult = New-Object System.Collections.Generic.List[bool]
 
-    # RS-1512: duplicate detection and append intentionally run under the same
-    # JobStore file lock. A read-before-write check outside this transaction
-    # allows concurrent bridge invocations to observe the same missing job and
-    # enqueue duplicate work before either writer commits its update.
-    $updatedStore = Invoke-RenderKitJsonFileTransaction `
+    # RS-1512: the duplicate check and append must share the same file transaction.
+    # A read-before-write check outside this lock allows concurrent bridge invocations
+    # to observe the same missing job and enqueue duplicate work before either writer
+    # commits its update.
+    Invoke-RenderKitJsonFileTransaction `
         -Path $path `
         -DefaultValue (New-RenderKitJobStore) `
         -Depth 30 `
@@ -95,23 +96,21 @@ function Add-RenderKitEventJobIfMissing {
             if (-not $alreadyExists) {
                 $store.jobs = @($store.jobs) + @($normalizedJob)
                 $store.updatedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+                $appendResult.Add($true)
             }
 
             return $store
-        }
+        } |
+        Out-Null
 
-    # The generated id exists only for this enqueue attempt. Looking it up in
-    # the committed store lets the caller know whether this invocation won the
-    # race without leaking mutable state out of the transaction scriptblock.
-    $createdJob = @($updatedStore.jobs | Where-Object {
-        [string]$_.id -eq [string]$normalizedJob.id
-    } | Select-Object -First 1)
-
-    if ($createdJob.Count -eq 0) {
+    # RS-1512: this reference-type marker records whether this invocation appended
+    # while holding the JobStore lock. Looking up the generated job id afterwards is
+    # insufficient because callers may legitimately retry with the same job object/id.
+    if ($appendResult.Count -eq 0) {
         return $null
     }
 
-    return $createdJob[0]
+    return $normalizedJob
 }
 
 function Invoke-RenderKitEventJobBridge {
