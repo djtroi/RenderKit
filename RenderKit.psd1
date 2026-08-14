@@ -1,6 +1,6 @@
 @{
     RootModule = 'RenderKit.psm1'
-    ModuleVersion = '1.1.4' # Major.Minor.Patch
+    ModuleVersion = '1.1.5' # Major.Minor.Patch
     Author = 'Norbert Marton'
     Description = 'PowerShell tools for structured video editing project workflows.'
     GUID = '32e3f476-8e44-4511-82c7-952748e6463b'
@@ -101,10 +101,11 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 1.1.4 is a corrective release of the RenderKit 1.1.3 feature set:
-- Fixes stale release-version assertions and README metadata left behind by the 1.1.3 release cut.
-- Updates release-documentation validation for canonical Keep a Changelog version headings.
-- Contains no additional runtime feature changes beyond RenderKit 1.1.3.
+Version 1.1.5 hardens backup process execution and release publishing:
+- Fixes backup worker crashes caused by asynchronous PowerShell process callbacks in hosted runspaces.
+- Keeps FFmpeg progress streaming while draining redirected stderr without cross-thread PowerShell callbacks.
+- Preserves hardware encoder probing on Windows PowerShell 5.1 by providing compatible argument and timeout-termination fallbacks.
+- Limits automatic release runs to manifest changes and rejects duplicate GitHub release versions instead of overwriting existing releases.
 '@
         } # End of PSData hashtable
 
