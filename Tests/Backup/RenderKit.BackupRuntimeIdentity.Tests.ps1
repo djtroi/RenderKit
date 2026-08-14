@@ -7,6 +7,17 @@ Describe 'RenderKit backup runtime identity' {
             -Force
     }
 
+    BeforeEach {
+        $env:RENDERKIT_HOME = Join-Path $TestDrive 'renderkit-home'
+        if (Test-Path -LiteralPath $env:RENDERKIT_HOME) {
+            Remove-Item -LiteralPath $env:RENDERKIT_HOME -Recurse -Force
+        }
+    }
+
+    AfterEach {
+        $env:RENDERKIT_HOME = $null
+    }
+
     AfterAll {
         Remove-Module RenderKit -Force -ErrorAction SilentlyContinue
     }
@@ -35,5 +46,21 @@ Describe 'RenderKit backup runtime identity' {
 
         $manifest.backup.createdBy | Should -Be ([System.Environment]::UserName)
         $manifest.backup.machine | Should -Be ([System.Environment]::MachineName)
+    }
+
+    It 'normalizes missing background job audit identity at the job boundary' {
+        $job = InModuleScope RenderKit {
+            New-BackupProjectJob `
+                -Payload ([PSCustomObject]@{
+                    schemaVersion = '1.0'
+                }) `
+                -RequestedBy ([PSCustomObject]@{
+                    user = $null
+                    machine = $null
+                })
+        }
+
+        $job.requestedBy.user | Should -Be ([System.Environment]::UserName)
+        $job.requestedBy.machine | Should -Be ([System.Environment]::MachineName)
     }
 }
