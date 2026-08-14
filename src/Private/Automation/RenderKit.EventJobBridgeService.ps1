@@ -80,6 +80,51 @@ function New-RenderKitJobFromDomainEvent {
         })
 }
 
+function Add-RenderKitEventJobIfMissing {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object]$Job
+    )
+
+    $normalizedJob = ConvertTo-RenderKitJobVNext -Job $Job
+    $state = [PSCustomObject]@{ Added = $false }
+    $path = Get-RenderKitJobStorePath
+
+    # The duplicate check and append must share the same file transaction.
+    # A separate read-then-write sequence allows two bridge invocations to
+    # observe the same missing job and enqueue duplicate work concurrently.
+    Invoke-RenderKitJsonFileTransaction `
+        -Path $path `
+        -DefaultValue (New-RenderKitJobStore) `
+        -Depth 30 `
+        -Validator { param($value) Test-RenderKitJobStore $value } `
+        -Update {
+            param($store)
+
+            $store = ConvertTo-RenderKitJobStoreVNext -Store $store
+            $alreadyExists = @($store.jobs | Where-Object {
+                [string]$_.triggerEventId -eq [string]$normalizedJob.triggerEventId -and
+                [string]$_.jobType -eq [string]$normalizedJob.jobType
+            }).Count -gt 0
+
+            if (-not $alreadyExists) {
+                $store.jobs = @($store.jobs) + @($normalizedJob)
+                $store.updatedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+                $state.Added = $true
+            }
+
+            return $store
+        } |
+        Out-Null
+
+    if (-not $state.Added) {
+        return $null
+    }
+
+    return $normalizedJob
+}
+
 function Invoke-RenderKitEventJobBridge {
     [CmdletBinding()]
     param(
@@ -95,17 +140,13 @@ function Invoke-RenderKitEventJobBridge {
             -EventType ([string]$event.eventType))
 
         foreach ($subscription in $subscriptions) {
-            if (Test-RenderKitJobExistsForEvent `
-                    -TriggerEventId ([string]$event.id) `
-                    -JobType ([string]$subscription.JobType)) {
-                continue
-            }
-
             $job = New-RenderKitJobFromDomainEvent `
                 -Event $event `
                 -Subscription $subscription
-            Add-RenderKitJob -Job $job | Out-Null
-            $createdJobs.Add($job)
+            $createdJob = Add-RenderKitEventJobIfMissing -Job $job
+            if ($createdJob) {
+                $createdJobs.Add($createdJob)
+            }
         }
 
         Set-RenderKitDomainEventStatus `
