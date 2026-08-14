@@ -11,6 +11,24 @@ Describe 'RenderKit backup lock cross-platform ownership' {
         Remove-Module RenderKit -Force -ErrorAction SilentlyContinue
     }
 
+    It 'builds the lock path from portable path segments' {
+        $projectRoot = Join-Path $TestDrive 'portable-path-project'
+        $result = InModuleScope RenderKit -Parameters @{
+            ProjectRoot = $projectRoot
+        } {
+            [PSCustomObject]@{
+                actual = Get-BackupLockPath -ProjectRoot $ProjectRoot
+                expected = Join-Path `
+                    -Path (Join-Path -Path $ProjectRoot -ChildPath '.renderkit') `
+                    -ChildPath 'backup.lock'
+                definition = (Get-Command Get-BackupLockPath).Definition
+            }
+        }
+
+        $result.actual | Should -Be $result.expected
+        $result.definition | Should -Not -Match '\.renderkit\\backup\.lock'
+    }
+
     It 'writes a portable machine and user identity into new locks' {
         $projectRoot = Join-Path $TestDrive 'portable-lock-project'
         New-Item `
