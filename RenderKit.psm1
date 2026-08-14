@@ -1,5 +1,5 @@
 $script:RenderKitModuleRoot = $PSScriptRoot
-$script:RenderKitModuleVersion = '1.1.2'
+$script:RenderKitModuleVersion = '1.1.5'
 $script:RenderKitPublicFunctions = @(
     'Add-Metadata'
     'Add-MetadataTemplate'
