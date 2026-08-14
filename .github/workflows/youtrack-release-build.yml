@@ -219,15 +219,19 @@ jobs:
               id = [string]$bundleElement.id
               name = [string]$bundleElement.name
             }
-            $newValue = if ($isMulti) {
-              @(
-                $currentValues | ForEach-Object {
-                  [ordered]@{ id = [string]$_.id; name = [string]$_.name }
-                }
-              ) + @($newElement)
+
+            if ($isMulti) {
+              $newValue = [System.Collections.ArrayList]::new()
+              foreach ($currentValue in $currentValues) {
+                [void]$newValue.Add([ordered]@{
+                  id = [string]$currentValue.id
+                  name = [string]$currentValue.name
+                })
+              }
+              [void]$newValue.Add($newElement)
             }
             else {
-              $newElement
+              $newValue = $newElement
             }
 
             $payload = [ordered]@{
