@@ -11,7 +11,13 @@ function Get-BackupLock {
     $lockDir = Split-Path $lockPath
 
     if (!(Test-Path $lockDir)){
-        Write-RenderKitLog -Level Error -Message "RenderKit metadata folder is missing for project '$ProjectRoot'."
+        # The following throw is the canonical PowerShell failure. Keep the
+        # diagnostic log file-only so hosted callers do not receive a second,
+        # non-terminating ErrorRecord for the same failure.
+        Write-RenderKitLog `
+            -Level Error `
+            -Message "RenderKit metadata folder is missing for project '$ProjectRoot'." `
+            -NoConsole
         throw "RenderKit folder missing - invalid RenderKit project"
     }
 
@@ -28,7 +34,10 @@ function Get-BackupLock {
             "unknown-machine"
         }
 
-        Write-RenderKitLog -Level Error -Message "Backup lock already present for '$ProjectRoot' (PID $($state.Lock.processId) on $machine)."
+        Write-RenderKitLog `
+            -Level Error `
+            -Message "Backup lock already present for '$ProjectRoot' (PID $($state.Lock.processId) on $machine)." `
+            -NoConsole
         throw "Backup already running (PID $($state.Lock.processId) on $machine)."
     }
 
