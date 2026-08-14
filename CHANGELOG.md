@@ -171,7 +171,7 @@ The public command surface and persisted job/event schemas remain unchanged.
   extracted-file integrity mismatches.
 - Bundled ExifTool 13.59 for Windows x86/x64 and as the official portable Perl
   distribution for macOS/Linux, with pinned upstream archive checksums,
-  per-file hashes and preserved license material.
+  per-file hashes, and preserved license material.
 - Added a reproducible ExifTool asset sync script and resolver coverage for
   explicit, bundled, metadata-host, and system-CLI execution.
 - Bundled hash-verified TagLibSharp 2.3.0 assemblies and LGPL license material
