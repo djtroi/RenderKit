@@ -11,11 +11,19 @@ function Add-BackupFileToArchive {
     Write-RenderKitLog -Level Debug -Message "Add-BackupFileToArchive started: ArchivePath='$ArchivePath', FilePath='$FilePath', EntryPath='$EntryPath'."
 
     if (-not (Test-Path -Path $ArchivePath -PathType Leaf)) {
-        Write-RenderKitLog -Level Error -Message "Archive '$ArchivePath' was not found."
+        # RS-1518: The terminating validation exception is authoritative; keep
+        # its diagnostic log file-only to avoid a secondary ErrorRecord.
+        Write-RenderKitLog `
+            -Level Error `
+            -Message "Archive '$ArchivePath' was not found." `
+            -NoConsole
         throw "Archive '$ArchivePath' was not found."
     }
     if (-not (Test-Path -Path $FilePath -PathType Leaf)) {
-        Write-RenderKitLog -Level Error -Message "File '$FilePath' was not found."
+        Write-RenderKitLog `
+            -Level Error `
+            -Message "File '$FilePath' was not found." `
+            -NoConsole
         throw "File '$FilePath' was not found."
     }
 
