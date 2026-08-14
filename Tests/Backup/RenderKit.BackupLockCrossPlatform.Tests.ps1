@@ -97,4 +97,52 @@ Describe 'RenderKit backup lock cross-platform ownership' {
         $result.IsLocked | Should -BeFalse
         $result.IsStale | Should -BeTrue
     }
+
+    It 'takes over the same observed stale lock without a remove-create window' {
+        $projectRoot = Join-Path $TestDrive 'stale-takeover-project'
+        New-Item `
+            -ItemType Directory `
+            -Path (Join-Path $projectRoot '.renderkit') `
+            -Force |
+            Out-Null
+
+        $result = InModuleScope RenderKit -Parameters @{
+            ProjectRoot = $projectRoot
+        } {
+            $lockPath = Get-BackupLockPath -ProjectRoot $ProjectRoot
+            $previousToken = [guid]::NewGuid().ToString()
+            [PSCustomObject]@{
+                lockType   = 'backup'
+                lockedAt   = (Get-Date).ToUniversalTime().AddHours(-1).ToString('o')
+                ownerToken = $previousToken
+                processId  = 2147483647
+                machine    = [System.Environment]::MachineName
+            } |
+                ConvertTo-Json |
+                Set-Content -LiteralPath $lockPath -Encoding UTF8
+
+            $handle = Get-BackupLock -ProjectRoot $ProjectRoot
+            try {
+                $current = Get-Content -LiteralPath $lockPath -Raw |
+                    ConvertFrom-Json
+                [PSCustomObject]@{
+                    previousToken = $previousToken
+                    handleToken = $handle.OwnerToken
+                    persistedToken = [string]$current.ownerToken
+                    definition = (Get-Command Get-BackupLock).Definition
+                }
+            }
+            finally {
+                Unlock-BackupLock `
+                    -ProjectRoot $ProjectRoot `
+                    -OwnerToken $handle.OwnerToken |
+                    Out-Null
+            }
+        }
+
+        $result.persistedToken | Should -Be $result.handleToken
+        $result.persistedToken | Should -Not -Be $result.previousToken
+        $result.definition | Should -Match 'same handle'
+        $result.definition | Should -Not -Match 'Remove-Item\s+-Path\s+\$lockPath'
+    }
 }
