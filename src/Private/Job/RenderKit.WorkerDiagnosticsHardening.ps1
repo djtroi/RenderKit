@@ -46,11 +46,13 @@ function Write-RenderKitWorkerLogEntry {
         return $LogPath
     }
     catch {
-        Write-Warning (
-            "RenderKit could not write worker log '{0}': {1}" -f
-            $LogPath,
-            $_.Exception.Message
-        )
+        # Explicit Continue prevents a caller-level WarningPreference=Stop from
+        # turning this diagnostic fallback back into a worker failure.
+        Write-Warning `
+            -Message ("RenderKit could not write worker log '{0}': {1}" -f
+                $LogPath,
+                $_.Exception.Message) `
+            -WarningAction Continue
         return $null
     }
 }
