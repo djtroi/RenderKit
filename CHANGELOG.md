@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RS-1508:** Fix embedded backup worker runspace callback (#84). (`8ce5706`)
+
 ### Deprecated
 
 ### Removed
