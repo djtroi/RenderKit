@@ -101,12 +101,12 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 1.1.5 hardens backup execution, durable workers, automation, locking, and release publishing:
+Version 1.1.5 hardens backup execution, durable workers, automation, cross-platform runtime behavior, and release publishing:
 - Fixes RS-1508 hosted-runspace crashes by removing cross-thread PowerShell process callbacks and prevents failure paths from creating secondary ErrorRecords.
 - Keeps FFmpeg progress streaming and hardware encoder probing compatible with Windows PowerShell 5.1.
 - Makes event-to-job deduplication transactional and preserves handler-owned persisted job states across completion and exception paths.
 - Makes worker diagnostic logging best-effort so logging failures cannot become worker failures.
-- Uses portable backup-lock ownership metadata and race-safe stale-lock takeover for local and shared project paths.
+- Hardens portable filesystem and runtime identity handling for backup locks, manifests, background jobs, worker state, and project discovery, including race-safe stale-lock takeover.
 - Gates publishing on the successful Quality Gate for the exact main commit, validates supported installers before publication, and rejects duplicate release versions.
 '@
         } # End of PSData hashtable
