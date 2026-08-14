@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RS-1519:** Merge pull request #95 from djtroi/fix/-ffmpeg-probe-ps51-compatibility. (`b075c83`)
+- **RS-1519:** Make quoting assertions host-stable. (`8d97279`)
+- **RS-1519:** Make quoting fixtures character-explicit. (`35b0498`)
+- **RS-1519:** Cover legacy FFmpeg argument quoting. (`3ab4629`)
+- **RS-1519:** Correct legacy argument escaping characters. (`23ec8e8`)
+- **RS-1519:** Harden legacy FFmpeg probe argument quoting. (`6eaf3df`)
 - **RS-1517:** Merge pull request #93 from djtroi/fix/-import-project-metadata-path. (`7d337bc`)
 - **RS-1517:** Document provider-neutral regression scope. (`db6c65d`)
 - **RS-1517:** Keep import path regression focused on metadata segments. (`f842748`)
