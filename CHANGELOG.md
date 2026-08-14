@@ -11,8 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **RS-1508:** Keep failure notifications off the error stream. (`27a0d75`)
-
 ### Deprecated
 
 ### Removed
@@ -25,12 +23,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Release automation now runs only when `RenderKit.psd1` changes and rejects an already-published version instead of modifying an existing GitHub release.
+- Release automation now runs only when `RenderKit.psd1` changes, waits for the successful Quality Gate run for the exact `main` commit, validates supported installers before publishing, and rejects an already-published version instead of modifying an existing GitHub release.
+- Event-to-job bridge deduplication now performs the duplicate check and enqueue in one job-store transaction.
+- Worker diagnostic logging is best-effort so log-path failures cannot change worker control flow.
+- Backup locks now use portable machine and user identity across supported platforms and conservatively handle legacy locks without machine ownership on shared paths.
 
 ### Fixed
 
 - **RS-1508:** Fixed parallel backup workers invoking PowerShell script blocks from `Process.ErrorDataReceived` callbacks on thread-pool threads without an available PowerShell runspace. Redirected stderr is now drained asynchronously without cross-thread PowerShell callbacks while stdout remains available for FFmpeg progress streaming.
+- **RS-1508:** Failure notifications and private backup validation, compression, and lock paths no longer emit secondary PowerShell `ErrorRecord`s when a terminating exception is already the canonical failure.
 - **RS-1508:** Hardened hardware encoder probing on Windows PowerShell 5.1 by falling back when `ProcessStartInfo.ArgumentList` or process-tree termination is unavailable, while preserving timeout handling and redirected output diagnostics.
+- Fixed generic job execution overwriting a state deliberately persisted by a handler during normal completion or exception handling.
+- Fixed stale backup-lock detection treating a blank machine identity as local on Unix-like hosts, which could incorrectly expire a lock from another machine based on a foreign PID.
+- Fixed stale backup-lock takeover using a remove-then-create window that could allow a slower contender to delete another process's freshly acquired lock. Stale takeover now verifies and replaces the observed lock through the same exclusive file handle.
 
 ## [1.1.4] - 2026-08-07
 
@@ -254,7 +259,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added architecture documentation for project identity and registry, project lifecycle, domain events and jobs, artifact versioning, cross-platform storage, security baseline, and the phased implementation plan.
 - Added cross-platform user storage support and documentation for configuration, state, cache, and user data roots, including `RENDERKIT_HOME` overrides and legacy data preservation guidance.
 - Added atomic JSON persistence helpers with file locking, backup restoration support, validation hooks, and transaction-style updates for RenderKit state files.
-- Added a central artifact versioning catalog and compatibility service for project, registry, event, job, template, mapping, device, and configuration artifacts.
+- Added a central artifact versioning catalog and compatibility service for project, registry, event, job, template, mapping, device, client, publishing, metadata, and configuration artifacts.
 - Added internal project registry and lifecycle services for tracking known projects, reconciling moved/missing project folders, validating lifecycle status transitions, and emitting lifecycle events.
 - Added internal domain-event storage, event-to-job automation subscriptions, durable job storage, job worker registration, and repair/health checks for RenderKit state.
 - Added host-facing engine contracts with actor and operation contexts, correlation/causation id handling, stable `RenderKitResult` envelopes, registered error codes, and a machine-readable engine contract snapshot for broker/Electron handoff.
