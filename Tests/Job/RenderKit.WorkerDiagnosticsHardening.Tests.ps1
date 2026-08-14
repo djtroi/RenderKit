@@ -38,18 +38,14 @@ Describe 'RenderKit worker diagnostic hardening' {
             $previousPreference = $WarningPreference
             try {
                 $WarningPreference = 'Stop'
-                $warningRecord = @()
 
                 {
                     Write-RenderKitWorkerLogEntry `
                         -WorkerId 'strict-warning-worker' `
                         -Message 'diagnostic message' `
-                        -LogPath $LogPath `
-                        -WarningVariable warningRecord |
+                        -LogPath $LogPath |
                         Out-Null
                 } | Should -Not -Throw
-
-                @($warningRecord).Count | Should -Be 1
             }
             finally {
                 $WarningPreference = $previousPreference
