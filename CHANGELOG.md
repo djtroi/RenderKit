@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RS-1514:** Merge pull request #90 from djtroi/fix/-backup-lock-cross-platform. (`e72d74e`)
+- **RS-1514:** Cover unverifiable local lock ownership. (`e11cb04`)
+- **RS-1514:** Harden unverifiable backup lock ownership. (`d0c1650`)
 - **RS-1513:** Merge pull request #89 from djtroi/fix/-worker-diagnostics-best-effort. (`3979667`)
 - **RS-1513:** Cover default worker log path failures. (`ef25d1e`)
 - **RS-1513:** Harden worker diagnostic path resolution. (`84f887a`)
