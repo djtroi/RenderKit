@@ -53,12 +53,30 @@ Describe 'RenderKit worker diagnostic hardening' {
         }
     }
 
+    It 'does not fail when default log-path resolution itself fails' {
+        InModuleScope RenderKit {
+            Mock Get-RenderKitWorkerLogPath {
+                throw 'worker log root is unavailable'
+            }
+
+            {
+                Write-RenderKitWorkerLogEntry `
+                    -WorkerId 'resolver-failure-worker' `
+                    -Message 'diagnostic message' |
+                    Out-Null
+            } | Should -Not -Throw
+
+            Assert-MockCalled Get-RenderKitWorkerLogPath -Times 1 -Exactly
+        }
+    }
+
     It 'documents why worker logging is best-effort' {
         $definition = InModuleScope RenderKit {
             (Get-Command Write-RenderKitWorkerLogEntry).Definition
         }
 
-        $definition | Should -Match 'persisted worker/job state remains the durable source of truth'
+        $definition | Should -Match 'RS-1513'
+        $definition | Should -Match 'Path resolution belongs inside the same protected'
         $definition | Should -Match 'ErrorAction Stop'
         $definition | Should -Match 'WarningAction Continue'
     }
