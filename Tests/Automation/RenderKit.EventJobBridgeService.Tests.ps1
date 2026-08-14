@@ -113,6 +113,7 @@ Describe 'RenderKit event/job bridge service' {
         $definition | Should -Match 'RS-1512'
         $definition | Should -Match 'Invoke-RenderKitJsonFileTransaction'
         $definition | Should -Match 'alreadyExists'
-        $definition | Should -Match 'committed store'
+        $definition | Should -Match 'appendResult'
+        $definition | Should -Match 'same job object/id'
     }
 }
