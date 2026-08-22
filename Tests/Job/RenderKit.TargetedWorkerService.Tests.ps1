@@ -124,6 +124,53 @@ Describe 'RenderKit targeted worker execution' {
         $storedTarget.lastWorkerId | Should -Be 'targeted-worker-1'
     }
 
+    It 'allows only one process to claim the same target concurrently' {
+        $target = Add-RenderKitJob -Job (
+            New-RenderKitJob `
+                -JobType 'ProjectLifecycleAutomation' `
+                -QueueName 'targeted-concurrency')
+        $modulePath = Join-Path $script:RenderKitModuleRoot 'RenderKit.psd1'
+        $renderKitHome = $env:RENDERKIT_HOME
+        $workers = @()
+
+        try {
+            foreach ($index in 1..2) {
+                $workers += Start-Job `
+                    -ArgumentList $modulePath, $renderKitHome, $target.id, $index `
+                    -ScriptBlock {
+                        param($ModulePath, $RenderKitHome, $JobId, $Index)
+                        $env:RENDERKIT_HOME = $RenderKitHome
+                        Import-Module $ModulePath -Force
+                        Start-RenderKitJobWorker `
+                            -WorkerId "concurrent-target-worker-$Index" `
+                            -JobId $JobId `
+                            -JobType 'ProjectLifecycleAutomation' `
+                            -QueueName 'targeted-concurrency' `
+                            -RunOnce
+                    }
+            }
+
+            $null = Wait-Job -Job $workers -Timeout 30
+            foreach ($workerJob in $workers) {
+                $workerJob.State | Should -Be 'Completed'
+            }
+            $results = @($workers | Receive-Job -ErrorAction Stop)
+            $storedTarget = Get-RenderKitJob -JobId $target.id
+
+            [int](($results | Measure-Object -Property processedCount -Sum).Sum) |
+                Should -Be 1
+            $storedTarget.status | Should -Be 'Succeeded'
+            [int]$storedTarget.attempts | Should -Be 1
+            $storedTarget.lastWorkerId |
+                Should -Match '^concurrent-target-worker-[12]$'
+        }
+        finally {
+            if ($workers.Count -gt 0) {
+                $workers | Remove-Job -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
     It 'does not execute a cancelled queued target' {
         Register-RenderKitJobHandler -JobType 'TargetedJob' -Handler {
             param($Job)
