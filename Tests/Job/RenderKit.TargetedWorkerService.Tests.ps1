@@ -4,6 +4,7 @@ Describe 'RenderKit targeted worker execution' {
         $script:RenderKitModuleRoot = $repositoryRoot
         function Register-RenderKitFunction {
             param([string]$Name)
+            $null = $Name
         }
         . (Join-Path $repositoryRoot 'src/Private/Storage/RenderKit.StorageService.ps1')
         . (Join-Path $repositoryRoot 'src/Private/Storage/RenderKit.PersistenceService.ps1')
@@ -27,7 +28,11 @@ Describe 'RenderKit targeted worker execution' {
     }
 
     It 'runs the requested job without claiming an older queued job' {
-        Register-RenderKitJobHandler -JobType 'TargetedJob' -Handler { param($Job) $true }
+        Register-RenderKitJobHandler -JobType 'TargetedJob' -Handler {
+            param($Job)
+            $null = $Job
+            $true
+        }
         $older = Add-RenderKitJob -Job (New-RenderKitJob -JobType 'TargetedJob' -QueueName 'targeted-test')
         Start-Sleep -Milliseconds 10
         $target = Add-RenderKitJob -Job (New-RenderKitJob -JobType 'TargetedJob' -QueueName 'targeted-test')
@@ -47,7 +52,11 @@ Describe 'RenderKit targeted worker execution' {
     }
 
     It 'does not claim a target from a different queue' {
-        Register-RenderKitJobHandler -JobType 'TargetedJob' -Handler { param($Job) $true }
+        Register-RenderKitJobHandler -JobType 'TargetedJob' -Handler {
+            param($Job)
+            $null = $Job
+            $true
+        }
         $target = Add-RenderKitJob -Job (New-RenderKitJob -JobType 'TargetedJob' -QueueName 'queue-a')
 
         $worker = Start-RenderKitJobWorker -WorkerId 'targeted-worker' -JobId $target.id -JobType 'TargetedJob' -QueueName 'queue-b' -RunOnce
@@ -59,7 +68,11 @@ Describe 'RenderKit targeted worker execution' {
     }
 
     It 'does not claim a target with a different job type' {
-        Register-RenderKitJobHandler -JobType 'TargetedJob' -Handler { param($Job) $true }
+        Register-RenderKitJobHandler -JobType 'TargetedJob' -Handler {
+            param($Job)
+            $null = $Job
+            $true
+        }
         $target = Add-RenderKitJob -Job (New-RenderKitJob -JobType 'TargetedJob' -QueueName 'targeted-test')
 
         $worker = Start-RenderKitJobWorker -WorkerId 'targeted-worker' -JobId $target.id -JobType 'OtherJob' -QueueName 'targeted-test' -RunOnce
