@@ -1,6 +1,6 @@
 @{
     RootModule = 'RenderKit.psm1'
-    ModuleVersion = '1.1.6' # Major.Minor.Patch
+    ModuleVersion = '1.1.7' # Major.Minor.Patch
     Author = 'Norbert Marton'
     Description = 'PowerShell tools for structured video editing project workflows.'
     GUID = '32e3f476-8e44-4511-82c7-952748e6463b'
@@ -101,10 +101,10 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 1.1.6 is a filesystem-compatibility patch release:
-- RS-1552 makes JSON reads provider-neutral so packaged system resources remain readable from protected installation locations such as Program Files without requiring write access.
-- JSON parsing failures remain distinct from file I/O and access failures while existing retry, size-limit, validation, and atomic-write behavior is preserved.
-- No public command or persisted schema changes are introduced by this patch release.
+Version 1.1.7 adds targeted one-shot worker orchestration for host integrations:
+- RS-1563 adds optional -JobId targeting to Start-RenderKitJobWorker for RunOnce workers so orchestrators can bind a worker dispatch to one specific queued job.
+- Targeted claims remain atomic and require matching queued status, job type, and queue while preserving the existing lease, heartbeat, retry, cancellation, worker-state, and logging semantics.
+- Omitting -JobId preserves the existing priority/FIFO worker behavior, and no persisted schema changes are introduced by this release.
 '@
         } # End of PSData hashtable
 

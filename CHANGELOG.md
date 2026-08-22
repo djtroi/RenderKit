@@ -11,8 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **RS-1552:** Fix packaged JSON reads from protected install locations (#101). (`a67a95b`)
-
 ### Deprecated
 
 ### Removed
@@ -20,6 +18,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 ### Security
+
+## [1.1.7] - 2026-08-23
+
+RenderKit 1.1.7 adds targeted one-shot worker orchestration for host integrations
+while preserving the existing standalone priority/FIFO worker behavior.
+
+### Changed
+
+- **RS-1563:** Added optional `-JobId` targeting to `Start-RenderKitJobWorker` for `-RunOnce` workers so higher-level orchestrators can bind a worker dispatch to one specific queued job without consuming an older queue entry first.
+- Targeted claims are performed atomically and require matching queued status, job type, and queue name while retaining the existing lease, heartbeat, retry, cancellation, worker-state, and diagnostic logging behavior.
+- Added regression coverage for queue/type mismatches, running/cancelled/terminal targets, duplicate execution prevention, and concurrent cross-process claims against the same target job.
+- Omitting `-JobId` keeps the existing queue worker behavior unchanged; no persisted schema changes are introduced by this release.
 
 ## [1.1.6] - 2026-08-22
 

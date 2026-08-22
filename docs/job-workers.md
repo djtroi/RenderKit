@@ -1,9 +1,9 @@
 # Job workers
 
-RenderKit now includes an internal job-worker foundation. Workers execute queued
-jobs by resolving trusted in-module handlers for each job type.
-
-No public worker cmdlet is introduced in this phase.
+RenderKit includes a job-worker foundation for trusted local execution. Workers
+execute queued jobs by resolving trusted in-module handlers for each job type.
+The public `Start-RenderKitJobWorker` cmdlet hosts that execution locally while
+higher-level products remain responsible for worker-pool orchestration.
 
 ## Handler registry
 
@@ -19,7 +19,7 @@ placeholder for future lifecycle automation.
 
 ## Execution model
 
-The internal worker:
+A worker:
 
 1. recovers stale running jobs whose leases have expired;
 2. atomically starts a lease for a queued job for a worker id;
@@ -34,10 +34,39 @@ Worker hosts can renew leases with heartbeat updates. If a worker process exits
 without completing a job, a future worker tick can return the stale running job
 to `Queued` so it can be claimed again.
 
-## Current scope
+## Queue and targeted workers
 
-This phase provides trusted local execution primitives plus local worker
-ownership, lease, heartbeat, stale recovery, handler catalog metadata, and one-shot worker tick behavior.
-Scheduling policies, parallel worker orchestration, cancellation UX,
-notifications, cloud uploads, and GUI-visible job administration remain separate
-phases.
+Normal workers preserve the queue contract: priority is evaluated first and
+jobs with the same priority are claimed in creation order.
+
+```powershell
+Start-RenderKitJobWorker -JobType BackupProject -QueueName backup -RunOnce
+```
+
+Orchestrators can bind a one-shot worker to a specific queued job by supplying
+`-JobId` together with `-RunOnce`:
+
+```powershell
+Start-RenderKitJobWorker `
+    -WorkerId 'worker-01' `
+    -JobId $jobId `
+    -JobType BackupProject `
+    -QueueName backup `
+    -RunOnce
+```
+
+A targeted worker only claims the requested job when its job type and queue
+match. Other queued jobs remain untouched. Omitting `-JobId` keeps the existing
+queue behavior unchanged.
+
+## Product boundary
+
+RenderKit owns the durable job model, handler execution, leases, heartbeats,
+retries, progress, cancellation state, and worker identity. Products embedding
+RenderKit can build worker discovery, process lifecycle, pool sizing,
+capability-aware scheduling, and local or remote dispatch on top of these
+primitives without changing the standalone command behavior.
+
+The current scope is local execution. Distributed worker registration,
+transport security, remote scheduling, and server-side fleet management remain
+higher-level orchestration concerns.

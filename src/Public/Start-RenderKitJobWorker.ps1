@@ -2,6 +2,7 @@ function Start-RenderKitJobWorker {
     [CmdletBinding()]
     param(
         [string]$WorkerId,
+        [string]$JobId,
         [string]$JobType = 'BackupProject',
         [string]$QueueName = 'backup',
         [ValidateRange(1, 3600)]
@@ -14,6 +15,10 @@ function Start-RenderKitJobWorker {
         [switch]$Detached,
         [string]$LogPath
     )
+
+    if (-not [string]::IsNullOrWhiteSpace($JobId) -and -not $RunOnce) {
+        throw 'JobId can only be used with RunOnce workers.'
+    }
 
     $normalizedWorkerId = New-RenderKitWorkerId -WorkerId $WorkerId
     if ([string]::IsNullOrWhiteSpace($LogPath)) {
@@ -36,6 +41,9 @@ function Start-RenderKitJobWorker {
                 [int]$LeaseSeconds,
                 (& $quote $LogPath))
         )
+        if (-not [string]::IsNullOrWhiteSpace($JobId)) {
+            $commandParts[1] += " -JobId $(& $quote $JobId)"
+        }
         if ($MaxJobs -gt 0) {
             $commandParts[1] += " -MaxJobs $([int]$MaxJobs)"
         }
@@ -90,19 +98,31 @@ function Start-RenderKitJobWorker {
         Write-RenderKitWorkerLogEntry `
             -WorkerId $normalizedWorkerId `
             -LogPath $LogPath `
+            -JobId $JobId `
             -Message ("Detached worker process '{0}' started." -f $process.Id) |
             Out-Null
 
         return [PSCustomObject]@{
-            workerId   = $normalizedWorkerId
-            status     = 'Starting'
-            detached   = $true
-            processId  = [int]$process.Id
-            statePath  = Get-RenderKitWorkerStatePath -WorkerId $normalizedWorkerId
-            logPath    = $LogPath
-            jobType    = $JobType
-            queueName  = $QueueName
+            workerId      = $normalizedWorkerId
+            status        = 'Starting'
+            detached      = $true
+            processId     = [int]$process.Id
+            statePath     = Get-RenderKitWorkerStatePath -WorkerId $normalizedWorkerId
+            logPath       = $LogPath
+            jobId         = $JobId
+            jobType       = $JobType
+            queueName     = $QueueName
         }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($JobId)) {
+        return Invoke-RenderKitTargetedWorkerRunOnce `
+            -JobId $JobId `
+            -WorkerId $normalizedWorkerId `
+            -JobType $JobType `
+            -QueueName $QueueName `
+            -LeaseSeconds $LeaseSeconds `
+            -LogPath $LogPath
     }
 
     Invoke-RenderKitLocalWorkerLoop `
