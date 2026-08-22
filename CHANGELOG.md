@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RS-1552:** Fix packaged JSON reads from protected install locations (#101). (`a67a95b`)
+
 ### Deprecated
 
 ### Removed
