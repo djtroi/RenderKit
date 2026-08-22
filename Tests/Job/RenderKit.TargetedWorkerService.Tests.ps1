@@ -2,6 +2,9 @@ Describe 'RenderKit targeted worker execution' {
     BeforeAll {
         $repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
         $script:RenderKitModuleRoot = $repositoryRoot
+        function Register-RenderKitFunction {
+            param([string]$Name)
+        }
         . (Join-Path $repositoryRoot 'src/Private/Storage/RenderKit.StorageService.ps1')
         . (Join-Path $repositoryRoot 'src/Private/Storage/RenderKit.PersistenceService.ps1')
         . (Join-Path $repositoryRoot 'src/Private/Versioning/RenderKit.ArtifactVersionService.ps1')
