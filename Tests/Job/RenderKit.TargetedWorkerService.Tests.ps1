@@ -58,6 +58,18 @@ Describe 'RenderKit targeted worker execution' {
         [int]$storedTarget.attempts | Should -Be 0
     }
 
+    It 'does not claim a target with a different job type' {
+        Register-RenderKitJobHandler -JobType 'TargetedJob' -Handler { param($Job) $true }
+        $target = Add-RenderKitJob -Job (New-RenderKitJob -JobType 'TargetedJob' -QueueName 'targeted-test')
+
+        $worker = Start-RenderKitJobWorker -WorkerId 'targeted-worker' -JobId $target.id -JobType 'OtherJob' -QueueName 'targeted-test' -RunOnce
+        $storedTarget = Get-RenderKitJob -JobId $target.id
+
+        $worker.processedCount | Should -Be 0
+        $storedTarget.status | Should -Be 'Queued'
+        [int]$storedTarget.attempts | Should -Be 0
+    }
+
     It 'requires targeted workers to be run once' {
         { Start-RenderKitJobWorker -WorkerId 'invalid-targeted-worker' -JobId 'job-1' } |
             Should -Throw '*JobId can only be used with RunOnce workers*'
