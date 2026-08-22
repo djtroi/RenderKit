@@ -29,6 +29,17 @@ Describe 'RenderKit template and mapping portability' {
 
     AfterEach { Remove-Item Env:RENDERKIT_HOME -ErrorAction SilentlyContinue }
 
+    It 'reads bundled system templates through the canonical JSON reader' {
+        foreach ($templateName in @('default', 'minimal', 'podcast')) {
+            $template = Get-ProjectTemplate -TemplateName $templateName
+
+            $template.Name | Should -Be $templateName
+            [string]::IsNullOrWhiteSpace([string]$template.Version) |
+                Should -BeFalse
+            $null -eq $template.Folders | Should -BeFalse
+        }
+    }
+
     It 'imports, validates, exports, and renames templates' {
         $source = Join-Path $TestDrive 'template.json'
         @{ Version = '1.1'; Name = 'portable'; Folders = @(); Mappings = @(); Deliverables = @() } |

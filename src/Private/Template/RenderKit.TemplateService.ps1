@@ -94,8 +94,13 @@ function Read-RenderKitTemplateFile {
         return Read-RenderKitJsonFile -Path $Path
     }
     catch {
-        Write-RenderKitLog -Level Error -Message "Invalid JSON in template '$Path'."
-        throw "Invalid JSON in template '$Path'"
+        # RS-1552: Keep filesystem/access failures distinguishable from an
+        # actual JSON parse failure. The persistence layer already classifies
+        # the cause, so template loading must not replace it with a generic
+        # "Invalid JSON" message.
+        $message = "Failed to read template '$Path': $($_.Exception.Message)"
+        Write-RenderKitLog -Level Error -Message $message
+        throw $message
     }
 }
 

@@ -1,6 +1,6 @@
 @{
     RootModule = 'RenderKit.psm1'
-    ModuleVersion = '1.1.5' # Major.Minor.Patch
+    ModuleVersion = '1.1.7' # Major.Minor.Patch
     Author = 'Norbert Marton'
     Description = 'PowerShell tools for structured video editing project workflows.'
     GUID = '32e3f476-8e44-4511-82c7-952748e6463b'
@@ -101,14 +101,10 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 1.1.5 is a runtime-safety and cross-platform reliability patch release:
-- RS-1508 removes cross-thread PowerShell process callbacks from parallel backup workers, preserves FFmpeg progress streaming, and keeps the canonical terminating error from being masked by secondary ErrorRecords.
-- RS-1511 and RS-1512 harden durable jobs by preserving handler-owned persisted states and making event-to-job deduplication atomic inside the JobStore transaction.
-- RS-1513, RS-1515, and RS-1516 make worker diagnostics best-effort, guard PID recovery by explicit host ownership, and normalize portable manifest/job audit identity without mutating caller-owned context.
-- RS-1514 makes backup-lock ownership portable and stale-lock takeover race-safe on local and shared project paths.
-- RS-1517, RS-1518, and RS-1519 fix platform-native project metadata paths, duplicate backup error records, and Windows PowerShell 5.1 FFmpeg probe argument/termination compatibility.
-- RS-1520 serializes release publishing, requires the successful Quality Gate for the exact main commit, validates local and Gallery installation paths before the final GitHub Release, and refuses to overwrite existing release versions.
-- No public command or persisted JobStore/EventStore schema changes are introduced by this patch release.
+Version 1.1.7 adds targeted one-shot worker orchestration for host integrations:
+- RS-1563 adds optional -JobId targeting to Start-RenderKitJobWorker for RunOnce workers so orchestrators can bind a worker dispatch to one specific queued job.
+- Targeted claims remain atomic and require matching queued status, job type, and queue while preserving the existing lease, heartbeat, retry, cancellation, worker-state, and logging semantics.
+- Omitting -JobId preserves the existing priority/FIFO worker behavior, and no persisted schema changes are introduced by this release.
 '@
         } # End of PSData hashtable
 
