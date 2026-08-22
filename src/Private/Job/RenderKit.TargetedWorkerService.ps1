@@ -1,4 +1,4 @@
-function Start-RenderKitQueuedJobLeaseById {
+function Invoke-RenderKitQueuedJobLeaseById {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -11,6 +11,9 @@ function Start-RenderKitQueuedJobLeaseById {
     )
 
     $normalizedWorkerId = New-RenderKitWorkerId -WorkerId $WorkerId
+    $targetJobType = $JobType
+    $targetQueueName = $QueueName
+    $targetLeaseSeconds = $LeaseSeconds
     $claimState = [PSCustomObject]@{ Claimed = $false }
     $path = Get-RenderKitJobStorePath
 
@@ -34,12 +37,12 @@ function Start-RenderKitQueuedJobLeaseById {
             if ([string]$candidate.status -ne 'Queued') {
                 return $store
             }
-            if (-not [string]::IsNullOrWhiteSpace($JobType) -and
-                [string]$candidate.jobType -ne $JobType) {
+            if (-not [string]::IsNullOrWhiteSpace($targetJobType) -and
+                [string]$candidate.jobType -ne $targetJobType) {
                 return $store
             }
-            if (-not [string]::IsNullOrWhiteSpace($QueueName) -and
-                [string]$candidate.queueName -ne $QueueName) {
+            if (-not [string]::IsNullOrWhiteSpace($targetQueueName) -and
+                [string]$candidate.queueName -ne $targetQueueName) {
                 return $store
             }
 
@@ -49,7 +52,7 @@ function Start-RenderKitQueuedJobLeaseById {
             $candidate.startedAtUtc = $now.ToString('o')
             $candidate.claimedAtUtc = $now.ToString('o')
             $candidate.heartbeatAtUtc = $now.ToString('o')
-            $candidate.leaseUntilUtc = $now.AddSeconds($LeaseSeconds).ToString('o')
+            $candidate.leaseUntilUtc = $now.AddSeconds($targetLeaseSeconds).ToString('o')
             $candidate.ownerWorkerId = $normalizedWorkerId
             $candidate.lastWorkerId = $normalizedWorkerId
             $candidate.retryAfterUtc = $null
@@ -123,7 +126,7 @@ function Invoke-RenderKitTargetedWorkerRunOnce {
 
     try {
         $recovery = Reset-RenderKitStaleRunningJob
-        $claimed = Start-RenderKitQueuedJobLeaseById `
+        $claimed = Invoke-RenderKitQueuedJobLeaseById `
             -JobId $JobId `
             -WorkerId $normalizedWorkerId `
             -JobType $JobType `
