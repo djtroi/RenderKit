@@ -61,8 +61,22 @@ they are no longer available.
 
 ```powershell
 Start-RenderKitJobWorker -QueueName default -RunOnce
+
+$job = Backup-Project -ProjectName 'Documentary' -Background
+Start-RenderKitJobWorker `
+    -WorkerId 'desktop-worker-01' `
+    -JobId $job.JobId `
+    -JobType BackupProject `
+    -QueueName backup `
+    -RunOnce
+
 Get-RenderKitJobWorkerStatus -IncludeLogs -Tail 100
 ```
+
+`-JobId` provides an additive targeted worker mode for orchestrators that need
+to bind a one-shot worker to a specific queued job. Targeted workers require
+`-RunOnce`; normal queue workers keep their existing priority and FIFO claim
+behavior when `-JobId` is omitted.
 
 Detached workers are long-lived local processes. Prefer `-RunOnce` during
 development and validate handler/adaptor availability before unattended use.
