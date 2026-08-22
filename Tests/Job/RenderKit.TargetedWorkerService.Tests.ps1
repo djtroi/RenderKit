@@ -131,23 +131,26 @@ Describe 'RenderKit targeted worker execution' {
                 -QueueName 'targeted-concurrency')
         $modulePath = Join-Path $script:RenderKitModuleRoot 'RenderKit.psd1'
         $renderKitHome = $env:RENDERKIT_HOME
+        $jobId = [string]$target.id
         $workers = @()
 
         try {
             foreach ($index in 1..2) {
-                $workers += Start-Job `
-                    -ArgumentList $modulePath, $renderKitHome, $target.id, $index `
-                    -ScriptBlock {
-                        param($ModulePath, $RenderKitHome, $JobId, $Index)
-                        $env:RENDERKIT_HOME = $RenderKitHome
-                        Import-Module $ModulePath -Force
-                        Start-RenderKitJobWorker `
-                            -WorkerId "concurrent-target-worker-$Index" `
-                            -JobId $JobId `
-                            -JobType 'ProjectLifecycleAutomation' `
-                            -QueueName 'targeted-concurrency' `
-                            -RunOnce
-                    }
+                $workers += Start-Job -ScriptBlock {
+                    $workerModulePath = $using:modulePath
+                    $workerRenderKitHome = $using:renderKitHome
+                    $workerJobId = $using:jobId
+                    $workerIndex = $using:index
+
+                    $env:RENDERKIT_HOME = $workerRenderKitHome
+                    Import-Module $workerModulePath -Force
+                    Start-RenderKitJobWorker `
+                        -WorkerId "concurrent-target-worker-$workerIndex" `
+                        -JobId $workerJobId `
+                        -JobType 'ProjectLifecycleAutomation' `
+                        -QueueName 'targeted-concurrency' `
+                        -RunOnce
+                }
             }
 
             $null = Wait-Job -Job $workers -Timeout 30
