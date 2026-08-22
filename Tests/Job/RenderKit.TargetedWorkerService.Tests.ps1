@@ -83,6 +83,63 @@ Describe 'RenderKit targeted worker execution' {
         [int]$storedTarget.attempts | Should -Be 0
     }
 
+    It 'does not steal an already running target from another worker' {
+        Register-RenderKitJobHandler -JobType 'TargetedJob' -Handler {
+            param($Job)
+            $null = $Job
+            $true
+        }
+        $target = Add-RenderKitJob -Job (New-RenderKitJob -JobType 'TargetedJob' -QueueName 'targeted-test')
+        $claimed = Start-RenderKitQueuedJobLease -WorkerId 'existing-worker' -JobType 'TargetedJob' -QueueName 'targeted-test' -LeaseSeconds 300
+
+        $worker = Start-RenderKitJobWorker -WorkerId 'targeted-worker' -JobId $target.id -JobType 'TargetedJob' -QueueName 'targeted-test' -RunOnce
+        $storedTarget = Get-RenderKitJob -JobId $target.id
+
+        $claimed.id | Should -Be $target.id
+        $worker.processedCount | Should -Be 0
+        $storedTarget.status | Should -Be 'Running'
+        $storedTarget.ownerWorkerId | Should -Be 'existing-worker'
+        [int]$storedTarget.attempts | Should -Be 1
+    }
+
+    It 'does not execute a terminal target twice' {
+        $script:targetExecutionCount = 0
+        Register-RenderKitJobHandler -JobType 'TargetedJob' -Handler {
+            param($Job)
+            $null = $Job
+            $script:targetExecutionCount++
+            $true
+        }
+        $target = Add-RenderKitJob -Job (New-RenderKitJob -JobType 'TargetedJob' -QueueName 'targeted-test')
+
+        $first = Start-RenderKitJobWorker -WorkerId 'targeted-worker-1' -JobId $target.id -JobType 'TargetedJob' -QueueName 'targeted-test' -RunOnce
+        $second = Start-RenderKitJobWorker -WorkerId 'targeted-worker-2' -JobId $target.id -JobType 'TargetedJob' -QueueName 'targeted-test' -RunOnce
+        $storedTarget = Get-RenderKitJob -JobId $target.id
+
+        $first.processedCount | Should -Be 1
+        $second.processedCount | Should -Be 0
+        $script:targetExecutionCount | Should -Be 1
+        $storedTarget.status | Should -Be 'Succeeded'
+        [int]$storedTarget.attempts | Should -Be 1
+        $storedTarget.lastWorkerId | Should -Be 'targeted-worker-1'
+    }
+
+    It 'does not execute a cancelled queued target' {
+        Register-RenderKitJobHandler -JobType 'TargetedJob' -Handler {
+            param($Job)
+            throw "Cancelled target must not execute: $($Job.id)"
+        }
+        $target = Add-RenderKitJob -Job (New-RenderKitJob -JobType 'TargetedJob' -QueueName 'targeted-test')
+        Request-RenderKitJobCancellation -JobId $target.id -Reason 'RS-1563 cancellation boundary' | Out-Null
+
+        $worker = Start-RenderKitJobWorker -WorkerId 'targeted-worker' -JobId $target.id -JobType 'TargetedJob' -QueueName 'targeted-test' -RunOnce
+        $storedTarget = Get-RenderKitJob -JobId $target.id
+
+        $worker.processedCount | Should -Be 0
+        $storedTarget.status | Should -Be 'Cancelled'
+        [int]$storedTarget.attempts | Should -Be 0
+    }
+
     It 'requires targeted workers to be run once' {
         { Start-RenderKitJobWorker -WorkerId 'invalid-targeted-worker' -JobId 'job-1' } |
             Should -Throw '*JobId can only be used with RunOnce workers*'
