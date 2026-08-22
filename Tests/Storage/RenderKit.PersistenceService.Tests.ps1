@@ -30,6 +30,56 @@ Describe 'RenderKit JSON persistence service' {
         $bytes[0] | Should -Be 0x7B
     }
 
+    It 'reads valid JSON without PowerShell provider Force access' {
+        Set-Content `
+            -LiteralPath $script:jsonPath `
+            -Value '{"Name":"PackagedResource","Version":1}' `
+            -Encoding UTF8
+
+        Mock Get-Item {
+            throw [System.UnauthorizedAccessException]::new(
+                'Provider access should not be required.')
+        }
+        Mock Get-Content {
+            throw [System.UnauthorizedAccessException]::new(
+                'Provider access should not be required.')
+        }
+
+        $value = Read-RenderKitJsonFile -Path $script:jsonPath
+
+        $value.Name | Should -Be 'PackagedResource'
+        $value.Version | Should -Be 1
+    }
+
+    It 'keeps filesystem access failures distinct from invalid JSON' {
+        Set-Content `
+            -LiteralPath $script:jsonPath `
+            -Value '{"Version":1}' `
+            -Encoding UTF8
+        Mock Read-RenderKitTextFile {
+            throw [System.UnauthorizedAccessException]::new('Access denied.')
+        } -ParameterFilter {
+            $Path -eq $script:jsonPath
+        }
+
+        {
+            Read-RenderKitJsonFile `
+                -Path $script:jsonPath `
+                -ReadRetryCount 0
+        } | Should -Throw '*Unable to read JSON file*Access denied*'
+    }
+
+    It 'reports malformed content as invalid JSON' {
+        Set-Content `
+            -LiteralPath $script:jsonPath `
+            -Value '{invalid' `
+            -Encoding UTF8
+
+        {
+            Read-RenderKitJsonFile -Path $script:jsonPath
+        } | Should -Throw '*Invalid JSON*'
+    }
+
     It 'validates atomic JSON through a hidden sibling path' {
         $hiddenPath = Join-Path $script:testRoot '.metadata.json'
 
@@ -50,7 +100,7 @@ Describe 'RenderKit JSON persistence service' {
             -Value '{"Version":3}' `
             -Encoding UTF8
         $script:readAttempts = 0
-        Mock Get-Content {
+        Mock Read-RenderKitTextFile {
             $script:readAttempts++
             if ($script:readAttempts -eq 1) {
                 throw [System.IO.FileNotFoundException]::new(
@@ -58,7 +108,7 @@ Describe 'RenderKit JSON persistence service' {
             }
             return '{"Version":3}'
         } -ParameterFilter {
-            $LiteralPath -eq $script:jsonPath
+            $Path -eq $script:jsonPath
         }
 
         $value = Read-RenderKitJsonFile `

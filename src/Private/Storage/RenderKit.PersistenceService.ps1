@@ -87,6 +87,20 @@ function Test-RenderKitJsonValue {
     }
 }
 
+function Read-RenderKitTextFile {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    # RS-1552: JSON resources can live below protected application locations
+    # such as Program Files. Reading them must not depend on PowerShell provider
+    # -Force semantics or require any write-capable access to the parent path.
+    return [System.IO.File]::ReadAllText($Path)
+}
+
 function Read-RenderKitJsonFile {
     [CmdletBinding()]
     param(
@@ -110,46 +124,70 @@ function Read-RenderKitJsonFile {
     $resolvedPath = [System.IO.Path]::GetFullPath($Path)
     $value = $null
     $lastReadError = $null
+    $lastFailureKind = $null
+
     for ($attempt = 0; $attempt -le $ReadRetryCount; $attempt++) {
-        if (-not (Test-Path -LiteralPath $resolvedPath -PathType Leaf)) {
-            if ($AllowMissing) {
-                return $null
-            }
-            $lastReadError = [System.IO.FileNotFoundException]::new(
-                "JSON file not found: '$resolvedPath'.")
-        }
-        else {
-            try {
-                # Atomic candidates intentionally start with a dot. On Unix,
-                # PowerShell treats those paths as hidden and requires -Force
-                # even when the literal file name is already known.
-                $item = Get-Item `
-                    -LiteralPath $resolvedPath `
-                    -Force `
-                    -ErrorAction Stop
-                if ($item.Length -gt $MaximumBytes) {
-                    throw "JSON file '$resolvedPath' exceeds the $MaximumBytes byte limit."
+        try {
+            $fileInfo = [System.IO.FileInfo]::new($resolvedPath)
+            if (-not $fileInfo.Exists) {
+                if ($AllowMissing) {
+                    return $null
                 }
-                $value = Get-Content `
-                    -LiteralPath $resolvedPath `
-                    -Raw `
-                    -Force `
-                    -ErrorAction Stop |
-                    ConvertFrom-Json -ErrorAction Stop
-                $lastReadError = $null
+
+                throw [System.IO.FileNotFoundException]::new(
+                    "JSON file not found: '$resolvedPath'.")
+            }
+
+            if ($fileInfo.Length -gt $MaximumBytes) {
+                $lastReadError = [System.IO.InvalidDataException]::new(
+                    "JSON file '$resolvedPath' exceeds the $MaximumBytes byte limit.")
+                $lastFailureKind = 'Limit'
                 break
+            }
+
+            $jsonText = Read-RenderKitTextFile -Path $resolvedPath
+            try {
+                $value = $jsonText | ConvertFrom-Json -ErrorAction Stop
             }
             catch {
                 $lastReadError = $_.Exception
+                $lastFailureKind = 'Json'
+                break
             }
+
+            $lastReadError = $null
+            $lastFailureKind = $null
+            break
+        }
+        catch [System.IO.FileNotFoundException] {
+            $lastReadError = $_.Exception
+            $lastFailureKind = 'Missing'
+        }
+        catch {
+            $lastReadError = $_.Exception
+            $lastFailureKind = 'Read'
         }
 
         if ($attempt -lt $ReadRetryCount) {
             Start-Sleep -Milliseconds $ReadRetryMilliseconds
         }
     }
+
     if ($lastReadError) {
-        throw "Invalid JSON in '$resolvedPath': $($lastReadError.Message)"
+        switch ($lastFailureKind) {
+            'Json' {
+                throw "Invalid JSON in '$resolvedPath': $($lastReadError.Message)"
+            }
+            'Limit' {
+                throw $lastReadError.Message
+            }
+            'Missing' {
+                throw $lastReadError.Message
+            }
+            default {
+                throw "Unable to read JSON file '$resolvedPath': $($lastReadError.Message)"
+            }
+        }
     }
 
     if ($null -eq $value) {
