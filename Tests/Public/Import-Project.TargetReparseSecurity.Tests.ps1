@@ -3,6 +3,7 @@ BeforeAll {
 
     function Register-RenderKitFunction {
         param([string]$Name)
+        $null = $Name
     }
     function ConvertTo-RenderKitImportUserPath {
         param([string]$Path)
@@ -14,9 +15,14 @@ BeforeAll {
     }
     function Read-RenderKitProjectArchiveManifest {
         param([string]$Path)
+        $null = $Path
         return $script:ImportManifest
     }
-    function Write-RenderKitLog { param($Level, $Message) }
+    function Write-RenderKitLog {
+        param($Level, $Message)
+        $null = $Level
+        $null = $Message
+    }
 
     . (Join-Path $repositoryRoot 'src/Private/Project/RenderKit.ProjectImportTargetSecurityService.ps1')
     . (Join-Path $repositoryRoot 'src/Public/Import-Project.ps1')
