@@ -40,8 +40,11 @@ function Assert-RenderKitProjectImportTargetPathSafe {
     }
 
     foreach ($candidate in $pathsToCheck) {
-        if (-not (Test-Path -LiteralPath $candidate)) { continue }
-        $item = Get-Item -LiteralPath $candidate -Force -ErrorAction Stop
+        $item = Get-Item `
+            -LiteralPath $candidate `
+            -Force `
+            -ErrorAction SilentlyContinue
+        if (-not $item) { continue }
         if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
             throw "Import target path '$candidate' is a symbolic link or reparse point."
         }
