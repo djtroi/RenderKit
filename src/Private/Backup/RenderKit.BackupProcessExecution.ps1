@@ -66,11 +66,17 @@ function Start-BackupScheduledThreadJob {
     $fallbackArgumentText = ConvertTo-BackupProcessArgumentText `
         -Arguments @($Command.arguments)
 
+    # PSScriptAnalyzer does not model Start-ThreadJob -ArgumentList reliably.
+    # The worker receives immutable-by-value job input through the supported
+    # using-scope serialization boundary instead.
+    $scheduledCommandForJob = $Command
+    $fallbackArgumentTextForJob = $fallbackArgumentText
+
     Start-ThreadJob `
         -Name ([string]$Command.id) `
         -ScriptBlock {
-            $ScheduledCommand = $using:Command
-            $FallbackArgumentText = $using:fallbackArgumentText
+            $ScheduledCommand = $using:scheduledCommandForJob
+            $FallbackArgumentText = $using:fallbackArgumentTextForJob
 
             $progressLogPath = if ($ScheduledCommand.progress -and $ScheduledCommand.progress.logPath) {
                 [string]$ScheduledCommand.progress.logPath
