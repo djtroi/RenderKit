@@ -37,16 +37,21 @@ Describe 'RenderKit metadata process security bounds' {
 
     It 'closes completed capture streams before reopening their files' {
         $hostPath = (Get-Process -Id $PID).Path
-        $result = Invoke-RenderKitBoundedMetadataProcess `
-            -FilePath $hostPath `
-            -Arguments @(
-                '-NoProfile',
-                '-NonInteractive',
-                '-Command',
-                "[Console]::Out.Write('bounded-ok')"
-            ) `
-            -TimeoutSeconds 30
+        $result = @(
+            Invoke-RenderKitBoundedMetadataProcess `
+                -FilePath $hostPath `
+                -Arguments @(
+                    '-NoProfile',
+                    '-NonInteractive',
+                    '-Command',
+                    "[Console]::Out.Write('bounded-ok')"
+                ) `
+                -TimeoutSeconds 30
+        ) | Where-Object {
+            $_ -and $_.PSObject.Properties.Name -contains 'ExitCode'
+        } | Select-Object -Last 1
 
+        $result | Should -Not -BeNullOrEmpty
         $result.ExitCode | Should -Be 0
         $result.StandardOutput | Should -Be 'bounded-ok'
     }
