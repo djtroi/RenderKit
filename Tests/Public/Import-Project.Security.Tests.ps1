@@ -50,7 +50,7 @@ Describe 'Import-Project target boundary security' {
 
     It 'rejects dot segments, rooted names, and path separators' {
         $badNames = @('..', '.', '../outside', '..\outside', 'nested/project', 'nested\project')
-        if ([System.OperatingSystem]::IsWindows()) {
+        if ($env:OS -eq 'Windows_NT') {
             $badNames += 'C:\outside'
         }
         else {
