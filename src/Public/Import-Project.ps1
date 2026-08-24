@@ -43,6 +43,9 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
     if ([string]::IsNullOrWhiteSpace($ProjectName)) { throw 'Project name could not be resolved from manifest.' }
 
     $targetRoot = Join-Path -Path $resolvedDestinationRoot -ChildPath $ProjectName
+    $targetRoot = Assert-RenderKitProjectImportTargetPathSafe `
+        -TargetRoot $targetRoot `
+        -Path $targetRoot
 
     if ((Test-Path -LiteralPath $targetRoot) -and $ConflictAction -eq 'Error') {
         throw "Target project '$targetRoot' already exists. Use -ConflictAction Skip or Overwrite."
@@ -55,20 +58,17 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
     }
 
     if ($PSCmdlet.ShouldProcess($targetRoot, "Import RenderKit project from '$resolvedArchivePath'")) {
+        Assert-RenderKitProjectImportTargetPathSafe -TargetRoot $targetRoot -Path $targetRoot | Out-Null
         if ((Test-Path -LiteralPath $targetRoot) -and $ConflictAction -eq 'Overwrite') {
             Remove-Item -LiteralPath $targetRoot -Recurse -Force
         }
-        if (-not (Test-Path -LiteralPath $targetRoot)) {
-            New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
-        }
+        New-RenderKitProjectImportDirectorySafe -TargetRoot $targetRoot -Path $targetRoot | Out-Null
 
         foreach ($folder in @($manifest.RenderKitProjectManifest.Folders.Folder)) {
             $relativePath = [string]$folder.relativePath
             if (-not (Test-RenderKitProjectSafeRelativePath -RelativePath $relativePath)) { throw "Unsafe relative path in project manifest: '$relativePath'." }
             $folderPath = Join-Path -Path $targetRoot -ChildPath ($relativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar)
-            if (-not (Test-Path -LiteralPath $folderPath -PathType Container)) {
-                New-Item -ItemType Directory -Path $folderPath -Force | Out-Null
-            }
+            New-RenderKitProjectImportDirectorySafe -TargetRoot $targetRoot -Path $folderPath | Out-Null
         }
 
         $copied = 0
@@ -89,7 +89,8 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
                 if (-not $entry) { throw "Archive resource entry '$entryName' is missing." }
                 $targetResourceFile = Join-Path -Path $resourceRoot -ChildPath ($resourceRelativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar)
                 $targetResourceDir = Split-Path -Path $targetResourceFile -Parent
-                if (-not (Test-Path -LiteralPath $targetResourceDir -PathType Container)) { New-Item -ItemType Directory -Path $targetResourceDir -Force | Out-Null }
+                New-RenderKitProjectImportDirectorySafe -TargetRoot $targetRoot -Path $targetResourceDir | Out-Null
+                Assert-RenderKitProjectImportTargetPathSafe -TargetRoot $targetRoot -Path $targetResourceFile | Out-Null
                 [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $targetResourceFile, $true)
                 if ($VerifyHash) {
                     $expectedResourceSize = [int64]$resourceNode.sizeBytes
@@ -129,9 +130,8 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
                         -Path (Join-Path -Path $targetRoot -ChildPath '.renderkit/metadata') `
                         -ChildPath ($metadataRelativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar)
                     $targetMetadataDir = Split-Path -Path $targetMetadataFile -Parent
-                    if (-not (Test-Path -LiteralPath $targetMetadataDir -PathType Container)) {
-                        New-Item -ItemType Directory -Path $targetMetadataDir -Force | Out-Null
-                    }
+                    New-RenderKitProjectImportDirectorySafe -TargetRoot $targetRoot -Path $targetMetadataDir | Out-Null
+                    Assert-RenderKitProjectImportTargetPathSafe -TargetRoot $targetRoot -Path $targetMetadataFile | Out-Null
                     [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $targetMetadataFile, $true)
                     if ($VerifyHash) {
                         $expectedMetadataSize = [int64]$metadataNode.sizeBytes
@@ -155,9 +155,11 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
                     Test-RenderKitProjectManifestFileEntry -FileNode $fileNode
                     $relativePath = [string]$fileNode.relativePath
                     $targetFile = Join-Path -Path $targetRoot -ChildPath ($relativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar)
+                    Assert-RenderKitProjectImportTargetPathSafe -TargetRoot $targetRoot -Path $targetFile | Out-Null
                     if ((Test-Path -LiteralPath $targetFile -PathType Leaf) -and $ConflictAction -eq 'Skip') { $skipped++; continue }
                     $targetDir = Split-Path -Path $targetFile -Parent
-                    if (-not (Test-Path -LiteralPath $targetDir -PathType Container)) { New-Item -ItemType Directory -Path $targetDir -Force | Out-Null }
+                    New-RenderKitProjectImportDirectorySafe -TargetRoot $targetRoot -Path $targetDir | Out-Null
+                    Assert-RenderKitProjectImportTargetPathSafe -TargetRoot $targetRoot -Path $targetFile | Out-Null
                     $entry = $zip.GetEntry(('project/{0}' -f $relativePath))
                     if (-not $entry) { throw "Archive entry for '$relativePath' is missing." }
                     [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $targetFile, $true)
@@ -182,12 +184,16 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
             }
         }
         finally { $zip.Dispose() }
+
+        $renderKitDirectory = Join-Path -Path $targetRoot -ChildPath '.renderkit'
+        New-RenderKitProjectImportDirectorySafe -TargetRoot $targetRoot -Path $renderKitDirectory | Out-Null
         if ($IncludeMetadata -and $metadataFileCount -eq 0 -and $isSelfContained -and $TransferMode -eq 'Copy') {
             $metadataExtraction = Update-RenderKitProjectMetadataCache `
                 -ProjectRoot $targetRoot `
                 -ThrottleLimit 4
         }
-         $metadataPath = Get-RenderKitProjectMetadataPath -ProjectRoot $targetRoot
+        $metadataPath = Get-RenderKitProjectMetadataPath -ProjectRoot $targetRoot
+        Assert-RenderKitProjectImportTargetPathSafe -TargetRoot $targetRoot -Path $metadataPath | Out-Null
         if (-not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
             $metadata = New-RenderKitProjectMetadata `
                 -ProjectName $ProjectName `
