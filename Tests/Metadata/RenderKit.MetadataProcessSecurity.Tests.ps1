@@ -30,6 +30,24 @@ Describe 'RenderKit metadata process security bounds' {
         $script:ProcessSecuritySource | Should -Not -Match 'OutputDataReceived'
     }
 
+    It 'closes completed capture streams before reopening their files' {
+        $hostPath = (Get-Process -Id $PID).Path
+        $result = InModuleScope RenderKit -Parameters @{ HostPath = $hostPath } {
+            Invoke-RenderKitBoundedMetadataProcess `
+                -FilePath $HostPath `
+                -Arguments @(
+                    '-NoProfile',
+                    '-NonInteractive',
+                    '-Command',
+                    "[Console]::Out.Write('bounded-ok')"
+                ) `
+                -TimeoutSeconds 30
+        }
+
+        $result.ExitCode | Should -Be 0
+        $result.StandardOutput | Should -Be 'bounded-ok'
+    }
+
     It 'routes all external metadata adapters through the bounded process runner' {
         $script:ProcessIntegrationSource | Should -Match 'function Invoke-RenderKitExifToolCandidate'
         $script:ProcessIntegrationSource | Should -Match 'function Invoke-RenderKitMediaInfoHostMetadataRead'
