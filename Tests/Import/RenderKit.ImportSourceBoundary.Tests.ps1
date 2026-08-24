@@ -44,8 +44,9 @@ Describe 'RenderKit import source boundary' {
         $catalog = InModuleScope RenderKit -Parameters @{ Source = $source } {
             @(Get-RenderKitImportFileCatalog -SourcePath $Source)
         }
+        $names = @($catalog | ForEach-Object { $_.Name })
 
-        $catalog.Name | Should -Not -Contain 'secret.txt'
+        $names | Should -Not -Contain 'secret.txt'
     }
 
     It 'does not catalog a symbolic-link file outside the source root' {
@@ -66,8 +67,9 @@ Describe 'RenderKit import source boundary' {
         $catalog = InModuleScope RenderKit -Parameters @{ Source = $source } {
             @(Get-RenderKitImportFileCatalog -SourcePath $Source)
         }
+        $names = @($catalog | ForEach-Object { $_.Name })
 
-        $catalog.Name | Should -Not -Contain 'linked.txt'
+        $names | Should -Not -Contain 'linked.txt'
     }
 
     It 'loads the hardened catalog implementation after the base import service' {
