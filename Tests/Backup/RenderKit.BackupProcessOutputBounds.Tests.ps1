@@ -4,8 +4,13 @@ Describe 'RenderKit backup process output bounds' {
         $securityPath = Join-Path `
             $repositoryRoot `
             'src/Private/Backup/ZZ-RenderKit.BackupProcessOutputSecurity.ps1'
+        $serialSecurityPath = Join-Path `
+            $repositoryRoot `
+            'src/Private/Backup/ZZZ-RenderKit.BackupSerialProcessOutputSecurity.ps1'
         $script:SecuritySource = Get-Content -LiteralPath $securityPath -Raw
+        $script:SerialSecuritySource = Get-Content -LiteralPath $serialSecurityPath -Raw
         . $securityPath
+        . $serialSecurityPath
     }
 
     It 'uses bounded stdout stderr and progress storage without an encode timeout' {
@@ -17,9 +22,17 @@ Describe 'RenderKit backup process output bounds' {
         $script:SecuritySource | Should -Match 'ReadLineAsync\(\)'
         $script:SecuritySource | Should -Not -Match 'ReadToEndAsync\(\)'
         $script:SecuritySource | Should -Not -Match 'TimeoutSeconds'
+
+        $script:SerialSecuritySource | Should -Match 'maximumOutputLines = 2048'
+        $script:SerialSecuritySource | Should -Match 'maximumOutputCharacters = 1048576'
+        $script:SerialSecuritySource | Should -Match 'maximumErrorLines = 1024'
+        $script:SerialSecuritySource | Should -Match 'maximumErrorCharacters = 524288'
+        $script:SerialSecuritySource | Should -Match 'ReadLineAsync\(\)'
+        $script:SerialSecuritySource | Should -Not -Match 'ReadToEndAsync\(\)'
+        $script:SerialSecuritySource | Should -Not -Match 'TimeoutSeconds'
     }
 
-    It 'returns only bounded diagnostic tails from a chatty process' {
+    It 'returns only bounded diagnostic tails from the process path available on this host' {
         $hostPath = (Get-Process -Id $PID).Path
         $progressRoot = Join-Path $TestDrive 'chatty-progress'
         [void][System.IO.Directory]::CreateDirectory($progressRoot)
@@ -48,13 +61,21 @@ for ($i = 0; $i -lt 1100; $i++) {
             }
         }
 
-        $job = Start-BackupScheduledThreadJob -Command $command
-        try {
-            $result = @(Receive-Job -Job $job -Wait -ErrorAction Stop) |
-                Select-Object -Last 1
+        if (Get-Command -Name Start-ThreadJob -ErrorAction SilentlyContinue) {
+            $job = Start-BackupScheduledThreadJob -Command $command
+            try {
+                $result = @(Receive-Job -Job $job -Wait -ErrorAction Stop) |
+                    Select-Object -Last 1
+            }
+            finally {
+                Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+            }
+
+            (Get-Item -LiteralPath $progressPath).Length |
+                Should -BeLessOrEqual 1048576
         }
-        finally {
-            Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+        else {
+            $result = Invoke-BackupBoundedSerialProcessCapture -Command $command
         }
 
         $result.exitCode | Should -Be 0
@@ -64,12 +85,18 @@ for ($i = 0; $i -lt 1100; $i++) {
         $result.errorTruncated | Should -BeTrue
         $result.totalOutputLines | Should -Be 2200
         $result.totalErrorLines | Should -Be 1100
-        (Get-Item -LiteralPath $progressPath).Length |
-            Should -BeLessOrEqual 1048576
+    }
+
+    It 'routes the serial scheduler fallback through bounded capture' {
+        $script:SerialSecuritySource | Should -Match 'function Invoke-BackupFfmpegCommand'
+        $script:SerialSecuritySource | Should -Match 'Invoke-BackupBoundedSerialProcessCapture -Command \$Command'
+        $script:SerialSecuritySource | Should -Not -Match '\$lines\s*=\s*&\s*\('
     }
 
     It 'caps a single hostile output line before retaining or logging it' {
         $script:SecuritySource | Should -Match 'maximumCapturedLineCharacters = 16384'
         $script:SecuritySource | Should -Match '\[line truncated\]'
+        $script:SerialSecuritySource | Should -Match 'maximumCapturedLineCharacters = 16384'
+        $script:SerialSecuritySource | Should -Match '\[line truncated\]'
     }
 }
