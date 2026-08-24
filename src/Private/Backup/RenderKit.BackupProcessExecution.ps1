@@ -1,6 +1,61 @@
 # RS-1508: Process.ErrorDataReceived invokes PowerShell script blocks on .NET
 # thread-pool threads that do not have a DefaultRunspace in embedded hosts.
 # Read redirected stderr directly instead so backup workers remain safe in hosted runspaces.
+function ConvertTo-BackupProcessArgumentText {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [AllowNull()]
+        [AllowEmptyCollection()]
+        [string[]]$Arguments
+    )
+
+    $encoded = foreach ($argumentValue in @($Arguments)) {
+        $argument = if ($null -eq $argumentValue) { '' } else { [string]$argumentValue }
+
+        if ($argument.Length -gt 0 -and $argument -notmatch '[\s"]') {
+            $argument
+            continue
+        }
+
+        $builder = New-Object System.Text.StringBuilder
+        [void]$builder.Append('"')
+        $backslashCount = 0
+
+        foreach ($character in $argument.ToCharArray()) {
+            if ($character -eq '\') {
+                $backslashCount++
+                continue
+            }
+
+            if ($character -eq '"') {
+                for ($index = 0; $index -lt (($backslashCount * 2) + 1); $index++) {
+                    [void]$builder.Append('\')
+                }
+                [void]$builder.Append('"')
+                $backslashCount = 0
+                continue
+            }
+
+            for ($index = 0; $index -lt $backslashCount; $index++) {
+                [void]$builder.Append('\')
+            }
+            $backslashCount = 0
+            [void]$builder.Append($character)
+        }
+
+        # Backslashes immediately before the closing quote must be doubled or
+        # they can escape the quote and merge the following process argument.
+        for ($index = 0; $index -lt ($backslashCount * 2); $index++) {
+            [void]$builder.Append('\')
+        }
+        [void]$builder.Append('"')
+        $builder.ToString()
+    }
+
+    return ($encoded -join ' ')
+}
+
 function Start-BackupScheduledThreadJob {
     [CmdletBinding()]
     param(
@@ -8,26 +63,14 @@ function Start-BackupScheduledThreadJob {
         [object]$Command
     )
 
+    $fallbackArgumentText = ConvertTo-BackupProcessArgumentText `
+        -Arguments @($Command.arguments)
+
     Start-ThreadJob `
         -Name ([string]$Command.id) `
-        -ArgumentList $Command `
+        -ArgumentList @($Command, $fallbackArgumentText) `
         -ScriptBlock {
-            param($ScheduledCommand)
-
-            function ConvertTo-BackupProcessArgumentText {
-                param([string[]]$Arguments)
-
-                $escaped = foreach ($argument in @($Arguments)) {
-                    if ($argument -match '[\s"]') {
-                        '"' + ($argument -replace '"', '\"') + '"'
-                    }
-                    else {
-                        $argument
-                    }
-                }
-
-                return ($escaped -join ' ')
-            }
+            param($ScheduledCommand, $FallbackArgumentText)
 
             $progressLogPath = if ($ScheduledCommand.progress -and $ScheduledCommand.progress.logPath) {
                 [string]$ScheduledCommand.progress.logPath
@@ -105,7 +148,7 @@ function Start-BackupScheduledThreadJob {
                 }
             }
             catch {
-                $processInfo.Arguments = ConvertTo-BackupProcessArgumentText -Arguments @($ScheduledCommand.arguments)
+                $processInfo.Arguments = [string]$FallbackArgumentText
             }
 
             $process = [System.Diagnostics.Process]::new()
