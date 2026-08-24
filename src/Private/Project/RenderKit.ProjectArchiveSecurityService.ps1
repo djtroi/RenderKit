@@ -25,7 +25,6 @@ function ConvertTo-RenderKitProjectArchiveExpectedSize {
 
 function Get-RenderKitProjectArchiveEntryIndex {
     [CmdletBinding()]
-    [OutputType([System.Collections.Generic.Dictionary[string,System.IO.Compression.ZipArchiveEntry]])]
     param(
         [Parameter(Mandatory)][System.IO.Compression.ZipArchive]$Archive,
         [int]$MaximumArchiveEntries = 250000
