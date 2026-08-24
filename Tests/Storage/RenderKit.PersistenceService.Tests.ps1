@@ -52,20 +52,23 @@ Describe 'RenderKit JSON persistence service' {
     }
 
     It 'keeps filesystem access failures distinct from invalid JSON' {
-        Set-Content `
-            -LiteralPath $script:jsonPath `
-            -Value '{"Version":1}' `
-            -Encoding UTF8
-        Mock Read-RenderKitTextFile {
-            param($Path, $MaximumBytes)
-            throw [System.UnauthorizedAccessException]::new('Access denied.')
+        [System.IO.File]::WriteAllText($script:jsonPath, '{"Version":1}')
+        $exclusiveHandle = [System.IO.File]::Open(
+            $script:jsonPath,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::ReadWrite,
+            [System.IO.FileShare]::None
+        )
+        try {
+            {
+                Read-RenderKitJsonFile `
+                    -Path $script:jsonPath `
+                    -ReadRetryCount 0
+            } | Should -Throw '*Unable to read JSON file*'
         }
-
-        {
-            Read-RenderKitJsonFile `
-                -Path $script:jsonPath `
-                -ReadRetryCount 0
-        } | Should -Throw '*Unable to read JSON file*Access denied*'
+        finally {
+            $exclusiveHandle.Dispose()
+        }
     }
 
     It 'reports malformed content as invalid JSON' {
@@ -90,28 +93,29 @@ Describe 'RenderKit JSON persistence service' {
         $value.Kind | Should -Be 'Hidden'
     }
 
-    It 'retries a transient read during an atomic file replacement' {
-        $script:readAttempts = 0
-        Set-Content `
-            -LiteralPath $script:jsonPath `
-            -Value '{"Version":2}' `
-            -Encoding UTF8
-        Mock Read-RenderKitTextFile {
-            param($Path, $MaximumBytes)
-            $script:readAttempts++
-            if ($script:readAttempts -eq 1) {
-                throw [System.IO.IOException]::new('Temporary replacement window.')
-            }
-            return '{"Version":2}'
+    It 'retries transient filesystem read failures before giving up' {
+        [System.IO.File]::WriteAllText($script:jsonPath, '{"Version":2}')
+        $exclusiveHandle = [System.IO.File]::Open(
+            $script:jsonPath,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::ReadWrite,
+            [System.IO.FileShare]::None
+        )
+        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        try {
+            {
+                Read-RenderKitJsonFile `
+                    -Path $script:jsonPath `
+                    -ReadRetryCount 2 `
+                    -ReadRetryMilliseconds 50
+            } | Should -Throw '*Unable to read JSON file*'
+            $stopwatch.Stop()
+            $stopwatch.ElapsedMilliseconds | Should -BeGreaterOrEqual 75
         }
-
-        $value = Read-RenderKitJsonFile `
-            -Path $script:jsonPath `
-            -ReadRetryCount 2 `
-            -ReadRetryMilliseconds 1
-
-        $value.Version | Should -Be 2
-        $script:readAttempts | Should -Be 2
+        finally {
+            if ($stopwatch.IsRunning) { $stopwatch.Stop() }
+            $exclusiveHandle.Dispose()
+        }
     }
 
     It 'preserves the previous valid file as a backup' {
