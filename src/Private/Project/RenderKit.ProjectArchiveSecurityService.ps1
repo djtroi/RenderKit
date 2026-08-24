@@ -1,3 +1,8 @@
+if ($PSVersionTable.PSVersion.Major -le 5) {
+    Add-Type -AssemblyName System.IO.Compression -ErrorAction Stop
+    Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
+}
+
 function ConvertTo-RenderKitProjectArchiveExpectedSize {
     [CmdletBinding()]
     param(
