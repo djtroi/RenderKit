@@ -7,7 +7,7 @@ AfterAll {
     Remove-Module RenderKit -Force -ErrorAction SilentlyContinue
 }
 
-Describe 'Copy-Project target containment' {
+Describe 'Project target containment' {
     It 'resolves a normal project name directly below its parent' {
         $parent = Join-Path $TestDrive 'projects'
         New-Item -ItemType Directory -Path $parent -Force | Out-Null
@@ -48,7 +48,7 @@ Describe 'Copy-Project target containment' {
         } | Should -Throw '*single path component*'
     }
 
-    It 'rejects Windows reserved device names before a copy can be created' {
+    It 'rejects Windows reserved device names' {
         $parent = Join-Path $TestDrive 'projects'
         New-Item -ItemType Directory -Path $parent -Force | Out-Null
         $previousOs = $env:OS
@@ -97,6 +97,32 @@ Describe 'Copy-Project target containment' {
             } | Should -Throw '*single path component*'
 
             Should -Invoke Copy-RenderKitProjectDirectory -Times 0
+        }
+
+        Test-Path -LiteralPath $outside | Should -BeFalse
+    }
+
+    It 'rejects traversal through New-Project before template resolution or directory creation' {
+        $parent = Join-Path $TestDrive 'new-projects'
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+        $outside = [System.IO.Path]::GetFullPath((Join-Path $parent '../OutsideProject'))
+
+        InModuleScope RenderKit -Parameters @{ Parent = $parent } {
+            Mock Write-RenderKitLog {}
+            Mock Get-ProjectTemplate {
+                throw 'Template resolution must not run for an unsafe target.'
+            }
+            Mock New-RenderKitProjectFromTemplate {}
+
+            {
+                New-Project `
+                    -Name '../OutsideProject' `
+                    -Path $Parent `
+                    -Confirm:$false
+            } | Should -Throw '*single path component*'
+
+            Should -Invoke Get-ProjectTemplate -Times 0
+            Should -Invoke New-RenderKitProjectFromTemplate -Times 0
         }
 
         Test-Path -LiteralPath $outside | Should -BeFalse
