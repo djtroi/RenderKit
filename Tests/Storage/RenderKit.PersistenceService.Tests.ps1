@@ -53,10 +53,10 @@ Describe 'RenderKit JSON persistence service' {
 
     It 'keeps filesystem access failures distinct from invalid JSON' {
         [System.IO.File]::WriteAllText($script:jsonPath, '{"Version":1}')
-        $originalTextReader = (Get-Item Function:\Read-RenderKitTextFile).ScriptBlock
+        $originalTextReader = (Get-Item Function:\script:Read-RenderKitTextFile).ScriptBlock
         try {
             Set-Item `
-                -Path Function:\Read-RenderKitTextFile `
+                -Path Function:\script:Read-RenderKitTextFile `
                 -Value {
                     param(
                         [string]$Path,
@@ -74,7 +74,7 @@ Describe 'RenderKit JSON persistence service' {
         }
         finally {
             Set-Item `
-                -Path Function:\Read-RenderKitTextFile `
+                -Path Function:\script:Read-RenderKitTextFile `
                 -Value $originalTextReader
         }
     }
@@ -103,11 +103,11 @@ Describe 'RenderKit JSON persistence service' {
 
     It 'retries transient filesystem read failures before succeeding' {
         [System.IO.File]::WriteAllText($script:jsonPath, '{"Version":2}')
-        $originalTextReader = (Get-Item Function:\Read-RenderKitTextFile).ScriptBlock
+        $originalTextReader = (Get-Item Function:\script:Read-RenderKitTextFile).ScriptBlock
         $script:readAttempts = 0
         try {
             Set-Item `
-                -Path Function:\Read-RenderKitTextFile `
+                -Path Function:\script:Read-RenderKitTextFile `
                 -Value {
                     param(
                         [string]$Path,
@@ -131,7 +131,7 @@ Describe 'RenderKit JSON persistence service' {
         }
         finally {
             Set-Item `
-                -Path Function:\Read-RenderKitTextFile `
+                -Path Function:\script:Read-RenderKitTextFile `
                 -Value $originalTextReader
         }
     }
