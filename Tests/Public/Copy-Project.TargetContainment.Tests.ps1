@@ -127,4 +127,24 @@ Describe 'Project target containment' {
 
         Test-Path -LiteralPath $outside | Should -BeFalse
     }
+
+    It 'rejects traversal when resolving an existing project before metadata is read' {
+        $parent = Join-Path $TestDrive 'existing-projects'
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+
+        InModuleScope RenderKit -Parameters @{ Parent = $parent } {
+            Mock Write-RenderKitLog {}
+            Mock Read-RenderKitJsonFile {
+                throw 'Metadata must not be read for an unsafe project name.'
+            }
+
+            {
+                Get-RenderKitProject `
+                    -ProjectName '../OutsideProject' `
+                    -Path $Parent
+            } | Should -Throw '*single path component*'
+
+            Should -Invoke Read-RenderKitJsonFile -Times 0
+        }
+    }
 }
