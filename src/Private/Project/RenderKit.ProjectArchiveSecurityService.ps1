@@ -5,6 +5,7 @@ if ($PSVersionTable.PSVersion.Major -le 5) {
 
 function ConvertTo-RenderKitProjectArchiveExpectedSize {
     [CmdletBinding()]
+    [OutputType([int64])]
     param(
         [Parameter(Mandatory)]$Value,
         [Parameter(Mandatory)][string]$EntryName
@@ -24,6 +25,7 @@ function ConvertTo-RenderKitProjectArchiveExpectedSize {
 
 function Get-RenderKitProjectArchiveEntryIndex {
     [CmdletBinding()]
+    [OutputType([System.Collections.Generic.Dictionary[string,System.IO.Compression.ZipArchiveEntry]])]
     param(
         [Parameter(Mandatory)][System.IO.Compression.ZipArchive]$Archive,
         [int]$MaximumArchiveEntries = 250000
@@ -52,7 +54,7 @@ function Get-RenderKitProjectArchiveEntryIndex {
     return $index
 }
 
-function Get-RenderKitProjectArchiveRequiredEntries {
+function Get-RenderKitProjectArchiveRequiredEntry {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$Manifest,
@@ -138,7 +140,7 @@ function Test-RenderKitProjectArchivePreflight {
         $index = Get-RenderKitProjectArchiveEntryIndex `
             -Archive $zip `
             -MaximumArchiveEntries $MaximumArchiveEntries
-        $requiredEntries = @(Get-RenderKitProjectArchiveRequiredEntries `
+        $requiredEntries = @(Get-RenderKitProjectArchiveRequiredEntry `
             -Manifest $Manifest `
             -IncludeMetadata $IncludeMetadata `
             -IncludeProjectFiles $IncludeProjectFiles)
@@ -185,8 +187,10 @@ function Test-RenderKitProjectArchivePreflight {
             throw
         }
         catch {
-            # Some network/provider-backed paths cannot be represented by DriveInfo.
-            # Entry and streaming bounds still protect those imports.
+            Write-Verbose (
+                "Unable to determine destination free space for '$DestinationRoot': " +
+                $_.Exception.Message
+            )
         }
 
         return [PSCustomObject]@{
