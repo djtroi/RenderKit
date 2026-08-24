@@ -1,5 +1,6 @@
 function Resolve-RenderKitProjectSiblingTarget {
     [CmdletBinding()]
+    [OutputType([System.Management.Automation.PSCustomObject])]
     param(
         [Parameter(Mandatory)][string]$ParentPath,
         [Parameter(Mandatory)][string]$ProjectName
