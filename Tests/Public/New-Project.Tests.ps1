@@ -20,6 +20,7 @@ BeforeAll {
     . (Join-Path $repositoryRoot 'src/Private/Project/RenderKit.ProjectSearchIndexService.ps1')
     . (Join-Path $repositoryRoot 'src/Private/Project/RenderKit.DiscoveredProjectStoreService.ps1')
     . (Join-Path $repositoryRoot 'src/Private/Project/RenderKit.ProjectService.ps1')
+    . (Join-Path $repositoryRoot 'src/Private/Template/RenderKit.TemplateFolderSecurityService.ps1')
     . (Join-Path $repositoryRoot 'src/Private/Template/RenderKit.TemplateService.ps1')
     . (Join-Path $repositoryRoot 'src/Public/New-Project.ps1')
 }
