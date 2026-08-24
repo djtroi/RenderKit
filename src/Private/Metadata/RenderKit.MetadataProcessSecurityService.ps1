@@ -181,6 +181,17 @@ function Invoke-RenderKitBoundedMetadataProcess {
             catch {
                 Write-Verbose "Metadata process exit wait failed: $($_.Exception.Message)"
             }
+            foreach ($captureTask in @($stdoutTask, $stderrTask)) {
+                if (-not $captureTask) {
+                    continue
+                }
+                try {
+                    $captureTask.GetAwaiter().GetResult()
+                }
+                catch {
+                    Write-Verbose "Metadata process capture drain failed after termination: $($_.Exception.Message)"
+                }
+            }
             throw $failure
         }
 
@@ -206,6 +217,14 @@ function Invoke-RenderKitBoundedMetadataProcess {
                 )
             }
         }
+
+        # Windows does not permit ReadAllText while the capture FileStream is
+        # still open with FileShare.Read. Close both completed capture handles
+        # before reopening the files for the final bounded read.
+        $stdoutStream.Dispose()
+        $stdoutStream = $null
+        $stderrStream.Dispose()
+        $stderrStream = $null
 
         $stdoutText = [System.IO.File]::ReadAllText($stdoutPath)
         $stderrText = [System.IO.File]::ReadAllText($stderrPath)
