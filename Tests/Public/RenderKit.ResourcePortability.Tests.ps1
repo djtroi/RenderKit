@@ -9,6 +9,7 @@ BeforeAll {
     . (Join-Path $repositoryRoot 'src/Private/Storage/RenderKit.StorageService.ps1')
     . (Join-Path $repositoryRoot 'src/Private/Storage/RenderKit.PersistenceService.ps1')
     . (Join-Path $repositoryRoot 'src/Private/Versioning/RenderKit.ArtifactVersionService.ps1')
+    . (Join-Path $repositoryRoot 'src/Private/Template/RenderKit.TemplateFolderSecurityService.ps1')
     . (Join-Path $repositoryRoot 'src/Private/Template/RenderKit.TemplateService.ps1')
     . (Join-Path $repositoryRoot 'src/Private/Mapping/RenderKit.MappingService.ps1')
     . (Join-Path $repositoryRoot 'src/Private/Resource/RenderKit.ResourcePortabilityService.ps1')
