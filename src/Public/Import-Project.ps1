@@ -1,4 +1,43 @@
 Register-RenderKitFunction "Import-Project"
+
+function Resolve-RenderKitProjectImportTargetRoot {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$DestinationRoot,
+        [Parameter(Mandatory)][string]$ProjectName
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ProjectName)) {
+        throw 'Project name could not be resolved from manifest.'
+    }
+    if ([System.IO.Path]::IsPathRooted($ProjectName) -or
+        $ProjectName -in @('.', '..') -or
+        $ProjectName.Contains('/') -or
+        $ProjectName.Contains('\')) {
+        throw "Unsafe project name in project manifest: '$ProjectName'."
+    }
+
+    $destinationFull = [System.IO.Path]::GetFullPath($DestinationRoot).TrimEnd(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    $targetFull = [System.IO.Path]::GetFullPath(
+        (Join-Path -Path $destinationFull -ChildPath $ProjectName)
+    )
+    $comparison = if ($IsWindows -or $PSVersionTable.PSEdition -eq 'Desktop') {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
+    $destinationPrefix = $destinationFull + [System.IO.Path]::DirectorySeparatorChar
+    if (-not $targetFull.StartsWith($destinationPrefix, $comparison)) {
+        throw "Project import target must stay inside destination root '$destinationFull'."
+    }
+
+    return $targetFull
+}
+
 function Import-Project {
     <#
 .SYNOPSIS
@@ -42,7 +81,9 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
     }
     if ([string]::IsNullOrWhiteSpace($ProjectName)) { throw 'Project name could not be resolved from manifest.' }
 
-    $targetRoot = Join-Path -Path $resolvedDestinationRoot -ChildPath $ProjectName
+    $targetRoot = Resolve-RenderKitProjectImportTargetRoot `
+        -DestinationRoot $resolvedDestinationRoot `
+        -ProjectName $ProjectName
 
     if ((Test-Path -LiteralPath $targetRoot) -and $ConflictAction -eq 'Error') {
         throw "Target project '$targetRoot' already exists. Use -ConflictAction Skip or Overwrite."
