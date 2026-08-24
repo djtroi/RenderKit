@@ -53,21 +53,29 @@ Describe 'RenderKit JSON persistence service' {
 
     It 'keeps filesystem access failures distinct from invalid JSON' {
         [System.IO.File]::WriteAllText($script:jsonPath, '{"Version":1}')
-        $exclusiveHandle = [System.IO.File]::Open(
-            $script:jsonPath,
-            [System.IO.FileMode]::Open,
-            [System.IO.FileAccess]::ReadWrite,
-            [System.IO.FileShare]::None
-        )
+        $originalTextReader = (Get-Item Function:\Read-RenderKitTextFile).ScriptBlock
         try {
+            Set-Item `
+                -Path Function:\Read-RenderKitTextFile `
+                -Value {
+                    param(
+                        [string]$Path,
+                        [long]$MaximumBytes
+                    )
+                    throw [System.UnauthorizedAccessException]::new(
+                        'Access denied.')
+                }
+
             {
                 Read-RenderKitJsonFile `
                     -Path $script:jsonPath `
                     -ReadRetryCount 0
-            } | Should -Throw '*Unable to read JSON file*'
+            } | Should -Throw '*Unable to read JSON file*Access denied*'
         }
         finally {
-            $exclusiveHandle.Dispose()
+            Set-Item `
+                -Path Function:\Read-RenderKitTextFile `
+                -Value $originalTextReader
         }
     }
 
@@ -93,28 +101,38 @@ Describe 'RenderKit JSON persistence service' {
         $value.Kind | Should -Be 'Hidden'
     }
 
-    It 'retries transient filesystem read failures before giving up' {
+    It 'retries transient filesystem read failures before succeeding' {
         [System.IO.File]::WriteAllText($script:jsonPath, '{"Version":2}')
-        $exclusiveHandle = [System.IO.File]::Open(
-            $script:jsonPath,
-            [System.IO.FileMode]::Open,
-            [System.IO.FileAccess]::ReadWrite,
-            [System.IO.FileShare]::None
-        )
-        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $originalTextReader = (Get-Item Function:\Read-RenderKitTextFile).ScriptBlock
+        $script:readAttempts = 0
         try {
-            {
-                Read-RenderKitJsonFile `
-                    -Path $script:jsonPath `
-                    -ReadRetryCount 2 `
-                    -ReadRetryMilliseconds 50
-            } | Should -Throw '*Unable to read JSON file*'
-            $stopwatch.Stop()
-            $stopwatch.ElapsedMilliseconds | Should -BeGreaterOrEqual 75
+            Set-Item `
+                -Path Function:\Read-RenderKitTextFile `
+                -Value {
+                    param(
+                        [string]$Path,
+                        [long]$MaximumBytes
+                    )
+                    $script:readAttempts++
+                    if ($script:readAttempts -lt 3) {
+                        throw [System.IO.IOException]::new(
+                            'Temporary replacement window.')
+                    }
+                    return '{"Version":2}'
+                }
+
+            $value = Read-RenderKitJsonFile `
+                -Path $script:jsonPath `
+                -ReadRetryCount 2 `
+                -ReadRetryMilliseconds 1
+
+            $value.Version | Should -Be 2
+            $script:readAttempts | Should -Be 3
         }
         finally {
-            if ($stopwatch.IsRunning) { $stopwatch.Stop() }
-            $exclusiveHandle.Dispose()
+            Set-Item `
+                -Path Function:\Read-RenderKitTextFile `
+                -Value $originalTextReader
         }
     }
 
