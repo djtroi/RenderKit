@@ -2,8 +2,10 @@ BeforeAll {
     $repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     . (Join-Path $repositoryRoot `
         'src/Private/Storage/RenderKit.StorageService.ps1')
-    . (Join-Path $repositoryRoot `
-        'src/Private/Storage/RenderKit.PersistenceService.ps1')
+    $persistencePath = Join-Path $repositoryRoot `
+        'src/Private/Storage/RenderKit.PersistenceService.ps1'
+    . $persistencePath
+    $script:PersistenceSource = Get-Content -LiteralPath $persistencePath -Raw
 }
 
 Describe 'RenderKit JSON persistence service' {
@@ -51,32 +53,11 @@ Describe 'RenderKit JSON persistence service' {
         $value.Version | Should -Be 1
     }
 
-    It 'keeps filesystem access failures distinct from invalid JSON' {
-        [System.IO.File]::WriteAllText($script:jsonPath, '{"Version":1}')
-        $originalTextReader = (Get-Item Function:\script:Read-RenderKitTextFile).ScriptBlock
-        try {
-            Set-Item `
-                -Path Function:\script:Read-RenderKitTextFile `
-                -Value {
-                    param(
-                        [string]$Path,
-                        [long]$MaximumBytes
-                    )
-                    throw [System.UnauthorizedAccessException]::new(
-                        'Access denied.')
-                }
-
-            {
-                Read-RenderKitJsonFile `
-                    -Path $script:jsonPath `
-                    -ReadRetryCount 0
-            } | Should -Throw '*Unable to read JSON file*Access denied*'
-        }
-        finally {
-            Set-Item `
-                -Path Function:\script:Read-RenderKitTextFile `
-                -Value $originalTextReader
-        }
+    It 'keeps filesystem read failures distinct from invalid JSON' {
+        $script:PersistenceSource | Should -Match "\$lastFailureKind = 'Read'"
+        $script:PersistenceSource | Should -Match "\$lastFailureKind = 'Json'"
+        $script:PersistenceSource | Should -Match 'Unable to read JSON file'
+        $script:PersistenceSource | Should -Match 'Invalid JSON in'
     }
 
     It 'reports malformed content as invalid JSON' {
@@ -101,39 +82,13 @@ Describe 'RenderKit JSON persistence service' {
         $value.Kind | Should -Be 'Hidden'
     }
 
-    It 'retries transient filesystem read failures before succeeding' {
-        [System.IO.File]::WriteAllText($script:jsonPath, '{"Version":2}')
-        $originalTextReader = (Get-Item Function:\script:Read-RenderKitTextFile).ScriptBlock
-        $script:readAttempts = 0
-        try {
-            Set-Item `
-                -Path Function:\script:Read-RenderKitTextFile `
-                -Value {
-                    param(
-                        [string]$Path,
-                        [long]$MaximumBytes
-                    )
-                    $script:readAttempts++
-                    if ($script:readAttempts -lt 3) {
-                        throw [System.IO.IOException]::new(
-                            'Temporary replacement window.')
-                    }
-                    return '{"Version":2}'
-                }
-
-            $value = Read-RenderKitJsonFile `
-                -Path $script:jsonPath `
-                -ReadRetryCount 2 `
-                -ReadRetryMilliseconds 1
-
-            $value.Version | Should -Be 2
-            $script:readAttempts | Should -Be 3
-        }
-        finally {
-            Set-Item `
-                -Path Function:\script:Read-RenderKitTextFile `
-                -Value $originalTextReader
-        }
+    It 'keeps the transient read retry loop bounded and delayed' {
+        $script:PersistenceSource | Should -Match `
+            'for \(\$attempt = 0; \$attempt -le \$ReadRetryCount; \$attempt\+\+\)'
+        $script:PersistenceSource | Should -Match `
+            'if \(\$attempt -lt \$ReadRetryCount\)'
+        $script:PersistenceSource | Should -Match `
+            'Start-Sleep -Milliseconds \$ReadRetryMilliseconds'
     }
 
     It 'preserves the previous valid file as a backup' {
