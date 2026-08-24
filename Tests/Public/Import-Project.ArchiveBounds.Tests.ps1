@@ -3,11 +3,15 @@ BeforeAll {
     Import-Module (Join-Path $repositoryRoot 'RenderKit.psd1') -Force
 
     function New-ArchiveBoundsTestZip {
+        [CmdletBinding(SupportsShouldProcess)]
         param(
             [Parameter(Mandatory)][string]$Path,
             [Parameter(Mandatory)][object[]]$Entries
         )
 
+        if (-not $PSCmdlet.ShouldProcess($Path, 'Create archive bounds test fixture')) {
+            return
+        }
         if (Test-Path -LiteralPath $Path) {
             Remove-Item -LiteralPath $Path -Force
         }
@@ -34,11 +38,15 @@ BeforeAll {
     }
 
     function New-ArchiveBoundsManifest {
+        [CmdletBinding(SupportsShouldProcess)]
         param(
             [string]$RelativePath = 'clip.txt',
             [int64]$SizeBytes = 5
         )
 
+        if (-not $PSCmdlet.ShouldProcess('in-memory archive manifest', 'Create test manifest')) {
+            return
+        }
         return [xml](
             '<RenderKitProjectManifest schemaVersion="1.0">' +
             '<Export mode="SelfContained" />' +
