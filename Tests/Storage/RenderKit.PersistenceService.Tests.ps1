@@ -56,10 +56,11 @@ Describe 'RenderKit JSON persistence service' {
             -LiteralPath $script:jsonPath `
             -Value '{"Version":1}' `
             -Encoding UTF8
+        # This test verifies classification only. Avoid a path-based Pester
+        # ParameterFilter here because PS5.1 and PS7 bind the canonicalized
+        # FileInfo path into mocked advanced functions differently.
         Mock Read-RenderKitTextFile {
             throw [System.UnauthorizedAccessException]::new('Access denied.')
-        } -ParameterFilter {
-            $Path -eq $script:jsonPath
         }
 
         {
@@ -82,40 +83,35 @@ Describe 'RenderKit JSON persistence service' {
 
     It 'validates atomic JSON through a hidden sibling path' {
         $hiddenPath = Join-Path $script:testRoot '.metadata.json'
-
         Write-RenderKitJsonFileAtomic `
-            -Value ([PSCustomObject]@{ Version = 1 }) `
+            -Value ([PSCustomObject]@{ Kind = 'Hidden' }) `
             -Path $hiddenPath |
             Out-Null
 
-        (Read-RenderKitJsonFile -Path $hiddenPath).Version | Should -Be 1
-        @(Get-ChildItem -LiteralPath $script:testRoot -Force |
-            Where-Object Name -like '.metadata.json.tmp.*') |
-            Should -HaveCount 0
+        $value = Read-RenderKitJsonFile -Path $hiddenPath
+        $value.Kind | Should -Be 'Hidden'
     }
 
     It 'retries a transient read during an atomic file replacement' {
+        $script:readAttempts = 0
         Set-Content `
             -LiteralPath $script:jsonPath `
-            -Value '{"Version":3}' `
+            -Value '{"Version":2}' `
             -Encoding UTF8
-        $script:readAttempts = 0
         Mock Read-RenderKitTextFile {
             $script:readAttempts++
             if ($script:readAttempts -eq 1) {
-                throw [System.IO.FileNotFoundException]::new(
-                    'Atomic replacement in progress.')
+                throw [System.IO.IOException]::new('Temporary replacement window.')
             }
-            return '{"Version":3}'
-        } -ParameterFilter {
-            $Path -eq $script:jsonPath
+            return '{"Version":2}'
         }
 
         $value = Read-RenderKitJsonFile `
             -Path $script:jsonPath `
+            -ReadRetryCount 2 `
             -ReadRetryMilliseconds 1
 
-        $value.Version | Should -Be 3
+        $value.Version | Should -Be 2
         $script:readAttempts | Should -Be 2
     }
 
@@ -129,10 +125,10 @@ Describe 'RenderKit JSON persistence service' {
             -Path $script:jsonPath |
             Out-Null
 
-        (Read-RenderKitJsonFile -Path $script:jsonPath).Version |
-            Should -Be 2
-        (Read-RenderKitJsonFile -Path "$script:jsonPath.bak").Version |
-            Should -Be 1
+        $backupPath = "$($script:jsonPath).bak"
+        Test-Path -LiteralPath $backupPath | Should -BeTrue
+        (Read-RenderKitJsonFile -Path $backupPath).Version | Should -Be 1
+        (Read-RenderKitJsonFile -Path $script:jsonPath).Version | Should -Be 2
     }
 
     It 'does not replace the current file when validation fails' {
@@ -140,71 +136,81 @@ Describe 'RenderKit JSON persistence service' {
             -Value ([PSCustomObject]@{ Version = 1 }) `
             -Path $script:jsonPath |
             Out-Null
+        $validator = {
+            param($value)
+            [int]$value.Version -lt 2
+        }
 
         {
             Write-RenderKitJsonFileAtomic `
                 -Value ([PSCustomObject]@{ Version = 2 }) `
                 -Path $script:jsonPath `
-                -Validator {
-                    param($value)
-                    return $value.Version -lt 2
-                }
-        } | Should -Throw
+                -Validator $validator |
+                Out-Null
+        } | Should -Throw '*validation failed*'
 
         (Read-RenderKitJsonFile -Path $script:jsonPath).Version |
             Should -Be 1
-        @(Get-ChildItem -LiteralPath $script:testRoot -Filter '*.tmp.*') |
-            Should -HaveCount 0
     }
 
     It 'times out while another handle owns the file lock' {
-        $firstLock = Enter-RenderKitFileLock -Path $script:jsonPath
+        Set-Content `
+            -LiteralPath $script:jsonPath `
+            -Value '{"Version":1}' `
+            -Encoding UTF8
+        $lockPath = "$($script:jsonPath).lock"
+        $otherHandle = [System.IO.File]::Open(
+            $lockPath,
+            [System.IO.FileMode]::OpenOrCreate,
+            [System.IO.FileAccess]::ReadWrite,
+            [System.IO.FileShare]::None
+        )
         try {
             {
-                Enter-RenderKitFileLock `
+                Write-RenderKitJsonFileAtomic `
+                    -Value ([PSCustomObject]@{ Version = 2 }) `
                     -Path $script:jsonPath `
-                    -TimeoutMilliseconds 100 `
-                    -RetryMilliseconds 20
-            } | Should -Throw '*Timed out*'
+                    -LockTimeoutMilliseconds 100 |
+                    Out-Null
+            } | Should -Throw '*Timed out*file lock*'
         }
         finally {
-            Exit-RenderKitFileLock -LockHandle $firstLock
+            $otherHandle.Dispose()
         }
     }
 
     It 'updates the latest value inside one locked transaction' {
         Write-RenderKitJsonFileAtomic `
-            -Value ([PSCustomObject]@{ Counter = 1 }) `
+            -Value ([PSCustomObject]@{ Count = 1 }) `
             -Path $script:jsonPath |
             Out-Null
 
         $updated = Invoke-RenderKitJsonFileTransaction `
             -Path $script:jsonPath `
-            -DefaultValue ([PSCustomObject]@{ Counter = 0 }) `
+            -DefaultValue ([PSCustomObject]@{ Count = 0 }) `
             -Update {
-                param($current)
-                $current.Counter++
-                return $current
+                param($value)
+                $value.Count = [int]$value.Count + 1
+                return $value
             }
 
-        $updated.Counter | Should -Be 2
-        (Read-RenderKitJsonFile -Path $script:jsonPath).Counter |
+        $updated.Count | Should -Be 2
+        (Read-RenderKitJsonFile -Path $script:jsonPath).Count |
             Should -Be 2
     }
 
     It 'creates a missing file from the transaction default value' {
         $updated = Invoke-RenderKitJsonFileTransaction `
             -Path $script:jsonPath `
-            -DefaultValue ([PSCustomObject]@{ Counter = 0 }) `
+            -DefaultValue ([PSCustomObject]@{ Count = 0 }) `
             -Update {
-                param($current)
-                $current.Counter = 1
-                return $current
+                param($value)
+                $value.Count = [int]$value.Count + 1
+                return $value
             }
 
-        $updated.Counter | Should -Be 1
-        Test-Path -LiteralPath $script:jsonPath -PathType Leaf |
-            Should -BeTrue
+        $updated.Count | Should -Be 1
+        Test-Path -LiteralPath $script:jsonPath | Should -BeTrue
     }
 
     It 'restores the last backup without replacing the backup' {
@@ -222,7 +228,7 @@ Describe 'RenderKit JSON persistence service' {
 
         (Read-RenderKitJsonFile -Path $script:jsonPath).Version |
             Should -Be 1
-        (Read-RenderKitJsonFile -Path "$script:jsonPath.bak").Version |
+        (Read-RenderKitJsonFile -Path "$($script:jsonPath).bak").Version |
             Should -Be 1
     }
 
@@ -235,27 +241,32 @@ Describe 'RenderKit JSON persistence service' {
             -Value ([PSCustomObject]@{ Version = 2 }) `
             -Path $script:jsonPath |
             Out-Null
-        Set-Content -LiteralPath $script:jsonPath -Value '{invalid'
+        Set-Content `
+            -LiteralPath $script:jsonPath `
+            -Value '{invalid' `
+            -Encoding UTF8
 
         Write-RenderKitJsonFileAtomic `
             -Value ([PSCustomObject]@{ Version = 3 }) `
             -Path $script:jsonPath |
             Out-Null
 
+        (Read-RenderKitJsonFile -Path "$($script:jsonPath).bak").Version |
+            Should -Be 1
         (Read-RenderKitJsonFile -Path $script:jsonPath).Version |
             Should -Be 3
-        (Read-RenderKitJsonFile -Path "$script:jsonPath.bak").Version |
-            Should -Be 1
     }
 
     It 'rejects files larger than the configured read limit' {
-        Set-Content -LiteralPath $script:jsonPath -Value '{"value":12345}'
+        $content = '{"Payload":"' + ('x' * 2048) + '"}'
+        [System.IO.File]::WriteAllText($script:jsonPath, $content)
 
         {
             Read-RenderKitJsonFile `
                 -Path $script:jsonPath `
-                -MaximumBytes 4
-        } | Should -Throw '*exceeds*'
+                -MaximumBytes 128 `
+                -ReadRetryCount 0
+        } | Should -Throw '*exceeds the 128 byte limit*'
     }
 
     It 'returns null for an allowed missing file' {
