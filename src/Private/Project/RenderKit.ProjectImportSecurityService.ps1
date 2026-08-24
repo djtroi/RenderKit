@@ -35,7 +35,8 @@ function Resolve-RenderKitProjectImportTargetRoot {
             [System.IO.Path]::AltDirectorySeparatorChar
         )
     ) + $separator
-    $comparison = if ([System.OperatingSystem]::IsWindows()) {
+    $isWindowsPlatform = $env:OS -eq 'Windows_NT'
+    $comparison = if ($isWindowsPlatform) {
         [System.StringComparison]::OrdinalIgnoreCase
     }
     else {
