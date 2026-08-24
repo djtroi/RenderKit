@@ -55,21 +55,23 @@ https://github.com/djtroi/RenderKit
     )
     Write-RenderKitLog -Level Debug -Message "New-Project started: Name='$Name', Template='$Template', Path='$Path'."
 
-    #define Template
     $explicitAbsolutePath = -not [string]::IsNullOrWhiteSpace($Path) -and `
         [System.IO.Path]::IsPathRooted($Path)
-    $ProjectRoot = Resolve-ProjectPath -ProjectName $Name -Path $Path
-    #project path
-    if(Test-Path $ProjectRoot) {
+    $projectTarget = Resolve-RenderKitProjectCreationTarget `
+        -ProjectName $Name `
+        -Path $Path
+    $Name = [string]$projectTarget.Name
+    $ProjectRoot = [string]$projectTarget.Path
+
+    if (Test-Path -LiteralPath $ProjectRoot) {
         Write-RenderKitLog -Level Error -Message "Project '$Name' already exists at '$ProjectRoot'."
-        throw $_
+        throw "Project '$Name' already exists at '$ProjectRoot'."
     }
 
-    #load template
     $templateObject = Get-ProjectTemplate -TemplateName $Template
 
     Write-RenderKitLog -Level Info -Message "Creating project '$Name' at '$ProjectRoot' using template '$($templateObject.Name)' ($($templateObject.Source))."
-    if ($PSCmdlet.ShouldProcess($Name, "New Project from Templte")){
+    if ($PSCmdlet.ShouldProcess($Name, "New Project from Template")) {
         New-RenderKitProjectFromTemplate `
             -ProjectName $Name `
             -ProjectRoot $ProjectRoot `
