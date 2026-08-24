@@ -147,4 +147,79 @@ Describe 'Project target containment' {
             Should -Invoke Read-RenderKitJsonFile -Times 0
         }
     }
+
+    It 'rejects a symbolic-link project root before following project control data' {
+        $parent = Join-Path $TestDrive 'linked-roots'
+        $outside = Join-Path $TestDrive 'outside-root'
+        $projectLink = Join-Path $parent 'LinkedProject'
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+        New-Item -ItemType Directory -Path $outside -Force | Out-Null
+
+        try {
+            New-Item -ItemType SymbolicLink -Path $projectLink -Target $outside -ErrorAction Stop | Out-Null
+        }
+        catch {
+            Set-ItResult -Skipped -Because 'Symbolic link creation is not available on this runner.'
+            return
+        }
+
+        {
+            InModuleScope RenderKit -Parameters @{
+                Parent = $parent
+            } {
+                Get-RenderKitProject -ProjectName 'LinkedProject' -Path $Parent
+            }
+        } | Should -Throw '*Project root*symbolic link, junction, or reparse point*'
+    }
+
+    It 'rejects a linked .renderkit control directory' {
+        $parent = Join-Path $TestDrive 'linked-control'
+        $projectRoot = Join-Path $parent 'ProjectA'
+        $outsideControl = Join-Path $TestDrive 'outside-control'
+        $controlLink = Join-Path $projectRoot '.renderkit'
+        New-Item -ItemType Directory -Path $projectRoot -Force | Out-Null
+        New-Item -ItemType Directory -Path $outsideControl -Force | Out-Null
+
+        try {
+            New-Item -ItemType SymbolicLink -Path $controlLink -Target $outsideControl -ErrorAction Stop | Out-Null
+        }
+        catch {
+            Set-ItResult -Skipped -Because 'Symbolic link creation is not available on this runner.'
+            return
+        }
+
+        {
+            InModuleScope RenderKit -Parameters @{
+                Parent = $parent
+            } {
+                Get-RenderKitProject -ProjectName 'ProjectA' -Path $Parent
+            }
+        } | Should -Throw '*Project control path*symbolic link, junction, or reparse point*'
+    }
+
+    It 'rejects a linked project.json metadata file' {
+        $parent = Join-Path $TestDrive 'linked-metadata'
+        $projectRoot = Join-Path $parent 'ProjectA'
+        $controlPath = Join-Path $projectRoot '.renderkit'
+        $outsideMetadata = Join-Path $TestDrive 'outside-project.json'
+        $metadataLink = Join-Path $controlPath 'project.json'
+        New-Item -ItemType Directory -Path $controlPath -Force | Out-Null
+        Set-Content -LiteralPath $outsideMetadata -Value '{"tool":"RenderKit"}' -Encoding UTF8
+
+        try {
+            New-Item -ItemType SymbolicLink -Path $metadataLink -Target $outsideMetadata -ErrorAction Stop | Out-Null
+        }
+        catch {
+            Set-ItResult -Skipped -Because 'Symbolic link creation is not available on this runner.'
+            return
+        }
+
+        {
+            InModuleScope RenderKit -Parameters @{
+                Parent = $parent
+            } {
+                Get-RenderKitProject -ProjectName 'ProjectA' -Path $Parent
+            }
+        } | Should -Throw '*Project metadata path*symbolic link, hard link, or reparse point*'
+    }
 }
