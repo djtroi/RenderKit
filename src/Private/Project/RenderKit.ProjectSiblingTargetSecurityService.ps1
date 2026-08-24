@@ -89,3 +89,61 @@ function Resolve-RenderKitProjectCreationTarget {
         -ParentPath $parentPath `
         -ProjectName $ProjectName
 }
+
+function Test-RenderKitProjectControlItemLink {
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)][object]$Item
+    )
+
+    if (($Item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        return $true
+    }
+    if ($Item.PSObject.Properties.Name -contains 'LinkType' -and
+        -not [string]::IsNullOrWhiteSpace([string]$Item.LinkType)) {
+        return $true
+    }
+    return $false
+}
+
+function Assert-RenderKitProjectControlPathSafe {
+    [CmdletBinding()]
+    [OutputType([System.Management.Automation.PSCustomObject])]
+    param(
+        [Parameter(Mandatory)][string]$ProjectRoot
+    )
+
+    $rootPath = [System.IO.Path]::GetFullPath($ProjectRoot)
+    $rootItem = Get-Item -LiteralPath $rootPath -Force -ErrorAction Stop
+    if (-not $rootItem.PSIsContainer) {
+        throw "Project root '$rootPath' is not a directory."
+    }
+    if (Test-RenderKitProjectControlItemLink -Item $rootItem) {
+        throw "Project root '$rootPath' must not be a symbolic link, junction, or reparse point."
+    }
+
+    $controlPath = Join-Path -Path $rootPath -ChildPath '.renderkit'
+    $controlItem = Get-Item -LiteralPath $controlPath -Force -ErrorAction Stop
+    if (-not $controlItem.PSIsContainer) {
+        throw "Project control path '$controlPath' is not a directory."
+    }
+    if (Test-RenderKitProjectControlItemLink -Item $controlItem) {
+        throw "Project control path '$controlPath' must not be a symbolic link, junction, or reparse point."
+    }
+
+    $metadataPath = Join-Path -Path $controlPath -ChildPath 'project.json'
+    $metadataItem = Get-Item -LiteralPath $metadataPath -Force -ErrorAction Stop
+    if ($metadataItem.PSIsContainer) {
+        throw "Project metadata path '$metadataPath' is not a file."
+    }
+    if (Test-RenderKitProjectControlItemLink -Item $metadataItem) {
+        throw "Project metadata path '$metadataPath' must not be a symbolic link, hard link, or reparse point."
+    }
+
+    return [PSCustomObject]@{
+        RootPath = $rootPath
+        ControlPath = $controlPath
+        MetadataPath = $metadataPath
+    }
+}
