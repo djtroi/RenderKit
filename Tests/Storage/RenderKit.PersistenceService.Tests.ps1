@@ -56,10 +56,8 @@ Describe 'RenderKit JSON persistence service' {
             -LiteralPath $script:jsonPath `
             -Value '{"Version":1}' `
             -Encoding UTF8
-        # This test verifies classification only. Avoid a path-based Pester
-        # ParameterFilter here because PS5.1 and PS7 bind the canonicalized
-        # FileInfo path into mocked advanced functions differently.
         Mock Read-RenderKitTextFile {
+            param($Path, $MaximumBytes)
             throw [System.UnauthorizedAccessException]::new('Access denied.')
         }
 
@@ -99,6 +97,7 @@ Describe 'RenderKit JSON persistence service' {
             -Value '{"Version":2}' `
             -Encoding UTF8
         Mock Read-RenderKitTextFile {
+            param($Path, $MaximumBytes)
             $script:readAttempts++
             if ($script:readAttempts -eq 1) {
                 throw [System.IO.IOException]::new('Temporary replacement window.')
