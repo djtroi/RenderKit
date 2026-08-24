@@ -36,8 +36,13 @@ function Get-RenderKitProject{
         if (-not (Test-Path -LiteralPath $candidate -PathType Container)) {
             continue
         }
+
+        $controlPaths = Assert-RenderKitProjectControlPathSafe `
+            -ProjectRoot $candidate
+        $candidate = [string]$controlPaths.RootPath
+        $metaPath = [string]$controlPaths.MetadataPath
+
         try {
-            $metaPath = Get-RenderKitProjectMetadataPath -ProjectRoot $candidate
             $meta = Read-RenderKitJsonFile -Path $metaPath
         }
         catch {
