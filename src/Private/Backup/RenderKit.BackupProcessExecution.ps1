@@ -68,9 +68,9 @@ function Start-BackupScheduledThreadJob {
 
     Start-ThreadJob `
         -Name ([string]$Command.id) `
-        -ArgumentList @($Command, $fallbackArgumentText) `
         -ScriptBlock {
-            param($ScheduledCommand, $FallbackArgumentText)
+            $ScheduledCommand = $using:Command
+            $FallbackArgumentText = $using:fallbackArgumentText
 
             $progressLogPath = if ($ScheduledCommand.progress -and $ScheduledCommand.progress.logPath) {
                 [string]$ScheduledCommand.progress.logPath
