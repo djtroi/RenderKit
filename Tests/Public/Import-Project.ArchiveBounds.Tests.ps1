@@ -2,16 +2,12 @@ BeforeAll {
     $repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     Import-Module (Join-Path $repositoryRoot 'RenderKit.psd1') -Force
 
-    function New-ArchiveBoundsTestZip {
-        [CmdletBinding(SupportsShouldProcess)]
+    function Write-ArchiveBoundsTestZip {
         param(
             [Parameter(Mandatory)][string]$Path,
             [Parameter(Mandatory)][object[]]$Entries
         )
 
-        if (-not $PSCmdlet.ShouldProcess($Path, 'Create archive bounds test fixture')) {
-            return
-        }
         if (Test-Path -LiteralPath $Path) {
             Remove-Item -LiteralPath $Path -Force
         }
@@ -37,16 +33,12 @@ BeforeAll {
         }
     }
 
-    function New-ArchiveBoundsManifest {
-        [CmdletBinding(SupportsShouldProcess)]
+    function Get-ArchiveBoundsManifest {
         param(
             [string]$RelativePath = 'clip.txt',
             [int64]$SizeBytes = 5
         )
 
-        if (-not $PSCmdlet.ShouldProcess('in-memory archive manifest', 'Create test manifest')) {
-            return
-        }
         return [xml](
             '<RenderKitProjectManifest schemaVersion="1.0">' +
             '<Export mode="SelfContained" />' +
@@ -65,11 +57,11 @@ AfterAll {
 Describe 'RenderKit project archive extraction bounds' {
     It 'accepts a bounded archive whose project entry matches the manifest' {
         $archive = Join-Path $TestDrive 'valid.rkitpkg'
-        New-ArchiveBoundsTestZip -Path $archive -Entries @(
+        Write-ArchiveBoundsTestZip -Path $archive -Entries @(
             [PSCustomObject]@{ Name = 'project.xml'; Content = '<x />' },
             [PSCustomObject]@{ Name = 'project/clip.txt'; Content = '12345' }
         )
-        $manifest = New-ArchiveBoundsManifest -SizeBytes 5
+        $manifest = Get-ArchiveBoundsManifest -SizeBytes 5
 
         $result = InModuleScope RenderKit -Parameters @{
             Archive = $archive
@@ -91,7 +83,7 @@ Describe 'RenderKit project archive extraction bounds' {
 
     It 'rejects duplicate or case-colliding archive entry names' {
         $archive = Join-Path $TestDrive 'duplicate.rkitpkg'
-        New-ArchiveBoundsTestZip -Path $archive -Entries @(
+        Write-ArchiveBoundsTestZip -Path $archive -Entries @(
             [PSCustomObject]@{ Name = 'project/clip.txt'; Content = 'one' },
             [PSCustomObject]@{ Name = 'PROJECT/clip.txt'; Content = 'two' }
         )
@@ -111,10 +103,10 @@ Describe 'RenderKit project archive extraction bounds' {
 
     It 'rejects an archive entry whose expanded size disagrees with the manifest' {
         $archive = Join-Path $TestDrive 'size-mismatch.rkitpkg'
-        New-ArchiveBoundsTestZip -Path $archive -Entries @(
+        Write-ArchiveBoundsTestZip -Path $archive -Entries @(
             [PSCustomObject]@{ Name = 'project/clip.txt'; Content = '1234' }
         )
-        $manifest = New-ArchiveBoundsManifest -SizeBytes 5
+        $manifest = Get-ArchiveBoundsManifest -SizeBytes 5
 
         {
             InModuleScope RenderKit -Parameters @{
@@ -135,7 +127,7 @@ Describe 'RenderKit project archive extraction bounds' {
 
     It 'rejects excessive archive entry counts before extraction' {
         $archive = Join-Path $TestDrive 'too-many.rkitpkg'
-        New-ArchiveBoundsTestZip -Path $archive -Entries @(
+        Write-ArchiveBoundsTestZip -Path $archive -Entries @(
             [PSCustomObject]@{ Name = 'one.txt'; Content = '1' },
             [PSCustomObject]@{ Name = 'two.txt'; Content = '2' }
         )
@@ -158,7 +150,7 @@ Describe 'RenderKit project archive extraction bounds' {
     It 'does not create output when the bounded extractor rejects the entry size' {
         $archive = Join-Path $TestDrive 'bounded.rkitpkg'
         $destination = Join-Path $TestDrive 'output/clip.txt'
-        New-ArchiveBoundsTestZip -Path $archive -Entries @(
+        Write-ArchiveBoundsTestZip -Path $archive -Entries @(
             [PSCustomObject]@{ Name = 'project/clip.txt'; Content = '12345' }
         )
 
