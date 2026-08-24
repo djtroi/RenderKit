@@ -63,3 +63,29 @@ function Resolve-RenderKitProjectSiblingTarget {
         ParentPath = $parentFull
     }
 }
+
+function Resolve-RenderKitProjectCreationTarget {
+    [CmdletBinding()]
+    [OutputType([System.Management.Automation.PSCustomObject])]
+    param(
+        [Parameter(Mandatory)][string]$ProjectName,
+        [AllowNull()][string]$Path
+    )
+
+    $parentPath = $Path
+    if ([string]::IsNullOrWhiteSpace($parentPath)) {
+        $config = Get-RenderKitConfig
+        $parentPath = [string]$config.DefaultProjectPath
+        if ([string]::IsNullOrWhiteSpace($parentPath)) {
+            throw "No default project path configured. Use 'Set-ProjectRoot' first."
+        }
+    }
+
+    if (-not (Test-Path -LiteralPath $parentPath -PathType Container)) {
+        throw "Target project parent does not exist or is not a directory: $parentPath"
+    }
+
+    return Resolve-RenderKitProjectSiblingTarget `
+        -ParentPath $parentPath `
+        -ProjectName $ProjectName
+}
