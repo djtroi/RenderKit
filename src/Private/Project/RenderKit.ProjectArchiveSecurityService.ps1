@@ -5,7 +5,7 @@ if ($PSVersionTable.PSVersion.Major -le 5) {
 
 function ConvertTo-RenderKitProjectArchiveExpectedSize {
     [CmdletBinding()]
-    [OutputType([long])]
+    [OutputType([System.Int64])]
     param(
         [Parameter(Mandatory)]$Value,
         [Parameter(Mandatory)][string]$EntryName
@@ -20,12 +20,12 @@ function ConvertTo-RenderKitProjectArchiveExpectedSize {
         ) -or $parsed -lt 0) {
         throw "Archive entry '$EntryName' has an invalid declared size."
     }
-    return [long]$parsed
+    return $parsed
 }
 
 function Get-RenderKitProjectArchiveEntryIndex {
     [CmdletBinding()]
-    [OutputType([System.Collections.IDictionary])]
+    [OutputType([System.Collections.Generic.Dictionary[string,System.IO.Compression.ZipArchiveEntry]])]
     param(
         [Parameter(Mandatory)][System.IO.Compression.ZipArchive]$Archive,
         [int]$MaximumArchiveEntries = 250000
