@@ -48,7 +48,7 @@ Describe 'RenderKit metadata process security bounds' {
                 ) `
                 -TimeoutSeconds 30
         ) | Where-Object {
-            $_ -and $_.PSObject.Properties.Name -contains 'ExitCode'
+            $_ -and $null -ne $_.PSObject.Properties['ExitCode']
         } | Select-Object -Last 1
 
         $result | Should -Not -BeNullOrEmpty
