@@ -16,9 +16,11 @@ Describe 'RenderKit import source boundary' {
         New-Item -ItemType Directory -Path $source -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $source 'clip.txt') -Value 'media' -Encoding UTF8
 
-        $catalog = InModuleScope RenderKit -Parameters @{ Source = $source } {
-            @(Get-RenderKitImportFileCatalog -SourcePath $Source)
-        }
+        $catalog = @(
+            InModuleScope RenderKit -Parameters @{ Source = $source } {
+                @(Get-RenderKitImportFileCatalog -SourcePath $Source)
+            }
+        )
 
         $catalog.Count | Should -Be 1
         $catalog[0].Name | Should -Be 'clip.txt'
