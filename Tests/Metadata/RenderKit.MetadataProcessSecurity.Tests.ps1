@@ -3,12 +3,17 @@ Describe 'RenderKit metadata process security bounds' {
         $repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
         Remove-Module RenderKit -Force -ErrorAction SilentlyContinue
         Import-Module (Join-Path $repositoryRoot 'RenderKit.psd1') -Force
-        $script:ProcessSecuritySource = Get-Content -LiteralPath (
-            Join-Path $repositoryRoot 'src/Private/Metadata/RenderKit.MetadataProcessSecurityService.ps1'
-        ) -Raw
+        $processSecurityPath = Join-Path `
+            $repositoryRoot `
+            'src/Private/Metadata/RenderKit.MetadataProcessSecurityService.ps1'
+        $script:ProcessSecuritySource = Get-Content -LiteralPath $processSecurityPath -Raw
         $script:ProcessIntegrationSource = Get-Content -LiteralPath (
             Join-Path $repositoryRoot 'src/Private/Metadata/RenderKit.ZMetadataProcessSecurityIntegration.ps1'
         ) -Raw
+        # Exercise the isolated helper directly in this Pester scope. InModuleScope
+        # can wrap private-function output differently across Pester/PowerShell
+        # versions, which obscures the lifecycle result this regression checks.
+        . $processSecurityPath
     }
 
     AfterAll {
@@ -32,17 +37,15 @@ Describe 'RenderKit metadata process security bounds' {
 
     It 'closes completed capture streams before reopening their files' {
         $hostPath = (Get-Process -Id $PID).Path
-        $result = InModuleScope RenderKit -Parameters @{ HostPath = $hostPath } {
-            Invoke-RenderKitBoundedMetadataProcess `
-                -FilePath $HostPath `
-                -Arguments @(
-                    '-NoProfile',
-                    '-NonInteractive',
-                    '-Command',
-                    "[Console]::Out.Write('bounded-ok')"
-                ) `
-                -TimeoutSeconds 30
-        }
+        $result = Invoke-RenderKitBoundedMetadataProcess `
+            -FilePath $hostPath `
+            -Arguments @(
+                '-NoProfile',
+                '-NonInteractive',
+                '-Command',
+                "[Console]::Out.Write('bounded-ok')"
+            ) `
+            -TimeoutSeconds 30
 
         $result.ExitCode | Should -Be 0
         $result.StandardOutput | Should -Be 'bounded-ok'
