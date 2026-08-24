@@ -1,5 +1,6 @@
 function Assert-RenderKitProjectImportTargetPathSafe {
     [CmdletBinding()]
+    [OutputType([string])]
     param(
         [Parameter(Mandatory)][string]$TargetRoot,
         [Parameter(Mandatory)][string]$Path
@@ -54,7 +55,8 @@ function Assert-RenderKitProjectImportTargetPathSafe {
 }
 
 function New-RenderKitProjectImportDirectorySafe {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess)]
+    [OutputType([string])]
     param(
         [Parameter(Mandatory)][string]$TargetRoot,
         [Parameter(Mandatory)][string]$Path
@@ -65,7 +67,9 @@ function New-RenderKitProjectImportDirectorySafe {
         -Path $Path
 
     if (-not (Test-Path -LiteralPath $safePath -PathType Container)) {
-        New-Item -ItemType Directory -Path $safePath -Force | Out-Null
+        if ($PSCmdlet.ShouldProcess($safePath, 'Create project import directory')) {
+            New-Item -ItemType Directory -Path $safePath -Force | Out-Null
+        }
     }
 
     Assert-RenderKitProjectImportTargetPathSafe `
