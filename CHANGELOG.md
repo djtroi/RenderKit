@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RS-1571:** Pin workflow actions to immutable commits (#121). (`e75306f`)
+- **RS-1571:** Merge final 1.1.8 into workflow action pinning. (`a48d04c`)
+- **RS-1571:** Merge template hardening into workflow action pinning. (`794e128`)
+- **RS-1571:** Sync workflow action pinning with 1.1.8. (`f9a475f`)
+- **RS-1571:** Merge 1.1.8 into workflow action pinning. (`b05061e`)
+- **RS-1571:** Keep quality gate dependency order intact. (`97c3f2f`)
+- **RS-1571:** Preserve current quality gate while pinning actions. (`e6dd25b`)
+- **RS-1571:** Preserve current Codacy dependencies while pinning actions. (`3ced760`)
+- **RS-1571:** Pin release workflow actions. (`ad75af3`)
+- **RS-1571:** Pin YouTrack release sync action. (`2025677`)
+- **RS-1571:** Pin Dependabot sync action. (`85f55e4`)
+- **RS-1571:** Pin changelog workflow actions. (`07845d4`)
+- **RS-1571:** Pin Quality Gate actions. (`4d4aca2`)
+- **RS-1571:** Pin Codacy workflow actions. (`dd7bd09`)
+- **RS-1571:** Enforce immutable workflow action references. (`3aedfc9`)
 - **RS-1571:** Reject unsafe template folder trees (#116). (`4ec2211`)
 - **RS-1571:** Merge current 1.1.8 into template folder hardening. (`5f822e8`)
 - **RS-1571:** Sync template folder hardening with 1.1.8. (`b099c73`)
