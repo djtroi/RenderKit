@@ -24,8 +24,8 @@ function Test-BackupPathEquivalent {
     }
 
     try {
-        $leftFull = [System.IO.Path]::GetFullPath($Left).TrimEnd('\\', '/')
-        $rightFull = [System.IO.Path]::GetFullPath($Right).TrimEnd('\\', '/')
+        $leftFull = [System.IO.Path]::GetFullPath($Left).TrimEnd('\', '/')
+        $rightFull = [System.IO.Path]::GetFullPath($Right).TrimEnd('\', '/')
         return [string]::Equals($leftFull, $rightFull, [System.StringComparison]::OrdinalIgnoreCase)
     }
     catch {
