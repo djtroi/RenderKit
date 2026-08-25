@@ -4,6 +4,7 @@
 
 function Invoke-RenderKitExifToolCandidate {
     [CmdletBinding()]
+    [OutputType([object[]])]
     param(
         [Parameter(Mandatory)][object]$Candidate,
         [Parameter(Mandatory)][string[]]$Arguments
@@ -174,6 +175,11 @@ function Read-RenderKitMkvToolNixXmlDocument {
 
 function Read-RenderKitMkvToolNixEmbeddedMetadata {
     [CmdletBinding()]
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute(
+        'PSUseSingularNouns',
+        '',
+        Justification = "'Metadata' is the established uncountable domain term, and this private override must retain the existing internal command name."
+    )]
     param(
         [Parameter(Mandatory)][string]$Path
     )
