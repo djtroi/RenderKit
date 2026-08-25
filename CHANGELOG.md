@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RS-1571:** Reject unsafe template folder trees (#116). (`4ec2211`)
+- **RS-1571:** Merge current 1.1.8 into template folder hardening. (`5f822e8`)
+- **RS-1571:** Sync template folder hardening with 1.1.8. (`b099c73`)
+- **RS-1571:** Merge 1.1.8 into template folder hardening. (`03a1fff`)
+- **RS-1571:** Resolve template security test conflict against 1.1.8. (`6a74d6a`)
+- **RS-1571:** Test concurrent GPU cache writers. (`7d4bacd`)
+- **RS-1571:** Serialize GPU capability cache writes. (`8fe22ed`)
+- **RS-1571:** Load template security for portability tests. (`aadb0b6`)
+- **RS-1571:** Load template security for project tests. (`1f25e51`)
+- **RS-1571:** Load template security in direct-source tests. (`56ec961`)
+- **RS-1571:** Test template folder security bounds. (`c43739a`)
+- **RS-1571:** Reject unsafe template folder trees. (`133cfe6`)
+- **RS-1571:** Validate template folder trees. (`3883dbb`)
 - **RS-1571:** Harden project manifest parsing (#108). (`99c8ba0`)
 - **RS-1571:** Keep current 1.1.8 import implementation. (`9fbce8c`)
 - **RS-1571:** Remove superseded duplicate manifest parser. (`c76d895`)
