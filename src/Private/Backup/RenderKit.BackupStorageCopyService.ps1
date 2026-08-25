@@ -244,7 +244,7 @@ function Test-BackupStorageTierHealth {
             freeBytes     = if ($adapterHealth.PSObject.Properties.Name -contains 'freeBytes') { $adapterHealth.freeBytes } else { $null }
             requiredBytes = $RequiredBytes
             adapterResult = $adapterHealth
-            error         = [string]$adapterHealth.error
+            error         = if ($adapterHealth.PSObject.Properties.Name -contains 'error') { [string]$adapterHealth.error } else { $null }
         }
     }
     catch {
@@ -414,7 +414,10 @@ function Invoke-BackupStorageTierCopyVerify {
             $result.targetHash = [string]$verification.targetHash
             $result.sizeBytes = [int64]$verification.sizeBytes
             if (-not [bool]$verification.verified) {
-                $verificationError = if ([string]::IsNullOrWhiteSpace([string]$verification.error)) {
+                $verificationError = if (
+                    -not ($verification.PSObject.Properties.Name -contains 'error') -or
+                    [string]::IsNullOrWhiteSpace([string]$verification.error)
+                ) {
                     "Storage tier '$($Tier.name)' verification failed."
                 }
                 else {

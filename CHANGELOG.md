@@ -19,6 +19,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [1.1.8] - 2026-08-25
+
+RenderKit 1.1.8 is a security and reliability patch release focused on hardening
+untrusted project, archive, template, filesystem, process, and CI boundaries.
+The public command surface and persisted RenderKit artifact formats remain unchanged.
+
+### Fixed
+
+- **RS-1576:** Fixed backup adapter health and verification result handling when the optional `error` property is absent. StrictMode no longer aborts otherwise valid backup flows, and verifier failures without an explicit adapter error fall back to the canonical verification message.
+- **RS-1571:** Serialized concurrent GPU capability-cache writers through the existing file lock and atomic JSON persistence path so simultaneous worker startup cannot corrupt the shared cache.
+
+### Security
+
+- **RS-1571:** Hardened project archive manifest parsing with bounded uncompressed XML, direct stream parsing, explicit DTD prohibition, disabled external resolution, and document character limits.
+- **RS-1571:** Constrained project import roots, project names, existing-project lookup, and import write targets to their selected filesystem boundaries. Traversal, rooted or separator-containing names, reserved device names, symbolic links, junctions, and other reparse-point redirects are rejected before destructive overwrite/delete or write operations.
+- **RS-1571:** Bounded project archive extraction by validating duplicate/case-colliding entries, entry count, declared expanded sizes, available disk space, and streamed extraction byte counts before and during writes, with partial outputs removed on failure.
+- **RS-1571:** Prevented project export, media import traversal, and backup cleanup from following symbolic links or other reparse points outside their selected roots.
+- **RS-1571:** Added strict portable validation for template folder trees, including single-component names, duplicate/case-collision detection, reserved-name checks, maximum depth, and maximum node count.
+- **RS-1571:** Enforced JSON byte limits on the same opened stream that is consumed, closing the previous split size-check/read boundary.
+- **RS-1571:** Bounded metadata helper-process runtime and diagnostics, bounded MKVToolNix XML extraction/parsing, and bounded long-running backup encoder diagnostics/progress storage without imposing a global encoder timeout.
+- **RS-1571:** Hardened Windows PowerShell 5.1 external-process argument quoting for embedded quotes and backslash runs so untrusted path text cannot change argument boundaries.
+- **RS-1571:** Restricted native MediaInfo library discovery to explicit overrides, bundled assets, and known platform library locations instead of treating arbitrary executable `PATH` directories as trusted native-library sources.
+- **RS-1571:** Pinned remote GitHub Actions to immutable commit SHAs and added regression coverage that rejects future mutable external `uses:` references.
+
 ## [1.1.7] - 2026-08-23
 
 RenderKit 1.1.7 adds targeted one-shot worker orchestration for host integrations
