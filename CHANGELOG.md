@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RS-1571:** Harden project manifest parsing (#108). (`99c8ba0`)
+- **RS-1571:** Keep current 1.1.8 import implementation. (`9fbce8c`)
+- **RS-1571:** Remove superseded duplicate manifest parser. (`c76d895`)
+- **RS-1571:** Resolve duplicate manifest-security test. (`1be8a61`)
+- **RS-1571:** Resolve 1.1.8 import conflict. (`7a82802`)
+- **RS-1571:** Cover project manifest parser limits. (`1215b93`)
+- **RS-1571:** Route project imports through secure manifest parser. (`24294b3`)
+- **RS-1571:** Add bounded secure project manifest reader. (`7de895d`)
 - **RS-1571:** Keep backup cleanup off reparse targets (#119). (`5d1d067`)
 - **RS-1571:** Bound JSON reads on the opened stream (#118). (`fd8a1b8`)
 - **RS-1571:** Bound metadata subprocess resources (#117). (`5749967`)
