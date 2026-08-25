@@ -54,8 +54,8 @@ Describe 'RenderKit JSON persistence service' {
     }
 
     It 'keeps filesystem read failures distinct from invalid JSON' {
-        $script:PersistenceSource | Should -Match "\$lastFailureKind = 'Read'"
-        $script:PersistenceSource | Should -Match "\$lastFailureKind = 'Json'"
+        $script:PersistenceSource | Should -Match '\$lastFailureKind = ''Read'''
+        $script:PersistenceSource | Should -Match '\$lastFailureKind = ''Json'''
         $script:PersistenceSource | Should -Match 'Unable to read JSON file'
         $script:PersistenceSource | Should -Match 'Invalid JSON in'
     }
