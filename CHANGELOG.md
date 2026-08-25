@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RS-1571:** Harden project archive manifest parsing (#106). (`d909479`)
+
 ### Deprecated
 
 ### Removed
