@@ -28,23 +28,40 @@ function Remove-ProjectArtifact{
             ForEach-Object { $_.Trim() }
     )
 
+    $catalog = Get-RenderKitBackupCleanupCatalog -ProjectPath $ProjectPath
+    $safeProjectPath = [string]$catalog.RootPath
     $candidateFiles = @(
-        Get-ChildItem -Path $ProjectPath -Recurse -File -Force -ErrorAction SilentlyContinue |
+        @($catalog.Files) |
             Where-Object { $ruleExtensions -contains $_.Extension.ToLowerInvariant() }
     )
     $candidateFolders = @(
-        Get-ChildItem -Path $ProjectPath -Recurse -Directory -Force -ErrorAction SilentlyContinue |
+        @($catalog.Directories) |
             Where-Object { $ruleFolders -contains $_.Name } |
-            Sort-Object -Property FullName -Descending
+            Sort-Object { $_.FullName.Length } -Descending
     )
 
-    $removedFolderPaths = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $pathComparer = if ($env:OS -eq 'Windows_NT') {
+        [System.StringComparer]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparer]::Ordinal
+    }
+    $removedFolderPaths = New-Object 'System.Collections.Generic.HashSet[string]' $pathComparer
     $removedFolderCount = 0
     $removedFileCount = 0
     $removedFileBytes = [int64]0
     $failedCount = 0
 
     foreach ($folder in $candidateFolders) {
+        $safeFolder = Test-RenderKitBackupCleanupTarget `
+            -ProjectPath $safeProjectPath `
+            -TargetPath $folder.FullName
+        if (-not $safeFolder) {
+            $failedCount++
+            Write-RenderKitLog -Level Warning -Message "Skipped unsafe cleanup folder '$($folder.FullName)'."
+            continue
+        }
+
         if ($DryRun) {
             Write-Verbose "[DRY] Remove folder $($folder.FullName)"
             $removedFolderCount++
@@ -53,7 +70,9 @@ function Remove-ProjectArtifact{
         }
 
         try {
-            Remove-Item -Path $folder.FullName -Recurse -Force -ErrorAction Stop
+            Remove-RenderKitBackupCleanupDirectoryTree `
+                -ProjectPath $safeProjectPath `
+                -DirectoryPath $folder.FullName
             $removedFolderCount++
             [void]$removedFolderPaths.Add($folder.FullName)
         }
@@ -63,16 +82,36 @@ function Remove-ProjectArtifact{
         }
     }
 
+    $comparison = if ($env:OS -eq 'Windows_NT') {
+        [System.StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [System.StringComparison]::Ordinal
+    }
     foreach ($file in $candidateFiles) {
         $isInsideRemovedFolder = $false
         foreach ($removedFolderPath in $removedFolderPaths) {
-            if ($file.FullName.StartsWith("$removedFolderPath\", [System.StringComparison]::OrdinalIgnoreCase)) {
+            $folderPrefix = $removedFolderPath.TrimEnd(
+                [char[]]@(
+                    [System.IO.Path]::DirectorySeparatorChar,
+                    [System.IO.Path]::AltDirectorySeparatorChar
+                )
+            ) + [System.IO.Path]::DirectorySeparatorChar
+            if ($file.FullName.StartsWith($folderPrefix, $comparison)) {
                 $isInsideRemovedFolder = $true
                 break
             }
         }
 
         if ($isInsideRemovedFolder) {
+            continue
+        }
+
+        if (-not (Test-RenderKitBackupCleanupTarget `
+                -ProjectPath $safeProjectPath `
+                -TargetPath $file.FullName)) {
+            $failedCount++
+            Write-RenderKitLog -Level Warning -Message "Skipped unsafe cleanup file '$($file.FullName)'."
             continue
         }
 
@@ -84,9 +123,10 @@ function Remove-ProjectArtifact{
         }
 
         try {
-            Remove-Item -Path $file.FullName -Force -ErrorAction Stop
+            $fileLength = [int64]$file.Length
+            [System.IO.File]::Delete($file.FullName)
             $removedFileCount++
-            $removedFileBytes += [int64]$file.Length
+            $removedFileBytes += $fileLength
         }
         catch {
             $failedCount++
