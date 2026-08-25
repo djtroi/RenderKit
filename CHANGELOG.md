@@ -11,6 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RS-1571:** Keep backup cleanup off reparse targets (#119). (`5d1d067`)
+- **RS-1571:** Bound JSON reads on the opened stream (#118). (`fd8a1b8`)
+- **RS-1571:** Bound metadata subprocess resources (#117). (`5749967`)
+- **RS-1571:** Bound backup process diagnostics (#120). (`1233417`)
+- **RS-1571:** Contain project paths within search roots (#115). (`dfd1d4b`)
+- **RS-1571:** Restrict MediaInfo native library discovery (#114). (`b4c4724`)
+- **RS-1571:** Harden legacy process argument quoting (#113). (`6f04876`)
+- **RS-1571:** Bound project archive extraction (#111). (`27e37d8`)
+- **RS-1571:** Contain import traversal within the selected source (#110). (`a11d8bf`)
+- **RS-1571:** Reject reparse-point sources during project export (#109). (`db033f3`)
+- **RS-1576:** Fix backup adapter error contract (#122). (`840ef36`)
+- **RS-1571:** Constrain imported project roots to destination (#107). (`61a194d`)
+- **RS-1571:** Harden project archive manifest parsing (#106). (`d909479`)
+
 ### Deprecated
 
 ### Removed

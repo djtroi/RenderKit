@@ -92,13 +92,59 @@ function Read-RenderKitTextFile {
     [OutputType([string])]
     param(
         [Parameter(Mandatory)]
-        [string]$Path
+        [string]$Path,
+
+        [ValidateRange(1, 1073741824)]
+        [long]$MaximumBytes = 10485760
     )
 
     # RS-1552: JSON resources can live below protected application locations
     # such as Program Files. Reading them must not depend on PowerShell provider
     # -Force semantics or require any write-capable access to the parent path.
-    return [System.IO.File]::ReadAllText($Path)
+    # RS-1571: enforce the byte limit on the same open handle that is read so a
+    # replacement/growth race cannot bypass a separate FileInfo length check.
+    $stream = $null
+    $reader = $null
+    try {
+        $stream = [System.IO.File]::Open(
+            $Path,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::Read
+        )
+        if ($stream.Length -gt $MaximumBytes) {
+            throw [System.IO.InvalidDataException]::new(
+                "File '$Path' exceeds the $MaximumBytes byte limit.")
+        }
+
+        $reader = New-Object System.IO.StreamReader(
+            $stream,
+            [System.Text.Encoding]::UTF8,
+            $true,
+            4096,
+            $true
+        )
+        $builder = New-Object System.Text.StringBuilder
+        $buffer = New-Object 'char[]' 4096
+        while (($read = $reader.Read($buffer, 0, $buffer.Length)) -gt 0) {
+            if ($stream.Position -gt $MaximumBytes -or
+                $stream.Length -gt $MaximumBytes) {
+                throw [System.IO.InvalidDataException]::new(
+                    "File '$Path' exceeds the $MaximumBytes byte limit.")
+            }
+            [void]$builder.Append($buffer, 0, $read)
+        }
+        if ($stream.Position -gt $MaximumBytes -or
+            $stream.Length -gt $MaximumBytes) {
+            throw [System.IO.InvalidDataException]::new(
+                "File '$Path' exceeds the $MaximumBytes byte limit.")
+        }
+        return $builder.ToString()
+    }
+    finally {
+        if ($reader) { $reader.Dispose() }
+        if ($stream) { $stream.Dispose() }
+    }
 }
 
 function Read-RenderKitJsonFile {
@@ -138,14 +184,9 @@ function Read-RenderKitJsonFile {
                     "JSON file not found: '$resolvedPath'.")
             }
 
-            if ($fileInfo.Length -gt $MaximumBytes) {
-                $lastReadError = [System.IO.InvalidDataException]::new(
-                    "JSON file '$resolvedPath' exceeds the $MaximumBytes byte limit.")
-                $lastFailureKind = 'Limit'
-                break
-            }
-
-            $jsonText = Read-RenderKitTextFile -Path $resolvedPath
+            $jsonText = Read-RenderKitTextFile `
+                -Path $resolvedPath `
+                -MaximumBytes $MaximumBytes
             try {
                 $value = $jsonText | ConvertFrom-Json -ErrorAction Stop
             }
@@ -163,6 +204,11 @@ function Read-RenderKitJsonFile {
             $lastReadError = $_.Exception
             $lastFailureKind = 'Missing'
         }
+        catch [System.IO.InvalidDataException] {
+            $lastReadError = $_.Exception
+            $lastFailureKind = 'Limit'
+            break
+        }
         catch {
             $lastReadError = $_.Exception
             $lastFailureKind = 'Read'
@@ -179,7 +225,7 @@ function Read-RenderKitJsonFile {
                 throw "Invalid JSON in '$resolvedPath': $($lastReadError.Message)"
             }
             'Limit' {
-                throw $lastReadError.Message
+                throw "JSON file '$resolvedPath' exceeds the $MaximumBytes byte limit."
             }
             'Missing' {
                 throw $lastReadError.Message
