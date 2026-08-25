@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RS-1571:** Reject reparse-point sources during project export (#109). (`db033f3`)
 - **RS-1576:** Fix backup adapter error contract (#122). (`840ef36`)
 - **RS-1571:** Constrain imported project roots to destination (#107). (`61a194d`)
 - **RS-1571:** Harden project archive manifest parsing (#106). (`d909479`)
