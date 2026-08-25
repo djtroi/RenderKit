@@ -101,7 +101,7 @@ jobs:
 
   build-package:
     name: Build package
-    needs: pester
+    needs: psscriptanalyzer
     runs-on: windows-latest
     outputs:
       version: ${{ steps.build.outputs.VERSION }}
