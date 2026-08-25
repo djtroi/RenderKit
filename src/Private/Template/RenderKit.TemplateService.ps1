@@ -177,30 +177,19 @@ function Confirm-Template {
         )
     }
 
-    foreach ($folder in $Template.Folders){
-        Test-FolderNode $folder
-    }
+    Test-RenderKitTemplateFolderTree -Folder @($Template.Folders)
 
     return $compatibility
-} 
+}
 
 function Test-FolderNode {
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         $Folder
     )
 
-    if (!($Folder.Name)) {
-        Write-RenderKitLog -Level Error -Message "Folder node missing 'Name' Property"
-    }
-
-    if (!($Folder.PSObject.Properties.Name -contains "SubFolders")) {
-        Write-RenderKitLog -Message "Folder '$($Folder.Name)' missing 'SubFolders' property"
-    }
-
-    if($Folder.SubFolders) {
-        foreach ($sub in $Folder.SubFolders) {
-            Test-FolderNode $sub
-        }
-    }
+    # Compatibility wrapper for older internal callers. The security validator
+    # performs strict path-component, duplicate, depth, and node-count checks.
+    Test-RenderKitTemplateFolderTree -Folder @($Folder)
 }
