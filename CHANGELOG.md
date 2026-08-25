@@ -11,56 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **RS-1571:** Pin workflow actions to immutable commits (#121). (`e75306f`)
-- **RS-1571:** Merge final 1.1.8 into workflow action pinning. (`a48d04c`)
-- **RS-1571:** Merge template hardening into workflow action pinning. (`794e128`)
-- **RS-1571:** Sync workflow action pinning with 1.1.8. (`f9a475f`)
-- **RS-1571:** Merge 1.1.8 into workflow action pinning. (`b05061e`)
-- **RS-1571:** Keep quality gate dependency order intact. (`97c3f2f`)
-- **RS-1571:** Preserve current quality gate while pinning actions. (`e6dd25b`)
-- **RS-1571:** Preserve current Codacy dependencies while pinning actions. (`3ced760`)
-- **RS-1571:** Pin release workflow actions. (`ad75af3`)
-- **RS-1571:** Pin YouTrack release sync action. (`2025677`)
-- **RS-1571:** Pin Dependabot sync action. (`85f55e4`)
-- **RS-1571:** Pin changelog workflow actions. (`07845d4`)
-- **RS-1571:** Pin Quality Gate actions. (`4d4aca2`)
-- **RS-1571:** Pin Codacy workflow actions. (`dd7bd09`)
-- **RS-1571:** Enforce immutable workflow action references. (`3aedfc9`)
-- **RS-1571:** Reject unsafe template folder trees (#116). (`4ec2211`)
-- **RS-1571:** Merge current 1.1.8 into template folder hardening. (`5f822e8`)
-- **RS-1571:** Sync template folder hardening with 1.1.8. (`b099c73`)
-- **RS-1571:** Merge 1.1.8 into template folder hardening. (`03a1fff`)
-- **RS-1571:** Resolve template security test conflict against 1.1.8. (`6a74d6a`)
-- **RS-1571:** Test concurrent GPU cache writers. (`7d4bacd`)
-- **RS-1571:** Serialize GPU capability cache writes. (`8fe22ed`)
-- **RS-1571:** Load template security for portability tests. (`aadb0b6`)
-- **RS-1571:** Load template security for project tests. (`1f25e51`)
-- **RS-1571:** Load template security in direct-source tests. (`56ec961`)
-- **RS-1571:** Test template folder security bounds. (`c43739a`)
-- **RS-1571:** Reject unsafe template folder trees. (`133cfe6`)
-- **RS-1571:** Validate template folder trees. (`3883dbb`)
-- **RS-1571:** Harden project manifest parsing (#108). (`99c8ba0`)
-- **RS-1571:** Keep current 1.1.8 import implementation. (`9fbce8c`)
-- **RS-1571:** Remove superseded duplicate manifest parser. (`c76d895`)
-- **RS-1571:** Resolve duplicate manifest-security test. (`1be8a61`)
-- **RS-1571:** Resolve 1.1.8 import conflict. (`7a82802`)
-- **RS-1571:** Cover project manifest parser limits. (`1215b93`)
-- **RS-1571:** Route project imports through secure manifest parser. (`24294b3`)
-- **RS-1571:** Add bounded secure project manifest reader. (`7de895d`)
-- **RS-1571:** Keep backup cleanup off reparse targets (#119). (`5d1d067`)
-- **RS-1571:** Bound JSON reads on the opened stream (#118). (`fd8a1b8`)
-- **RS-1571:** Bound metadata subprocess resources (#117). (`5749967`)
-- **RS-1571:** Bound backup process diagnostics (#120). (`1233417`)
-- **RS-1571:** Contain project paths within search roots (#115). (`dfd1d4b`)
-- **RS-1571:** Restrict MediaInfo native library discovery (#114). (`b4c4724`)
-- **RS-1571:** Harden legacy process argument quoting (#113). (`6f04876`)
-- **RS-1571:** Bound project archive extraction (#111). (`27e37d8`)
-- **RS-1571:** Contain import traversal within the selected source (#110). (`a11d8bf`)
-- **RS-1571:** Reject reparse-point sources during project export (#109). (`db033f3`)
-- **RS-1576:** Fix backup adapter error contract (#122). (`840ef36`)
-- **RS-1571:** Constrain imported project roots to destination (#107). (`61a194d`)
-- **RS-1571:** Harden project archive manifest parsing (#106). (`d909479`)
-
 ### Deprecated
 
 ### Removed
@@ -68,6 +18,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 ### Security
+
+## [1.1.8] - 2026-08-25
+
+RenderKit 1.1.8 is a security and reliability patch release focused on hardening
+untrusted project, archive, template, filesystem, process, and CI boundaries.
+The public command surface and persisted RenderKit artifact formats remain unchanged.
+
+### Fixed
+
+- **RS-1576:** Fixed backup adapter health and verification result handling when the optional `error` property is absent. StrictMode no longer aborts otherwise valid backup flows, and verifier failures without an explicit adapter error fall back to the canonical verification message.
+- **RS-1571:** Serialized concurrent GPU capability-cache writers through the existing file lock and atomic JSON persistence path so simultaneous worker startup cannot corrupt the shared cache.
+
+### Security
+
+- **RS-1571:** Hardened project archive manifest parsing with bounded uncompressed XML, direct stream parsing, explicit DTD prohibition, disabled external resolution, and document character limits.
+- **RS-1571:** Constrained project import roots, project names, existing-project lookup, and import write targets to their selected filesystem boundaries. Traversal, rooted or separator-containing names, reserved device names, symbolic links, junctions, and other reparse-point redirects are rejected before destructive overwrite/delete or write operations.
+- **RS-1571:** Bounded project archive extraction by validating duplicate/case-colliding entries, entry count, declared expanded sizes, available disk space, and streamed extraction byte counts before and during writes, with partial outputs removed on failure.
+- **RS-1571:** Prevented project export, media import traversal, and backup cleanup from following symbolic links or other reparse points outside their selected roots.
+- **RS-1571:** Added strict portable validation for template folder trees, including single-component names, duplicate/case-collision detection, reserved-name checks, maximum depth, and maximum node count.
+- **RS-1571:** Enforced JSON byte limits on the same opened stream that is consumed, closing the previous split size-check/read boundary.
+- **RS-1571:** Bounded metadata helper-process runtime and diagnostics, bounded MKVToolNix XML extraction/parsing, and bounded long-running backup encoder diagnostics/progress storage without imposing a global encoder timeout.
+- **RS-1571:** Hardened Windows PowerShell 5.1 external-process argument quoting for embedded quotes and backslash runs so untrusted path text cannot change argument boundaries.
+- **RS-1571:** Restricted native MediaInfo library discovery to explicit overrides, bundled assets, and known platform library locations instead of treating arbitrary executable `PATH` directories as trusted native-library sources.
+- **RS-1571:** Pinned remote GitHub Actions to immutable commit SHAs and added regression coverage that rejects future mutable external `uses:` references.
 
 ## [1.1.7] - 2026-08-23
 
