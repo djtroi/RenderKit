@@ -61,7 +61,7 @@ function ConvertTo-RenderKitMetadataProcessDiagnostic {
     if ($trimmed.Length -le $MaximumCharacters) {
         return $trimmed
     }
-    return $trimmed.Substring(0, $MaximumCharacters) + '… [truncated]'
+    return $trimmed.Substring(0, $MaximumCharacters) + '... [truncated]'
 }
 
 function Invoke-RenderKitBoundedMetadataProcess {
