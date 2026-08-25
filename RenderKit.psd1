@@ -1,6 +1,6 @@
 @{
     RootModule = 'RenderKit.psm1'
-    ModuleVersion = '1.1.7' # Major.Minor.Patch
+    ModuleVersion = '1.1.8' # Major.Minor.Patch
     Author = 'Norbert Marton'
     Description = 'PowerShell tools for structured video editing project workflows.'
     GUID = '32e3f476-8e44-4511-82c7-952748e6463b'
@@ -101,10 +101,11 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 1.1.7 adds targeted one-shot worker orchestration for host integrations:
-- RS-1563 adds optional -JobId targeting to Start-RenderKitJobWorker for RunOnce workers so orchestrators can bind a worker dispatch to one specific queued job.
-- Targeted claims remain atomic and require matching queued status, job type, and queue while preserving the existing lease, heartbeat, retry, cancellation, worker-state, and logging semantics.
-- Omitting -JobId preserves the existing priority/FIFO worker behavior, and no persisted schema changes are introduced by this release.
+Version 1.1.8 is a security and reliability patch release:
+- RS-1571 hardens project archive, template, filesystem, external-process, native-library, and CI trust boundaries with bounded parsing/extraction, reparse-point containment, resource limits, and immutable workflow action references.
+- RS-1571 also validates template folder trees strictly and serializes concurrent GPU capability-cache writes.
+- RS-1576 fixes backup adapter result handling when the optional error property is absent under StrictMode.
+- The public command surface and persisted RenderKit formats remain unchanged.
 '@
         } # End of PSData hashtable
 
