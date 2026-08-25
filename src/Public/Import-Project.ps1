@@ -42,7 +42,9 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
     }
     if ([string]::IsNullOrWhiteSpace($ProjectName)) { throw 'Project name could not be resolved from manifest.' }
 
-    $targetRoot = Join-Path -Path $resolvedDestinationRoot -ChildPath $ProjectName
+    $targetRoot = Resolve-RenderKitProjectImportTargetRoot `
+        -DestinationRoot $resolvedDestinationRoot `
+        -ProjectName $ProjectName
 
     if ((Test-Path -LiteralPath $targetRoot) -and $ConflictAction -eq 'Error') {
         throw "Target project '$targetRoot' already exists. Use -ConflictAction Skip or Overwrite."
