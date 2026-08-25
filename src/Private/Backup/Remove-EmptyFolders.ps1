@@ -20,15 +20,31 @@ function Remove-EmptyFolder{
         $runAgain = $false
         $removedThisPass = 0
 
+        $catalog = Get-RenderKitBackupCleanupCatalog -ProjectPath $path
+        $safeProjectPath = [string]$catalog.RootPath
         $folders = @(
-            Get-ChildItem -Path $path -Recurse -Directory -Force -ErrorAction SilentlyContinue |
-                Sort-Object -Property FullName -Descending
+            @($catalog.Directories) |
+                Sort-Object { $_.FullName.Length } -Descending
         )
 
         foreach ($folder in $folders) {
+            if (-not (Test-RenderKitBackupCleanupTarget `
+                    -ProjectPath $safeProjectPath `
+                    -TargetPath $folder.FullName)) {
+                $failedCount++
+                continue
+            }
+
             $isEmpty = $false
             try {
-                $isEmpty = ($folder.GetFileSystemInfos().Count -eq 0)
+                $currentFolder = Get-Item `
+                    -LiteralPath $folder.FullName `
+                    -Force `
+                    -ErrorAction Stop
+                if (Test-RenderKitBackupCleanupReparsePoint -Item $currentFolder) {
+                    continue
+                }
+                $isEmpty = ($currentFolder.GetFileSystemInfos().Count -eq 0)
             }
             catch {
                 continue
@@ -47,7 +63,7 @@ function Remove-EmptyFolder{
             }
 
             try {
-                Remove-Item -Path $folder.FullName -Force -ErrorAction Stop
+                [System.IO.Directory]::Delete($folder.FullName, $false)
                 $removedCount++
                 $removedThisPass++
             }
