@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RS-1571:** Bound metadata subprocess resources (#117). (`5749967`)
 - **RS-1571:** Bound backup process diagnostics (#120). (`1233417`)
 - **RS-1571:** Contain project paths within search roots (#115). (`dfd1d4b`)
 - **RS-1571:** Restrict MediaInfo native library discovery (#114). (`b4c4724`)
