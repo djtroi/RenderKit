@@ -25,7 +25,7 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
     }
 
     $resolvedArchivePath = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).ProviderPath
-    
+
     if (-not (Test-Path -LiteralPath $DestinationRoot -PathType Container)) {
         New-Item -ItemType Directory -Path $DestinationRoot -Force | Out-Null
     }
@@ -55,6 +55,13 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
     if ($TransferMode -eq 'Copy' -and -not $isSelfContained) {
         Write-RenderKitLog -Level Warning -Message 'ManifestOnly import cannot copy media because the package does not contain project files. Folder structure and resources will be restored only.'
     }
+
+    $archivePreflight = Test-RenderKitProjectArchivePreflight `
+        -ArchivePath $resolvedArchivePath `
+        -Manifest $manifest `
+        -DestinationRoot $resolvedDestinationRoot `
+        -IncludeMetadata $IncludeMetadata `
+        -IncludeProjectFiles ($isSelfContained -and $TransferMode -eq 'Copy')
 
     if ($PSCmdlet.ShouldProcess($targetRoot, "Import RenderKit project from '$resolvedArchivePath'")) {
         if ((Test-Path -LiteralPath $targetRoot) -and $ConflictAction -eq 'Overwrite') {
@@ -89,12 +96,15 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
                 $entryName = 'resources/{0}' -f $resourceRelativePath
                 $entry = $zip.GetEntry($entryName)
                 if (-not $entry) { throw "Archive resource entry '$entryName' is missing." }
+                $expectedResourceSize = ConvertTo-RenderKitProjectArchiveExpectedSize `
+                    -Value $resourceNode.sizeBytes `
+                    -EntryName $entryName
                 $targetResourceFile = Join-Path -Path $resourceRoot -ChildPath ($resourceRelativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar)
-                $targetResourceDir = Split-Path -Path $targetResourceFile -Parent
-                if (-not (Test-Path -LiteralPath $targetResourceDir -PathType Container)) { New-Item -ItemType Directory -Path $targetResourceDir -Force | Out-Null }
-                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $targetResourceFile, $true)
+                Expand-RenderKitProjectArchiveEntryBounded `
+                    -Entry $entry `
+                    -DestinationPath $targetResourceFile `
+                    -ExpectedSize $expectedResourceSize
                 if ($VerifyHash) {
-                    $expectedResourceSize = [int64]$resourceNode.sizeBytes
                     $resourceItem = Get-Item -LiteralPath $targetResourceFile -ErrorAction Stop
                     if ($resourceItem.Length -ne $expectedResourceSize) {
                         $hashMismatches.Add([PSCustomObject]@{ RelativePath = $resourceRelativePath; Reason = 'ResourceSizeMismatch'; Expected = $expectedResourceSize; Actual = $resourceItem.Length })
@@ -127,16 +137,17 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
                     $entryName = 'metadata/{0}' -f $metadataArchivePath
                     $entry = $zip.GetEntry($entryName)
                     if (-not $entry) { throw "Archive metadata entry '$entryName' is missing." }
+                    $expectedMetadataSize = ConvertTo-RenderKitProjectArchiveExpectedSize `
+                        -Value $metadataNode.sizeBytes `
+                        -EntryName $entryName
                     $targetMetadataFile = Join-Path `
                         -Path (Join-Path -Path $targetRoot -ChildPath '.renderkit/metadata') `
                         -ChildPath ($metadataRelativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar)
-                    $targetMetadataDir = Split-Path -Path $targetMetadataFile -Parent
-                    if (-not (Test-Path -LiteralPath $targetMetadataDir -PathType Container)) {
-                        New-Item -ItemType Directory -Path $targetMetadataDir -Force | Out-Null
-                    }
-                    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $targetMetadataFile, $true)
+                    Expand-RenderKitProjectArchiveEntryBounded `
+                        -Entry $entry `
+                        -DestinationPath $targetMetadataFile `
+                        -ExpectedSize $expectedMetadataSize
                     if ($VerifyHash) {
-                        $expectedMetadataSize = [int64]$metadataNode.sizeBytes
                         $metadataItem = Get-Item -LiteralPath $targetMetadataFile -ErrorAction Stop
                         if ($metadataItem.Length -ne $expectedMetadataSize) {
                             $hashMismatches.Add([PSCustomObject]@{ RelativePath = $metadataRelativePath; Reason = 'MetadataSizeMismatch'; Expected = $expectedMetadataSize; Actual = $metadataItem.Length })
@@ -158,15 +169,19 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
                     $relativePath = [string]$fileNode.relativePath
                     $targetFile = Join-Path -Path $targetRoot -ChildPath ($relativePath -replace '/', [System.IO.Path]::DirectorySeparatorChar)
                     if ((Test-Path -LiteralPath $targetFile -PathType Leaf) -and $ConflictAction -eq 'Skip') { $skipped++; continue }
-                    $targetDir = Split-Path -Path $targetFile -Parent
-                    if (-not (Test-Path -LiteralPath $targetDir -PathType Container)) { New-Item -ItemType Directory -Path $targetDir -Force | Out-Null }
-                    $entry = $zip.GetEntry(('project/{0}' -f $relativePath))
+                    $entryName = 'project/{0}' -f $relativePath
+                    $entry = $zip.GetEntry($entryName)
                     if (-not $entry) { throw "Archive entry for '$relativePath' is missing." }
-                    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $targetFile, $true)
+                    $expectedSize = ConvertTo-RenderKitProjectArchiveExpectedSize `
+                        -Value $fileNode.sizeBytes `
+                        -EntryName $entryName
+                    Expand-RenderKitProjectArchiveEntryBounded `
+                        -Entry $entry `
+                        -DestinationPath $targetFile `
+                        -ExpectedSize $expectedSize
                     $copied++
 
                     if ($VerifyHash) {
-                        $expectedSize = [int64]$fileNode.sizeBytes
                         $item = Get-Item -LiteralPath $targetFile -ErrorAction Stop
                         $expectedShaNode = @($fileNode.Hash | Where-Object { $_.algorithm -eq 'SHA256' } | Select-Object -First 1)
                         $expectedSha = if ($expectedShaNode) { [string]$expectedShaNode.InnerText } else { $null }
@@ -236,6 +251,7 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
             IncludeMetadata   = [bool]$IncludeMetadata
             HashMismatchCount = $hashMismatches.Count
             HashMismatches    = @($hashMismatches.ToArray())
+            ArchivePreflight  = $archivePreflight
         }
     }
 }
