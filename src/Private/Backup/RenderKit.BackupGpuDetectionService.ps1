@@ -453,14 +453,21 @@ function Save-BackupGpuCapabilityCache {
         $Path = Get-BackupGpuCapabilityCachePath
     }
 
-    $parent = Split-Path -Path $Path -Parent
-    if (-not [string]::IsNullOrWhiteSpace($parent)) {
-        New-RenderKitStorageDirectory -Path $parent | Out-Null
+    # Multiple worker processes can discover capabilities at the same time.
+    # Serialize writers and publish through the canonical temp-file replace path
+    # so readers never observe a partially written cache.
+    $lockHandle = Enter-RenderKitFileLock -Path $Path
+    try {
+        Write-RenderKitJsonFileCore `
+            -Value $Report `
+            -Path $Path `
+            -Depth 24 `
+            -SkipBackup |
+            Out-Null
     }
-
-    $Report |
-        ConvertTo-Json -Depth 24 |
-        Set-Content -LiteralPath $Path -Encoding UTF8
+    finally {
+        Exit-RenderKitFileLock -LockHandle $lockHandle
+    }
 
     return $Path
 }
