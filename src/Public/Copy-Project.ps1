@@ -87,7 +87,11 @@ https://github.com/djtroi/RenderKit
     $sourceProject = Get-RenderKitProject -ProjectName $ProjectName -Path $Path
     $sourceProjectRoot = [string]$sourceProject.RootPath
     $projectParent = Split-Path -Path $sourceProjectRoot -Parent
-    $CopyProjectRoot = Join-Path -Path $projectParent -ChildPath $NewName
+    $copyTarget = Resolve-RenderKitProjectSiblingTarget `
+        -ParentPath $projectParent `
+        -ProjectName $NewName
+    $NewName = [string]$copyTarget.Name
+    $CopyProjectRoot = [string]$copyTarget.Path
 
     if (Test-Path -LiteralPath $CopyProjectRoot) {
         Write-RenderKitLog -Level Error -Message "Copy project path already exists: $CopyProjectRoot"
@@ -117,11 +121,11 @@ https://github.com/djtroi/RenderKit
             SourceProjectId    = $sourceProjectId
             SourceRootPath     = $sourceProjectRoot
             SourceMetadataPath = $sourceMetadataPath
-            CopyProjectName   = $NewName
-            CopyProjectId     = $CopyProjectId
-            CopyRootPath      = $CopyProjectRoot
-            CopyMetadataPath  = $CopyMetadataPath
-            Copyd             = $false
+            CopyProjectName    = $NewName
+            CopyProjectId      = $CopyProjectId
+            CopyRootPath       = $CopyProjectRoot
+            CopyMetadataPath   = $CopyMetadataPath
+            Copyd              = $false
             DryRun             = $true
             NewIdCreated       = $true
         }
@@ -140,7 +144,7 @@ https://github.com/djtroi/RenderKit
             -ProjectName $NewName `
             -ProjectId $CopyProjectId `
             -SourceProjectId $sourceProjectId
-            Set-RenderKitProjectRegistryEntry `
+        Set-RenderKitProjectRegistryEntry `
             -ProjectId $CopyProjectId `
             -ProjectName $NewName `
             -ProjectRoot $CopyProjectRoot `
@@ -174,11 +178,11 @@ https://github.com/djtroi/RenderKit
             SourceProjectId    = $sourceProjectId
             SourceRootPath     = $sourceProjectRoot
             SourceMetadataPath = $sourceMetadataPath
-            CopyProjectName   = [string]$metadata.project.name
-            CopyProjectId     = [string]$metadata.project.id
-            CopyRootPath      = $CopyProjectRoot
-            CopyMetadataPath  = $CopyMetadataPath
-            Copyd             = $true
+            CopyProjectName    = [string]$metadata.project.name
+            CopyProjectId      = [string]$metadata.project.id
+            CopyRootPath       = $CopyProjectRoot
+            CopyMetadataPath   = $CopyMetadataPath
+            Copyd              = $true
             DryRun             = $false
             NewIdCreated       = $newIdCreated
         }

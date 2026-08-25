@@ -29,8 +29,10 @@ Describe 'RS-1508 embedded backup worker process handling' {
 
             $definition | Should -Not -Match 'add_ErrorDataReceived'
             $definition | Should -Not -Match 'BeginErrorReadLine'
-            $definition | Should -Match 'StandardError\.ReadToEndAsync'
-            $definition | Should -Match 'StandardOutput\.ReadLine'
+            $definition | Should -Not -Match 'ReadToEndAsync'
+            $definition | Should -Match 'StandardError\.ReadLineAsync'
+            $definition | Should -Match 'StandardOutput\.ReadLineAsync'
+            $definition | Should -Match 'Task\]::WhenAny'
             $definition | Should -Match '\$process\.Dispose\(\)'
         }
     }
