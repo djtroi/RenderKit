@@ -31,7 +31,7 @@ Imports a RenderKit .rkit manifest package or .rkitpkg self-contained package.
     }
 
     $resolvedDestinationRoot = (Resolve-Path -LiteralPath $DestinationRoot -ErrorAction Stop).ProviderPath
-    $manifest = Read-RenderKitProjectArchiveManifestSecure -Path $resolvedArchivePath
+    $manifest = Read-RenderKitProjectArchiveManifest -Path $resolvedArchivePath
     if ($manifest.RenderKitProjectManifest.schemaVersion -ne '1.0') {
         throw "Unsupported RenderKit project manifest schema version '$($manifest.RenderKitProjectManifest.schemaVersion)'."
     }
