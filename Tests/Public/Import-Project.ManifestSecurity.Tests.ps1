@@ -1,15 +1,15 @@
 BeforeAll {
     $repositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-    . (Join-Path $repositoryRoot 'src/Private/Project/RenderKit.ProjectImportManifestSecurityService.ps1')
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+    . (Join-Path $repositoryRoot 'src/Private/Project/RenderKit.ProjectManifestSecurity.ps1')
 
     function New-TestProjectArchive {
         param(
             [Parameter(Mandatory)][string]$Path,
-            [Parameter(Mandatory)][string]$Xml
+            [Parameter(Mandatory)][string]$Manifest
         )
-        if (Test-Path -LiteralPath $Path) {
-            Remove-Item -LiteralPath $Path -Force
-        }
+
         $zip = [System.IO.Compression.ZipFile]::Open(
             $Path,
             [System.IO.Compression.ZipArchiveMode]::Create
@@ -23,7 +23,7 @@ BeforeAll {
                     [System.Text.UTF8Encoding]::new($false)
                 )
                 try {
-                    $writer.Write($Xml)
+                    $writer.Write($Manifest)
                 }
                 finally {
                     $writer.Dispose()
@@ -39,28 +39,26 @@ BeforeAll {
     }
 }
 
-Describe 'RenderKit project manifest parser security' {
-    It 'parses a normal bounded project manifest' {
-        $archive = Join-Path $TestDrive 'normal.rkit'
-        New-TestProjectArchive -Path $archive -Xml @'
-<?xml version="1.0" encoding="utf-8"?>
+Describe 'Project archive manifest parser security' {
+    It 'loads a normal manifest through the hardened XML reader' {
+        $archive = Join-Path $TestDrive 'valid.rkitpkg'
+        New-TestProjectArchive -Path $archive -Manifest @'
 <RenderKitProjectManifest schemaVersion="1.0">
   <Project name="Example" sourceRootName="Example" />
 </RenderKitProjectManifest>
 '@
 
-        $manifest = Read-RenderKitProjectArchiveManifestSecure -Path $archive
+        $document = Read-RenderKitProjectArchiveManifest -Path $archive
 
-        $manifest.RenderKitProjectManifest.schemaVersion | Should -Be '1.0'
-        $manifest.RenderKitProjectManifest.Project.name | Should -Be 'Example'
+        $document.RenderKitProjectManifest.schemaVersion | Should -Be '1.0'
+        $document.RenderKitProjectManifest.Project.name | Should -Be 'Example'
     }
 
-    It 'rejects DTD and entity declarations before expansion' {
-        $archive = Join-Path $TestDrive 'dtd.rkit'
-        New-TestProjectArchive -Path $archive -Xml @'
-<?xml version="1.0"?>
+    It 'rejects DTD declarations from untrusted manifests' {
+        $archive = Join-Path $TestDrive 'dtd.rkitpkg'
+        New-TestProjectArchive -Path $archive -Manifest @'
 <!DOCTYPE RenderKitProjectManifest [
-  <!ENTITY payload "expanded-value">
+  <!ENTITY payload "expanded">
 ]>
 <RenderKitProjectManifest schemaVersion="1.0">
   <Project name="&payload;" sourceRootName="Example" />
@@ -68,21 +66,20 @@ Describe 'RenderKit project manifest parser security' {
 '@
 
         {
-            Read-RenderKitProjectArchiveManifestSecure -Path $archive
+            Read-RenderKitProjectArchiveManifest -Path $archive
         } | Should -Throw
     }
 
-    It 'rejects an oversized uncompressed project.xml before XML parsing' {
-        $archive = Join-Path $TestDrive 'oversized.rkit'
-        $payload = '<RenderKitProjectManifest schemaVersion="1.0"><Project name="' +
-            ('A' * 4096) +
-            '" /></RenderKitProjectManifest>'
-        New-TestProjectArchive -Path $archive -Xml $payload
+    It 'rejects a manifest whose uncompressed entry exceeds the configured limit' {
+        $archive = Join-Path $TestDrive 'oversized.rkitpkg'
+        New-TestProjectArchive `
+            -Path $archive `
+            -Manifest '<RenderKitProjectManifest schemaVersion="1.0" />'
 
         {
-            Read-RenderKitProjectArchiveManifestSecure `
+            Read-RenderKitProjectArchiveManifest `
                 -Path $archive `
-                -MaximumManifestBytes 512
-        } | Should -Throw '*maximum allowed uncompressed size*'
+                -MaximumManifestBytes 16
+        } | Should -Throw '*exceeds*byte limit*'
     }
 }
