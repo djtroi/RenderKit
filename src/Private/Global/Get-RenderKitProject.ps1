@@ -29,20 +29,26 @@ function Get-RenderKitProject{
     }
 
     foreach ($root in $searchRoots){
-
-        $candidate = Join-Path $root $ProjectName
-        if (!(Test-Path $candidate)) { continue }
-        try {
-            $metaPath = Get-RenderKitProjectMetadataPath -ProjectRoot $candidate
-            $meta = Read-RenderKitJsonFile -Path $metaPath
+        $projectTarget = Resolve-RenderKitProjectSiblingTarget `
+            -ParentPath ([string]$root) `
+            -ProjectName $ProjectName
+        $candidate = [string]$projectTarget.Path
+        if (-not (Test-Path -LiteralPath $candidate -PathType Container)) {
+            continue
         }
 
+        $controlPaths = Assert-RenderKitProjectControlPathSafe `
+            -ProjectRoot $candidate
+        $candidate = [string]$controlPaths.RootPath
+        $metaPath = [string]$controlPaths.MetadataPath
+
+        try {
+            $meta = Read-RenderKitJsonFile -Path $metaPath
+        }
         catch {
             Write-RenderKitLog -Level Error -Message "Invalid project metadata JSON in '$metaPath'."
             throw "Invalid project metadata JSON in $metaPath"
         }
-
-        #validation
 
         if (
             !($meta.project.id) -or
