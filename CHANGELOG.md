@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **RS-1571:** Harden legacy process argument quoting (#113). (`6f04876`)
 - **RS-1571:** Bound project archive extraction (#111). (`27e37d8`)
 - **RS-1571:** Contain import traversal within the selected source (#110). (`a11d8bf`)
 - **RS-1571:** Reject reparse-point sources during project export (#109). (`db033f3`)
