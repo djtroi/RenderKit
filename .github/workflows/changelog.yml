@@ -26,7 +26,7 @@ jobs:
   dependabot-ticket:
     name: Dependabot YouTrack Ticket
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]' }}
-    runs-on: ubuntu-latest
+    runs-on: renderkit
     timeout-minutes: 5
     defaults:
       run:
@@ -156,7 +156,9 @@ jobs:
     needs:
       - dependabot-ticket
     if: ${{ always() && github.event_name == 'pull_request' }}
-    runs-on: ubuntu-latest
+    # RenderKit is public: never dispatch external fork PR validation to
+    # a persistent runner. The trusted same-repository path uses renderkit.
+    runs-on: ${{ github.event.pull_request.head.repo.full_name == github.repository && 'renderkit' || 'ubuntu-latest' }}
     timeout-minutes: 5
     defaults:
       run:
@@ -177,6 +179,8 @@ jobs:
       - name: Check out RenderKit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Self-hosted runners must never execute a PR-controlled validator.
+          ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
 
       - name: Set up Node.js

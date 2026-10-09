@@ -62,9 +62,9 @@ Core does not set a Studio-specific `Edition` custom field when creating depende
 
 ## Public repository runner boundary
 
-RenderKit is public. Pull-request changelog and ticket validation therefore runs on GitHub-hosted runners rather than persistent self-hosted RenderKit runners.
+RenderKit is public. YouTrack ticket creation and ticket validation for same-repository pull requests use the self-hosted `renderkit` runner pool. Validation for pull requests originating in external forks remains on GitHub-hosted `ubuntu-latest` runners. The validator always checks out the exact immutable base revision, never the PR head. The YouTrack close workflow ignores pull requests whose head repository is not RenderKit.
 
-This prevents untrusted fork pull requests from executing their checked-out code on privately managed runner hosts. The YouTrack close workflow additionally ignores PRs whose head repository is not the RenderKit repository.
+The changelog writer itself remains GitHub-hosted. Self-hosted runner access must still be restricted to trusted contributors and workflows; runner selection and checkout pinning alone cannot make a publicly editable workflow safe against malicious workflow changes.
 
 ## Changelog format
 
@@ -133,4 +133,6 @@ Development changes accumulate under `## [Unreleased]`. Before a semantic-versio
 4. Ensure the release notes in `RenderKit.psd1` match the intended package release.
 5. Merge the version branch into `main` only after the release PR checks pass.
 
-The existing Core release workflow already accepts canonical bracketed headings such as `## [1.1.3] - YYYY-MM-DD` when extracting GitHub release notes.
+For a version-only, maintenance release with no related RS tickets, the dated release notes must begin with `Maintenance-only release:`. The published-release YouTrack synchronizer still verifies that the GitHub release exists, but skips ticket updates when no ticket is linked. Ordinary functional releases without RS tickets continue to fail ticket synchronization.
+
+The release workflow accepts canonical bracketed headings such as `## [1.1.3] - YYYY-MM-DD` when extracting GitHub release notes.

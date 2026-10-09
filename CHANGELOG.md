@@ -19,6 +19,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [1.1.9] - 2026-10-09
+
+Maintenance-only release: CI and YouTrack automation improvements; no RS ticket-linked functional changes.
+
+### Changed
+
+- Route YouTrack dependency-ticket creation, same-repository PR ticket validation, merged-PR updates, and published-release build synchronization to the shared self-hosted `renderkit` runner pool.
+- Keep pull-request ticket validation from external forks on GitHub-hosted runners, with the validator checked out from the exact trusted base revision.
+- Align the module manifest, source-module version fallback, and README to 1.1.9. Public PowerShell commands and stored artifact formats are unchanged.
+
+### Security
+
+- Isolate fork-originated PR ticket validation from persistent runner hosts while retaining the existing trusted-code checkout boundary.
+
 ## [1.1.8] - 2026-08-25
 
 RenderKit 1.1.8 is a security and reliability patch release focused on hardening
