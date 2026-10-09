@@ -24,7 +24,7 @@ jobs:
   sync-released-build:
     name: Set YouTrack Behoben in Build
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
-    runs-on: ubuntu-latest
+    runs-on: renderkit
     timeout-minutes: 10
 
     steps:
