@@ -26,6 +26,16 @@ Describe 'RenderKit release documentation' {
         $changelog | Should -Match "(?m)^## \[$version\](?:\s|$)"
     }
 
+    It 'keeps the source module version fallback aligned with the manifest' {
+        $sourceModule = Get-Content (
+            Join-Path $repositoryRoot 'RenderKit.psm1'
+        ) -Raw
+        $expectedDeclaration = '$script:RenderKitModuleVersion = ''' +
+            [string]$manifest.ModuleVersion + ''''
+
+        $sourceModule | Should -Match ([regex]::Escape($expectedDeclaration))
+    }
+
     It 'documents every exported function in the complete reference' {
         $missing = @($manifest.FunctionsToExport | Where-Object {
             $reference -notmatch [regex]::Escape("``$_``")

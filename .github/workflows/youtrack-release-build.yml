@@ -80,7 +80,13 @@ jobs:
             Select-Object -Unique
 
           if (-not $ticketIds) {
-            throw "Release $version does not reference any RS tickets in CHANGELOG.md."
+            # Version-only CI maintenance releases have no YouTrack issue to update.
+            # Require an explicit changelog declaration; do not silently hide
+            # an accidentally empty functional release.
+            if ($matches[0].Groups['body'].Value -notmatch '(?m)^Maintenance-only release:') {
+              throw "Release $version does not reference any RS tickets in CHANGELOG.md."
+            }
+            Write-Host "Release $version is marked maintenance-only; no YouTrack tickets to synchronize."
           }
 
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
@@ -100,6 +106,7 @@ jobs:
           }
 
       - name: Synchronize Behoben in Build
+        if: ${{ steps.release.outputs.tickets != '' }}
         shell: pwsh
         env:
           VERSION: ${{ steps.release.outputs.version }}

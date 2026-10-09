@@ -156,7 +156,9 @@ jobs:
     needs:
       - dependabot-ticket
     if: ${{ always() && github.event_name == 'pull_request' }}
-    runs-on: renderkit
+    # RenderKit is public: never dispatch external fork PR validation to
+    # a persistent runner. The trusted same-repository path uses renderkit.
+    runs-on: ${{ github.event.pull_request.head.repo.full_name == github.repository && 'renderkit' || 'ubuntu-latest' }}
     timeout-minutes: 5
     defaults:
       run:

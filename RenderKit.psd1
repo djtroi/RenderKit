@@ -1,6 +1,6 @@
 @{
     RootModule = 'RenderKit.psm1'
-    ModuleVersion = '1.1.8' # Major.Minor.Patch
+    ModuleVersion = '1.1.9' # Major.Minor.Patch
     Author = 'Norbert Marton'
     Description = 'PowerShell tools for structured video editing project workflows.'
     GUID = '32e3f476-8e44-4511-82c7-952748e6463b'
@@ -101,11 +101,10 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-Version 1.1.8 is a security and reliability patch release:
-- RS-1571 hardens project archive, template, filesystem, external-process, native-library, and CI trust boundaries with bounded parsing/extraction, reparse-point containment, resource limits, and immutable workflow action references.
-- RS-1571 also validates template folder trees strictly and serializes concurrent GPU capability-cache writes.
-- RS-1576 fixes backup adapter result handling when the optional error property is absent under StrictMode.
-- The public command surface and persisted RenderKit formats remain unchanged.
+Version 1.1.9 is a maintenance release for CI and YouTrack automation:
+- Runs YouTrack ticket creation, same-repository PR ticket validation, merged-PR updates, and released-build synchronization on self-hosted renderkit runners.
+- Validates ticket policy from the trusted PR base revision; external fork PRs continue to use GitHub-hosted runners.
+- The public command surface, persisted RenderKit formats, and package dependencies remain unchanged.
 '@
         } # End of PSData hashtable
 
