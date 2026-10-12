@@ -120,14 +120,14 @@ jobs:
           "STAGE_PATH=$($result.StagePath)"                     >> $env:GITHUB_OUTPUT
 
       - name: Upload .nupkg artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: RenderKit-${{ steps.build.outputs.VERSION }}-nupkg
           path: ${{ steps.build.outputs.NUPKG_PATH }}
           if-no-files-found: error
 
       - name: Upload staged module artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: RenderKit-${{ steps.build.outputs.VERSION }}-stage
           path: ${{ steps.build.outputs.STAGE_PATH }}
